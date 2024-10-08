@@ -1,0 +1,16 @@
+[
+  "LetRec",
+  {
+    "name": [
+      "main",
+      [
+        "Fun",
+        [],
+        "Unit"
+      ]
+    ],
+    "args": [],
+    "body": "Unit"
+  },
+  "Unit"
+]
