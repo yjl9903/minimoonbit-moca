@@ -2,11 +2,17 @@ pub typealias LocalEnv = @immut/hashmap.T[String, Type]
 
 struct KnfEnv {
   mut counter : Int
+  env : @hashmap.T[String, (Name, Type)]
   externals : @immut/hashmap.T[String, Type]
 }
 
 pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
-  { counter: 1, externals }
+  { counter: 1, env: @hashmap.new(), externals }
+}
+
+pub fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
+  // TODO
+  { counter: 1, env: @hashmap.new(), externals: self.externals }
 }
 
 pub fn KnfEnv::init_counter_from_existing(
@@ -25,11 +31,62 @@ fn KnfEnv::new_temp(self : KnfEnv) -> Name {
 fn KnfEnv::new_named_temp(self : KnfEnv, name : Name) -> Name {
   let counter = self.counter
   self.counter += 1
-  { ..name, slot: counter }
+  let name = { ..name, slot: counter }
+  name
 }
 
-pub fn KnfEnv::to_knf(_self : KnfEnv, s : @types.Syntax) -> Knf { // !Failure
-  match s {
+fn KnfEnv::new_let_binding(self : KnfEnv, name : String, typ : Type) -> Name {
+  // TODO
+  let counter = self.counter
+  self.counter += 1
+  let name = Name::from_string?(name).unwrap()
+  abort("todo")
+}
+
+fn KnfEnv::new_let_rec_binding(self : KnfEnv, def : @types.Fundef) -> FuncDef {
+  // TODO
+  let counter = self.counter
+  self.counter += 1
+  abort("todo")
+}
+
+pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  self.visit_global_defs(syntax)
+}
+
+fn KnfEnv::visit_global_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  fn visitor(syntax : @types.Syntax) {
+    match syntax {
+      Unit => Knf::Unit
+      Let((name, typ), expr, rest) => {
+        let expr = self.visit_expr(expr)
+        let name = self.new_let_binding(name, typ)
+        Knf::Let((name, typ), expr, visitor(rest))
+      }
+      LetRec(def, rest) =>
+        match def.name.0 {
+          "init" => {
+            let body = self.visit_stmt(def.body)
+            let rest = visitor(rest)
+            concat_knf(body, rest)
+          }
+          "main" => self.visit_stmt(def.body)
+          _ => {
+            let funcdef = self.new_let_rec_binding(def)
+            let new_env = self.fork()
+            let body = new_env.visit_stmt(def.body)
+            Knf::LetRec(funcdef, body)
+          }
+        }
+      _ => @util.die("Unexpected node under global context")
+    }
+  }
+
+  visitor(syntax)
+}
+
+fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  match syntax {
     // Literal
     Unit => Knf::Unit
     Int(v) => Knf::Int(v)
@@ -107,4 +164,8 @@ pub fn KnfEnv::to_knf(_self : KnfEnv, s : @types.Syntax) -> Knf { // !Failure
       // TODO
       abort("todo")
   }
+}
+
+fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  abort("todo")
 }
