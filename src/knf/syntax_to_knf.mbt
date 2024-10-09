@@ -12,10 +12,13 @@ pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
 }
 
 pub fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
+  let fork_types = self.types.copy()
+  let fork_env = @hashmap.new()
+  self.env.each(fn { k, v => fork_env.set(k, v) })
   {
-    counter: 1,
-    env: @hashmap.new(),
-    types: Array::new(),
+    counter: self.counter,
+    env: fork_env,
+    types: fork_types,
     externals: self.externals,
   }
 }
