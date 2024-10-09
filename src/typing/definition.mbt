@@ -1,3 +1,5 @@
 pub typealias Type = @types.Type
 
-pub typealias Syntax = @types.Syntax
+pub typealias Kind = @types.Kind
+
+pub type! TypeError String
