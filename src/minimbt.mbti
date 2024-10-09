@@ -1,8 +1,6 @@
 package moonbitlang/minimbt
 
 // Values
-pub let zero_binding_name : String
-pub let one_binding_name : String
 
 // Types and methods
 pub struct Fundef {
