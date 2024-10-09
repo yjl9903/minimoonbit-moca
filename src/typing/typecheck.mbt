@@ -58,14 +58,10 @@ fn Gamma::inherit(
     Neg(expr, ..) as neg => abort("todo")
     Prim(lhs, rhs, _, ..) as prim => abort("todo")
     App(sig, args) => abort("todo")
-    Get(recv, idx) =>
-      match expected {
-        Array(_) => {
-          self.inherit!(recv, expected)
-          self.inherit!(idx, Type::Int)
-        }
-        _ => raise TypeError("Type mismatch: should be array \{syntax}")
-      }
+    Get(recv, idx) => {
+      self.inherit!(recv, Type::Array(expected))
+      self.inherit!(idx, Type::Int)
+    }
 
     // Branch
     If(cond, true_branch, false_branch) => {
@@ -77,11 +73,15 @@ fn Gamma::inherit(
 
     // Let
     Let((name, typ), expr, rest) => {
-      // TODO: check this cond
-      let typ = if is_known_type(typ) {
+      let typ = if is_having_type(typ) {
+        // Annotated with type, check it
+        if not(is_known_type(typ)) {
+          raise TypeError("Unknown type \{typ}")
+        }
         self.inherit!(expr, typ)
         typ
       } else {
+        // Infer type from expr
         let synthed = self.synthesis!(expr)
         match typ {
           Var(typ) => typ.val = Some(synthed)
@@ -94,16 +94,43 @@ fn Gamma::inherit(
     }
     LetRec(def, rest) => {
       let typ = def.name.1
-      // TODO: check this cond
-      if is_known_type(typ) {
-
+      if is_having_type(typ) {
+        // Annotated with type, check it
+        match typ {
+          Fun(t_args, t_ret) => {
+            self.add(def.name.0, def.name.1)
+            let new_env = self.fork()
+            // Check args
+            if def.args.length() == t_args.length() {
+              let n = def.args.length()
+              for i = 0; i < n; i = i + 1 {
+                let arg = def.args[i]
+                let typ = t_args[i]
+                if arg.1 != typ {
+                  raise TypeError(
+                    "Type mismatch: different arg type \{arg.1}, expected \{typ}",
+                  )
+                } else {
+                  new_env.add(arg.0, arg.1)
+                }
+              }
+            } else {
+              raise TypeError(
+                "Type mismatch: args length \{def.args}, expected \{t_args}",
+              )
+            }
+            // Check ret
+            new_env.inherit!(def.body, t_ret)
+          }
+          _ => raise TypeError("Type mismatch: should be function \{typ}")
+        }
       } else {
-        // let synthed = self.synthesis!(expr)
-        // match typ {
-        //   Var(typ) => typ.val = Some(synthed)
-        //   _ => ()
-        // }
-        // synthed
+        self.add(def.name.0, def.name.1)
+        let new_env = self.fork()
+        def.args.each(fn { (name, typ) => new_env.add(name, typ) })
+        let synthed = new_env.synthesis!(def.body)
+        self.add(def.name.0, synthed)
+        ()
       }
       self.inherit!(rest, expected)
     }

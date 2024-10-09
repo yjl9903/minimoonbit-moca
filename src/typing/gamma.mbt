@@ -20,6 +20,17 @@ fn Gamma::find(self : Gamma, name : String) -> Type? {
   self.env.get(name)
 }
 
+fn is_having_type(typ : Type) -> Bool {
+  match typ {
+    Var(t) =>
+      match t.val {
+        Some(t) => true
+        None => false
+      }
+    _ => true
+  }
+}
+
 fn is_known_type(typ : Type) -> Bool {
   match typ {
     Var(t) =>
