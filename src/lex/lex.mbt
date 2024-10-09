@@ -110,17 +110,21 @@ fn lex_alpha_rest(context : Context, alpha : String) -> UInt {
   let { offset, str, tokens, row, col } = context
   if offset >= str.length() {
     let tokenKind = get_token(alpha)
-    tokens.push({ kind: tokenKind, raw: alpha, pos: { row: row, col: col - alpha.length()} })
+    tokens.push(
+      { kind: tokenKind, raw: alpha, pos: { row, col: col - alpha.length() } },
+    )
     return 0
   }
   let ch = str[offset]
   if is_digit(ch) || is_alpha(ch) {
     context.offset += 1
-    context.col += 1;
+    context.col += 1
     lex_alpha_rest(context, alpha + ch.to_string())
   } else {
     let tokenKind = get_token(alpha)
-    tokens.push({ kind: tokenKind, raw: alpha, pos: { row: row, col: col - alpha.length()} })
+    tokens.push(
+      { kind: tokenKind, raw: alpha, pos: { row, col: col - alpha.length() } },
+    )
     lex(context)
   }
 }
