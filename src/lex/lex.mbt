@@ -292,18 +292,3 @@ pub fn lex(context : Context) -> UInt {
       }
   }
 }
-
-
-
-
-//   let context = {
-//     str: "let",
-//     offset: 0,
-//     row: 0,
-//     col: 0,
-//     tokens: Array::new(capacity=10)
-//   }
-//   lex(context)
-//   inspect!(context.tokens, content="[{kind: LET, raw: \"let\", pos: {row: 0, col: 0}}]")
-// }
-
