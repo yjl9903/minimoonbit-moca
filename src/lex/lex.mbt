@@ -53,15 +53,19 @@ pub struct Context {
   tokens : Array[Token]
 }
 
-fn is_digit(ch : Char) -> Bool {
+pub fn Context::new(str : String) -> Context {
+  { str, offset: 0, row: 0, col: 0, tokens: Array::new() }
+}
+
+fn Context::is_digit(ch : Char) -> Bool {
   ch >= '0' && ch <= '9'
 }
 
-fn is_alpha(ch : Char) -> Bool {
+fn Context::is_alpha(ch : Char) -> Bool {
   (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 }
 
-fn lex_number(context : Context) -> UInt {
+fn Context::lex_number(context : Context) -> UInt {
   let { offset, str, .. } = context
   let number = "\{str[offset]}"
   context.offset += 1
@@ -69,7 +73,7 @@ fn lex_number(context : Context) -> UInt {
   lex_number_rest(context, number)
 }
 
-fn lex_number_rest(context : Context, number : String) -> UInt {
+fn Context::lex_number_rest(context : Context, number : String) -> UInt {
   let { offset, str, tokens, row, col } = context
   if offset >= str.length() {
     tokens.push(
@@ -98,7 +102,7 @@ fn lex_number_rest(context : Context, number : String) -> UInt {
   }
 }
 
-fn lex_alpha(context : Context) -> UInt {
+fn Context::lex_alpha(context : Context) -> UInt {
   let { offset, str, .. } = context
   let alpha = "\{str[offset]}"
   context.offset += 1
@@ -106,7 +110,7 @@ fn lex_alpha(context : Context) -> UInt {
   lex_alpha_rest(context, alpha)
 }
 
-fn lex_alpha_rest(context : Context, alpha : String) -> UInt {
+fn Context::lex_alpha_rest(context : Context, alpha : String) -> UInt {
   let { offset, str, tokens, row, col } = context
   if offset >= str.length() {
     let tokenKind = get_token(alpha)
@@ -129,25 +133,25 @@ fn lex_alpha_rest(context : Context, alpha : String) -> UInt {
   }
 }
 
-fn get_token(text : String) -> TokenKind {
+fn Context::get_token(text : String) -> TokenKind {
   match text {
-    "true" => return TRUE
-    "false" => return FALSE
-    "Uint" => return UINT
-    "Int" => return INT
-    "Bool" => return BOOL
-    "Double" => return DOUBLE
-    "Array" => return ARRAY
-    "not" => return NOT
-    "if" => return IF
-    "else" => return ELSE
-    "fn" => return FN
-    "let" => return LET
-    _ => return IDENTIFIER(text)
+    "true" => TRUE
+    "false" => FALSE
+    "Uint" => UINT
+    "Int" => INT
+    "Bool" => BOOL
+    "Double" => DOUBLE
+    "Array" => ARRAY
+    "not" => NOT
+    "if" => IF
+    "else" => ELSE
+    "fn" => FN
+    "let" => LET
+    _ => IDENTIFIER(text)
   }
 }
 
-pub fn lex(context : Context) -> UInt {
+pub fn Context::lex(context : Context) -> UInt {
   let { offset, str, tokens, row, col } = context
   if offset >= str.length() {
     return 0
@@ -186,7 +190,8 @@ pub fn lex(context : Context) -> UInt {
       } else {
         context.offset += 2
         while context.offset < str.length() &&
-              (str[context.offset] != '\n' || str[context.offset] != '\r') {
+              str[context.offset] != '\n' &&
+              str[context.offset] != '\r' {
           context.offset += 1
         }
         context.row += 1

@@ -70,5 +70,8 @@ test "lex function random cases" {
     tokens: Array::new(capacity=20),
   }
   assert_eq!(lex(context), 0)
-  inspect!(context.tokens, content="[]")
+  inspect!(
+    context.tokens,
+    content="[{kind: LET, raw: \"let\", pos: {row: 2, col: 0}}, {kind: IDENTIFIER(\"y\"), raw: \"y\", pos: {row: 2, col: 4}}, {kind: ASSIGN, raw: \"=\", pos: {row: 2, col: 6}}, {kind: NUMBER(20), raw: \"20\", pos: {row: 2, col: 8}}, {kind: SEMICOLON, raw: \";\", pos: {row: 2, col: 10}}]",
+  )
 }
