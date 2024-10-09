@@ -133,13 +133,20 @@ fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> Knf {
     Let((name, typ), expr, rest) => {
       let expr = self.visit_expr(expr)
       let name = self.new_let_binding(name, typ)
-      let rest = self.visit_stmt(rest)
-      Knf::Let((name, typ), expr, rest)
+      Knf::Let((name, typ), expr, self.visit_stmt(rest))
     }
     LetRec(def, rest) => {
       let funcdef = self.visit_let_rec(def)
-      let rest = self.visit_stmt(rest)
-      Knf::LetRec(funcdef, rest)
+      Knf::LetRec(funcdef, self.visit_stmt(rest))
+    }
+    LetTuple(names, expr, rest) => {
+      let bindings = names.map(
+        fn { (name, typ) => (self.new_let_binding(name, typ), typ) },
+      )
+      self.to_let_temp(
+        expr,
+        fn { expr => Knf::LetTuple(bindings, expr, self.visit_stmt(rest)) },
+      )
     }
     _ => self.visit_expr(syntax)
   }
@@ -160,7 +167,7 @@ fn KnfEnv::to_let_temp(
 
 /// Bind two temp variables
 /// let _1 = (expr1) in let _2 = (expr2) in ... in (rest(_1, _2, ...))
-fn KnfEnv::to_let_binary_temp(
+fn KnfEnv::to_let_binary_temps(
   self : KnfEnv,
   lhs : @types.Syntax,
   rhs : @types.Syntax,
@@ -169,6 +176,27 @@ fn KnfEnv::to_let_binary_temp(
   self.to_let_temp(
     lhs,
     fn { lhs => self.to_let_temp(rhs, fn { rhs => rest(lhs, rhs) }) },
+  )
+}
+
+/// Bind three temp variables
+/// let _1 = (expr1) in let _2 = (expr2) in ... in (rest(_1, _2, ...))
+fn KnfEnv::to_let_triple_temps(
+  self : KnfEnv,
+  op1 : @types.Syntax,
+  op2 : @types.Syntax,
+  op3 : @types.Syntax,
+  rest : (@types.Name, @types.Name, @types.Name) -> Knf
+) -> Knf {
+  self.to_let_temp(
+    op1,
+    fn {
+      op1 =>
+        self.to_let_temp(
+          op2,
+          fn { op2 => self.to_let_temp(op3, fn { op3 => rest(op1, op2, op3) }) },
+        )
+    },
   )
 }
 
@@ -276,7 +304,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       /// let _lhs = (lhs) in let _rhs = (rhs) in IfEq / IfLe (lhs, rhs, true_branch, false_branch)
       match cond {
         Eq(lhs, rhs) =>
-          self.to_let_binary_temp(
+          self.to_let_binary_temps(
             lhs,
             rhs,
             fn {
@@ -290,7 +318,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             },
           )
         LE(lhs, rhs) =>
-          self.to_let_binary_temp(
+          self.to_let_binary_temps(
             lhs,
             rhs,
             fn {
@@ -309,7 +337,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       /// let _lhs = (lhs) in let _rhs = (rhs) in Add / Sub / Mul / Div (_lhs, _rhs)
       match kind {
         Some(Int) =>
-          self.to_let_binary_temp(
+          self.to_let_binary_temps(
             lhs,
             rhs,
             fn {
@@ -323,7 +351,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             },
           )
         Some(Double) =>
-          self.to_let_binary_temp(
+          self.to_let_binary_temps(
             lhs,
             rhs,
             fn {
@@ -340,31 +368,29 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       }
     Eq(lhs, rhs) =>
       /// let _lhs = (lhs) in let _rhs = (rhs) in IfEq(_lhs, _rhs, Int(1), Int(0))
-      self.to_let_binary_temp(
+      self.to_let_binary_temps(
         lhs,
         rhs,
         fn { lhs, rhs => Knf::IfEq(lhs, rhs, Knf::Int(1), Knf::Int(0)) },
       )
     LE(lhs, rhs) =>
       /// let _lhs = (lhs) in let _rhs = (rhs) in IfLe(_lhs, _rhs, Int(1), Int(0))
-      self.to_let_binary_temp(
+      self.to_let_binary_temps(
         lhs,
         rhs,
         fn { lhs, rhs => Knf::IfLe(lhs, rhs, Knf::Int(1), Knf::Int(0)) },
       )
 
     // Binding
-    Let((_name, _typ), _expr, _rest) =>
-      // TODO
-      abort("todo")
-    LetRec(_def, _rest) =>
-      // TODO
-      abort("todo")
-    LetTuple(_els, _expr, _rest) =>
-      // TODO
-      abort("todo")
-    Put(_recv, _idx, _expr) =>
-      // TODO
-      abort("todo")
+    Put(recv, idx, expr) =>
+      self.to_let_triple_temps(
+        recv,
+        idx,
+        expr,
+        fn { recv, idx, expr => Knf::Put(recv, idx, expr) },
+      )
+    Let(_) => self.visit_stmt(syntax)
+    LetRec(_) => self.visit_stmt(syntax)
+    LetTuple(_) => self.visit_stmt(syntax)
   }
 }
