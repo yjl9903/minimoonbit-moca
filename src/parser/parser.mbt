@@ -96,7 +96,11 @@ fn main_fn_decl(
   .map(
     fn {
       ((_, liter), body) => {
-        let func : @types.Fundef = { name: (liter, Type::Unit), args: [], body }
+        let func : @types.Fundef = {
+          name: (liter, Type::Fun([], Type::Unit)),
+          args: [],
+          body,
+        }
         debug("main_fn_decl: -> \{func}\n")
         func
       }
