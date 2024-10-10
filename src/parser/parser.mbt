@@ -10,7 +10,7 @@ fn ptoken(predicate : (Token) -> Bool) -> Parser[Token] {
   fn {
     [hd, .. as tl] =>
       if predicate(hd) {
-        // println("hd:\{hd}")
+        // debug("hd:\{hd}")
         Some((hd, tl))
       } else {
         None
@@ -59,15 +59,15 @@ fn many[Value : Show](self : Parser[Value]) -> Parser[Array[Value]] {
   fn(input) {
     let cumul = []
     let mut rest = input
-    // println("Many")
-    // println(input)
-    // println(self.parse(input))
+    // debug("Many")
+    // debug(input)
+    // debug(self.parse(input))
     loop self.parse(input) {
       None => Some((cumul, rest))
       Some((v, rest_)) => {
-        // println("Many")
-        // println(rest_)
-        // println(self.parse(rest_))
+        // debug("Many")
+        // debug(rest_)
+        // debug(self.parse(rest_))
         cumul.push(v)
         rest = rest_
         continue self.parse(rest_)
@@ -123,7 +123,7 @@ pub fn parse_minimb(source_code : String) -> Syntax {
   let (expr, rest) = parser.parse(context.tokens[:]).unwrap()
   // assert_eq!(rest.length(), 0)
   if rest.length() != 0 {
-    println("Error: \{rest}")
+    debug("Error: \{rest}")
   }
   return expr
 }
@@ -143,7 +143,7 @@ fn prog(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
             _ => Syntax::Unit
           }
         }
-        println("prog fold: \{list} -> \{result}\n")
+        debug("prog fold: \{list} -> \{result}\n")
         result
       }
     },
@@ -167,7 +167,7 @@ fn top_let_decl(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((((((_, id), _), value_ty), _), exp), _) => {
         let result = Syntax::Let((id, value_ty), exp, Unit)
-        println("top_let_decl fold: -> \{result}\n")
+        debug("top_let_decl fold: -> \{result}\n")
         result
       }
     },
@@ -182,7 +182,7 @@ fn toplevel_fn_decl(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       (func, _) => {
         let result = Syntax::LetRec(func, Syntax::Unit)
-        println("toplevel_fn_decl fold: \{func}-> \{result}\n")
+        debug("toplevel_fn_decl fold: \{func}-> \{result}\n")
         result
       }
     },
@@ -194,7 +194,7 @@ fn toplevel_fn_decl(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
       fn {
         (func, _) => {
           let result = Syntax::LetRec(func, Syntax::Unit)
-          println("toplevel_fn_decl fold: \{func} -> \{result}\n")
+          debug("toplevel_fn_decl fold: \{func} -> \{result}\n")
           result
         }
       },
@@ -213,7 +213,7 @@ fn main_fn_decl(
     fn {
       ((_, liter), body) => {
         let func : @types.Fundef = { name: (liter, Type::Unit), args: [], body }
-        println("main_fn_decl: -> \{func}\n")
+        debug("main_fn_decl: -> \{func}\n")
         func
       }
     },
@@ -241,7 +241,7 @@ fn top_fn_decl(tokens : ArrayView[Token]) -> (@types.Fundef, ArrayView[Token])? 
           },
           body,
         }
-        println("top_fn_decl: -> \{func}\n")
+        debug("top_fn_decl: -> \{func}\n")
         func
       }
     },
@@ -262,7 +262,7 @@ fn param_list(
         for item in list {
           array.push(item.1)
         }
-        println("param_list: -> \{array}\n")
+        debug("param_list: -> \{array}\n")
         array
       }
     },
@@ -277,7 +277,7 @@ fn param(tokens : ArrayView[Token]) -> ((String, Type), ArrayView[Token])? {
     fn {
       (id, ty) => {
         let result = (id, ty) // TODO
-        println("param: -> \{result}\n")
+        debug("param: -> \{result}\n")
         result
       }
     },
@@ -305,7 +305,7 @@ fn array_type(tokens : ArrayView[Token]) -> (Type, ArrayView[Token])? {
     fn {
       (((_, _), val), _) => {
         let result = Type::Array(val)
-        println("array_type: -> \{result}\n")
+        debug("array_type: -> \{result}\n")
         result
       }
     },
@@ -330,7 +330,7 @@ fn tuple_type(tokens : ArrayView[Token]) -> (Type, ArrayView[Token])? {
           array.push(item.1)
         }
         let result = Type::Tuple(array)
-        println("tuple_type: -> \{result}\n")
+        debug("tuple_type: -> \{result}\n")
         result
       }
     },
@@ -354,7 +354,7 @@ fn function_type(tokens : ArrayView[Token]) -> (Type, ArrayView[Token])? {
           array.push(item.1)
         }
         let result = Type::Fun(array, t2)
-        println("function_type: -> \{result}\n")
+        debug("function_type: -> \{result}\n")
         result
       }
     },
@@ -370,7 +370,7 @@ fn expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((lhs, _), rhs) => {
         let result = Syntax::Eq(lhs, rhs)
-        println("expr: -> \{result}\n")
+        debug("expr: -> \{result}\n")
         result
       }
     },
@@ -383,7 +383,7 @@ fn expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
       fn {
         ((lhs, _), rhs) => {
           let result = Syntax::LE(lhs, rhs)
-          println("expr: -> \{result}\n")
+          debug("expr: -> \{result}\n")
           result
         }
       },
@@ -401,7 +401,7 @@ fn add_sub_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
     fn {
       ((lhs, op), rhs) => {
         let result = Syntax::Prim(lhs, rhs, op, kind=None)
-        println("add_sub_level_expr: -> \{result}\n")
+        debug("add_sub_level_expr: -> \{result}\n")
         result
       }
     },
@@ -414,7 +414,7 @@ fn add_sub_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
       fn {
         ((lhs, op), rhs) => {
           let result = Syntax::Prim(lhs, rhs, op, kind=None)
-          println("add_sub_level_expr: -> \{result}\n")
+          debug("add_sub_level_expr: -> \{result}\n")
           result
         }
       },
@@ -432,7 +432,7 @@ fn mul_div_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
     fn {
       ((lhs, op), rhs) => {
         let result = Syntax::Prim(lhs, rhs, op, kind=None)
-        println("mul_div_level_expr: -> \{result}\n")
+        debug("mul_div_level_expr: -> \{result}\n")
         result
       }
     },
@@ -445,7 +445,7 @@ fn mul_div_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
       fn {
         ((lhs, op), rhs) => {
           let result = Syntax::Prim(lhs, rhs, op, kind=None)
-          println("mul_div_level_expr: -> \{result}\n")
+          debug("mul_div_level_expr: -> \{result}\n")
           result
         }
       },
@@ -467,7 +467,7 @@ fn lowel_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((_, e), _) => {
         let result = Syntax::Get(Syntax::Unit, e)
-        println("lowel_level_expr: -> \{result}\n")
+        debug("lowel_level_expr: -> \{result}\n")
         result
       }
     },
@@ -491,7 +491,7 @@ fn lowel_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
             }
           }
           let result = Syntax::App(Syntax::Unit, array)
-          println("lowel_level_expr: -> \{result}\n")
+          debug("lowel_level_expr: -> \{result}\n")
           result
         }
       },
@@ -519,7 +519,7 @@ fn get_or_apply_level_expr(
               }
           },
         )
-        // println("get_or_apply_level_expr: -> \{result}\n")
+        // debug("get_or_apply_level_expr: -> \{result}\n")
         result
       }
     },
@@ -572,7 +572,7 @@ fn if_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
           Some(v) => v.1
         }
         let result = Syntax::If(e1, e2, e)
-        println("if_expr: -> \{result}\n")
+        debug("if_expr: -> \{result}\n")
         result
       }
     },
@@ -581,7 +581,7 @@ fn if_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 }
 
 fn value_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("Into value_expr:\{tokens}")
+  // debug("Into value_expr:\{tokens}")
   Parser(unit_expr)
   .or(tuple_expr)
   .or(bool_expr)
@@ -602,7 +602,7 @@ fn unit_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       (_, _) => {
         let result = Syntax::Unit
-        println("unit_expr: -> \{result}\n")
+        debug("unit_expr: -> \{result}\n")
         result
       }
     },
@@ -626,7 +626,7 @@ fn tuple_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
           array.push(item.1)
         }
         let result = Syntax::Tuple(array)
-        println("tuple_expr: -> \{result}\n")
+        debug("tuple_expr: -> \{result}\n")
         result
       }
     },
@@ -650,7 +650,7 @@ fn block_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((_, val), _) => {
         let result = val
-        println("block_expr: -> \{result}\n")
+        debug("block_expr: -> \{result}\n")
         result
       }
     },
@@ -715,7 +715,7 @@ fn array_make_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((((((((_, _), _), _), _), e1), _), e2), _) => {
         let result = Syntax::Array(e1, e2)
-        println("array_make_expr: -> \{result}\n")
+        debug("array_make_expr: -> \{result}\n")
         result
       }
     },
@@ -724,7 +724,7 @@ fn array_make_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 }
 
 fn stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("Into stmt")
+  // debug("Into stmt")
   Parser(let_tuple_stmt)
   .or(let_stmt)
   .or(fn_decl_stmt)
@@ -768,7 +768,7 @@ fn let_tuple_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
           }
         }
         let result = Syntax::LetTuple(res, e, st)
-        println("let_tuple_stmt: -> \{result}\n")
+        debug("let_tuple_stmt: -> \{result}\n")
         result
       }
     },
@@ -777,7 +777,7 @@ fn let_tuple_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 }
 
 fn let_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("INSERT INTO let_stmt \{tokens}")
+  // debug("INSERT INTO let_stmt \{tokens}")
   token_let
   .and(token_identifier)
   .and(Parser(type_annotation).any())
@@ -793,7 +793,7 @@ fn let_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
           Some(val) => val
         }
         let result = Syntax::Let((id, t), expr, rest)
-        println("let_stmt: -> \{result}\n")
+        debug("let_stmt: -> \{result}\n")
         result
       }
     },
@@ -802,7 +802,7 @@ fn let_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 }
 
 fn fn_decl_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("INSERT_INTO fn_decl_stmt")
+  // debug("INSERT_INTO fn_decl_stmt")
   Parser(nontop_fn_decl)
   .and(token_semicolon)
   .and(stmt)
@@ -810,7 +810,7 @@ fn fn_decl_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((func, _), rest) => {
         let result = Syntax::LetRec(func, rest)
-        println("fn_decl_stmt: -> \{result}\n")
+        debug("fn_decl_stmt: -> \{result}\n")
         result
       }
     },
@@ -819,7 +819,7 @@ fn fn_decl_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 }
 
 fn assign_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("INSERT INTO assign_stmt")
+  // debug("INSERT INTO assign_stmt")
   Parser(get_expr)
   .and(token_eq)
   .and(expr)
@@ -829,7 +829,7 @@ fn assign_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((((e1, _), e2), _), e3) => {
         let result = Syntax::Put(e1, e2, e3)
-        println("assign_stmt: -> \{result}\n")
+        debug("assign_stmt: -> \{result}\n")
         result
       }
     },
@@ -838,7 +838,7 @@ fn assign_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 }
 
 fn expr_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("Insert into expr_stmt")
+  // debug("Insert into expr_stmt")
   Parser(expr).parse(tokens)
 }
 
@@ -880,7 +880,7 @@ fn nontop_fn_decl(
           },
           body,
         }
-        println("nontop_fn_decl: -> \{func}\n")
+        debug("nontop_fn_decl: -> \{func}\n")
         func
       }
     },
@@ -901,7 +901,7 @@ fn nontop_param_list(
         for item in list {
           args.push(item.1)
         }
-        println("nontop_param_list: -> \{args}\n")
+        debug("nontop_param_list: -> \{args}\n")
         args
       }
     },
@@ -922,7 +922,7 @@ fn nontop_param(
           Some(val) => val
         }
         let result = (id, t)
-        println("nontop_param: -> \{result}\n")
+        debug("nontop_param: -> \{result}\n")
         result
       }
     },
@@ -931,7 +931,7 @@ fn nontop_param(
 }
 
 fn fn_body(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("Into fn_body")
+  // debug("Into fn_body")
   token_lcurlybracket
   .and(stmt)
   .and(token_rcurlybracket)
@@ -939,7 +939,7 @@ fn fn_body(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     fn {
       ((_, val), _) => {
         let result = val
-        println("fn_body: -> \{result}\n")
+        debug("fn_body: -> \{result}\n")
         result
       }
     },
@@ -948,7 +948,7 @@ fn fn_body(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 }
 
 fn get_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
-  // println("Into get_expr")
+  // debug("Into get_expr")
   Parser(get_or_apply_level_expr)
   .and(token_lbracket)
   .and(expr)
