@@ -158,7 +158,9 @@ fn Gamma::inherit(
             new_env.inherit!(def.body, t_ret)
           }
           _ =>
-            raise TypeError("Type mismatch: should be function \{syntax} : \{def.name.1}")
+            raise TypeError(
+              "Type mismatch: should be function \{syntax} : \{def.name.1}",
+            )
         }
       } else {
         match def.name.1 {
