@@ -1,10 +1,10 @@
-struct Token {
+pub struct Token {
   kind : TokenKind
   raw : String
   pos : Position
 } derive(Show)
 
-struct Position {
+pub struct Position {
   row : Int
   col : Int
 } derive(Show)
@@ -12,7 +12,7 @@ struct Position {
 pub enum TokenKind {
   TRUE
   FALSE
-  UINT
+  UNIT
   BOOL
   INT
   DOUBLE
@@ -51,7 +51,7 @@ pub struct Context {
   mut row : Int // 当前行号
   mut col : Int // 当前列号
   tokens : Array[Token]
-}
+} derive(Show)
 
 pub fn Context::new(str : String) -> Context {
   { str, offset: 0, row: 0, col: 0, tokens: Array::new() }
@@ -137,7 +137,7 @@ fn Context::get_token(text : String) -> TokenKind {
   match text {
     "true" => TRUE
     "false" => FALSE
-    "Uint" => UINT
+    "Unit" => UNIT
     "Int" => INT
     "Bool" => BOOL
     "Double" => DOUBLE
