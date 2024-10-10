@@ -1,6 +1,7 @@
 {
     "import": [
         "moonbitlang/minimbt/lex",
+        "moonbitlang/x/fs",
         {
             "path": "moonbitlang/minimbt",
             "alias": "types"
