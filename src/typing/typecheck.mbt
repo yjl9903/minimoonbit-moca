@@ -55,8 +55,32 @@ fn Gamma::inherit(
         Bool => self.inherit!(expr, Type::Bool)
         _ => raise TypeError("Type mismatch: should be bool")
       }
-    Neg(expr, ..) as neg => abort("todo")
-    Prim(lhs, rhs, _, ..) as prim => abort("todo")
+    Neg(expr, ..) as neg =>
+      match expected {
+        Int => {
+          neg.kind = Some(Kind::Int)
+          self.inherit!(expr, Type::Int)
+        }
+        Double => {
+          neg.kind = Some(Kind::Double)
+          self.inherit!(expr, Type::Double)
+        }
+        _ => raise TypeError("Type mismatch: should be numeric")
+      }
+    Prim(lhs, rhs, _, ..) as prim =>
+      match expected {
+        Int => {
+          prim.kind = Some(Kind::Int)
+          self.inherit!(lhs, Type::Int)
+          self.inherit!(rhs, Type::Int)
+        }
+        Double => {
+          prim.kind = Some(Kind::Double)
+          self.inherit!(lhs, Type::Double)
+          self.inherit!(rhs, Type::Double)
+        }
+        _ => raise TypeError("Type mismatch: should be numeric")
+      }
     App(sig, args) => abort("todo")
     Get(recv, idx) => {
       self.inherit!(recv, Type::Array(expected))
@@ -73,13 +97,12 @@ fn Gamma::inherit(
 
     // Let
     Let((name, typ), expr, rest) => {
-      let typ = if is_having_type(typ) {
+      if is_having_type(typ) {
         // Annotated with type, check it
         if not(is_known_type(typ)) {
           raise TypeError("Unknown type \{typ}")
         }
         self.inherit!(expr, typ)
-        typ
       } else {
         // Infer type from expr
         let synthed = self.synthesis!(expr)
@@ -87,16 +110,14 @@ fn Gamma::inherit(
           Var(typ) => typ.val = Some(synthed)
           _ => ()
         }
-        synthed
       }
       self.add(name, typ)
       self.inherit!(rest, expected)
     }
     LetRec(def, rest) => {
-      let typ = def.name.1
-      if is_having_type(typ) {
+      if is_having_type(def.name.1) {
         // Annotated with type, check it
-        match typ {
+        match def.name.1 {
           Fun(t_args, t_ret) => {
             self.add(def.name.0, def.name.1)
             let new_env = self.fork()
@@ -122,15 +143,22 @@ fn Gamma::inherit(
             // Check ret
             new_env.inherit!(def.body, t_ret)
           }
-          _ => raise TypeError("Type mismatch: should be function \{typ}")
+          _ =>
+            raise TypeError("Type mismatch: should be function \{def.name.1}")
         }
       } else {
+        match def.name.1 {
+          Var(vt) =>
+            vt.val = Some(
+              Fun(def.args.map(fn { (_, t) => t }), Type::Var(Ref::new(None))),
+            )
+          _ => abort("unreachable")
+        }
         self.add(def.name.0, def.name.1)
         let new_env = self.fork()
         def.args.each(fn { (name, typ) => new_env.add(name, typ) })
         let synthed = new_env.synthesis!(def.body)
-        self.add(def.name.0, synthed)
-        ()
+        new_env.inherit!(def.body, synthed)
       }
       self.inherit!(rest, expected)
     }

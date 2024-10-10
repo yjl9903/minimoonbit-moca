@@ -24,7 +24,7 @@ fn is_having_type(typ : Type) -> Bool {
   match typ {
     Var(t) =>
       match t.val {
-        Some(t) => true
+        Some(_) => true
         None => false
       }
     _ => true
