@@ -89,7 +89,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
   match self.curr_stage {
     Parse => {
       let source_code = self.source_code.unwrap()
-      let parsed = @parser.parse_minimb(source_code)
+      let parsed = @parser.parse_minimoonbit(source_code)
       self.ast = Some(parsed)
     }
     Typecheck => {
