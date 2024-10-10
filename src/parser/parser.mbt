@@ -308,7 +308,7 @@ fn tuple_type(tokens : ArrayView[Token]) -> (Type, ArrayView[Token])? {
   .and(token_rparen)
   .map(
     fn {
-      (((((_, t1),_),t2), list), _) => {
+      (((((_, t1), _), t2), list), _) => {
         let array : Array[Type] = Array::new()
         array.push(t1)
         array.push(t2)

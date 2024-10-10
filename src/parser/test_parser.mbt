@@ -1,16 +1,13 @@
-
-
 test {
   let parser : Parser[Syntax] = Parser(let_stmt)
   let input = "let add2 : Int = make_adder(2);"
   let context = @lex.Context::new(input)
   let ok = @lex.lex(context)
-  assert_eq! (ok,0)
+  assert_eq!(ok, 0)
   println(context.tokens)
   let (expr, _) = parser.parse(context.tokens[:]).unwrap()
   println(expr)
 }
-
 
 test {
   // println(parse_minimoonbit!("test/test_src/ack.mbt"))
@@ -30,7 +27,7 @@ test {
   let ok = @lex.lex(context)
   println(ok)
   println(context.tokens)
-  let (expr,_) = parser.parse(context.tokens[:]).unwrap()
+  let (expr, _) = parser.parse(context.tokens[:]).unwrap()
   println(expr)
 }
 
@@ -42,6 +39,6 @@ test {
   let ok = @lex.lex(context)
   println(ok)
   println(context.tokens)
-  let (expr,_) = parser.parse(context.tokens[:]).unwrap()
+  let (expr, _) = parser.parse(context.tokens[:]).unwrap()
   println(expr)
 }
