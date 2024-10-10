@@ -334,7 +334,19 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
                 )
             },
           )
-        _ => @util.die("Unexpected if cond expr")
+        _ =>
+          self.to_let_temp(
+            cond,
+            fn {
+              cond =>
+                Knf::IfEq(
+                  cond,
+                  self.find_binding_by_string(@shared.one_binding_name).unwrap(),
+                  self.visit_stmt(true_branch),
+                  self.visit_stmt(false_branch),
+                )
+            },
+          )
       }
     Prim(lhs, rhs, op, ~kind) =>
       /// let _lhs = (lhs) in let _rhs = (rhs) in Add / Sub / Mul / Div (_lhs, _rhs)
