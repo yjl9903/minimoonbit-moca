@@ -507,7 +507,7 @@ fn value_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
     .map(
       fn {
         ((_, e), _) => {
-          println("value_expr->\{e}")
+          debug("value_expr->\{e}")
           e
         }
       },
