@@ -114,6 +114,20 @@ pub fn parse_minimoonbit(path : String) -> Syntax! {
   return expr
 }
 
+pub fn parse_minimb(source_code : String) -> Syntax {
+  let input : String = source_code
+  let context = @lex.Context::new(input)
+  let ok = @lex.lex(context)
+  let parser : Parser[Syntax] = Parser(prog)
+  // assert_eq!(ok, 0)
+  let (expr, rest) = parser.parse(context.tokens[:]).unwrap()
+  // assert_eq!(rest.length(), 0)
+  if rest.length() != 0 {
+    println("Error: \{rest}")
+  }
+  return expr
+}
+
 fn prog(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   Parser(top_level)
   .many()
