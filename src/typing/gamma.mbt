@@ -1,23 +1,21 @@
 struct Gamma {
-  env : @hashmap.T[String, Type]
+  mut env : @immut/hashmap.T[String, Type]
 }
 
 fn Gamma::new() -> Gamma {
-  { env: @hashmap.new() }
+  { env: @immut/hashmap.new() }
 }
 
 fn Gamma::fork(self : Gamma) -> Gamma {
-  let new_env = @hashmap.new()
-  self.env.each(fn { k, v => new_env.set(k, v) })
-  { env: new_env }
+  { env: self.env }
 }
 
 fn Gamma::add(self : Gamma, name : String, typ : Type) -> Unit {
-  self.env.set(name, typ)
+  self.env = @immut/hashmap.add(self.env, name, typ)
 }
 
 fn Gamma::find(self : Gamma, name : String) -> Type? {
-  self.env.get(name)
+  self.env.find(name)
 }
 
 fn is_having_type(typ : Type) -> Bool {
