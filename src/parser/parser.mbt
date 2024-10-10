@@ -305,6 +305,12 @@ fn add_sub_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
     ),
   )
   .or(mul_div_level_expr)
+  .or(token_lparen.and(add_sub_level_expr).and(token_rparen).map(fn{
+    ((_,e),_)=>e
+  }))
+  .or(token_lparen.and(mul_div_level_expr).and(token_rparen).map(fn{
+    ((_,e),_)=>e
+  }))
   .parse(tokens)
 }
 
@@ -335,6 +341,12 @@ fn mul_div_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
       },
     ),
   )
+  .or(token_lparen.and(add_sub_level_expr).and(token_rparen).map(fn{
+    ((_,e),_)=>e
+  }))
+  .or(token_lparen.and(mul_div_level_expr).and(token_rparen).map(fn{
+    ((_,e),_)=>e
+  }))
   .or(Parser(if_level_expr))
   .parse(tokens)
 }
@@ -476,6 +488,14 @@ fn value_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   .or(int_expr)
   .or(not_expr)
   .or(array_make_expr)
+  .or(token_lparen.and(value_expr).and(token_rparen).map({
+    fn {
+      ((_,e),_) => {
+        println("value_expr->\{e}")
+        e
+      }
+    }
+  }))
   .parse(tokens)
 }
 
