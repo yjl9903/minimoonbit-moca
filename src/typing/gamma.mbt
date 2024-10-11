@@ -20,6 +20,10 @@ fn Gamma::find(self : Gamma, name : String) -> Type? {
   self.env.find(name)
 }
 
+fn Gamma::find_external(self : Gamma, name : String) -> Type? {
+  self.env.find(name)
+}
+
 fn is_having_type(typ : Type) -> Bool {
   match typ {
     Var(t) =>
