@@ -110,6 +110,7 @@ fn main_fn_decl(
 }
 
 fn top_fn_decl(tokens : ArrayView[Token]) -> (@types.Fundef, ArrayView[Token])? {
+  debug("Into top func")
   token_fn
   .and(token_identifier)
   .and(token_lparen)
@@ -122,7 +123,10 @@ fn top_fn_decl(tokens : ArrayView[Token]) -> (@types.Fundef, ArrayView[Token])? 
     fn {
       (((((((_, id), _), args), _), _), ty), body) => {
         let func : @types.Fundef = {
-          name: (id, ty),
+          name: (id,match ty{
+            Type::Fun(a,b) => Type::Fun(a,b)
+            c=> Type::Fun([],c)
+          }),
           args: match args {
             Some(val) => val
             None => []
@@ -777,7 +781,12 @@ fn nontop_fn_decl(
             id,
             match ty {
               None => Type::Var({ val: None })
-              Some(val) => val.1
+              Some(val) => {
+                match val.1{
+                  Type::Fun(a,b) => Type::Fun(a,b)
+                  ty => Type::Fun([],ty)
+                }
+              }
             },
           ),
           args: match args {
