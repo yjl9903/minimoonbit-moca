@@ -1,5 +1,8 @@
-pub fn type_check(syntax : @types.Syntax) -> @types.Syntax {
-  let gamma = Gamma::new()
+pub fn type_check(
+  syntax : @types.Syntax,
+  externals : @immut/hashmap.T[String, @types.Type]
+) -> @types.Syntax {
+  let gamma = Gamma::new(~externals)
   match gamma.inherit?(syntax, Type::Unit) {
     Ok(_) => syntax
     Err(TypeError(e)) => @util.die(e)
