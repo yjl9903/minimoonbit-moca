@@ -99,6 +99,10 @@ pub fn Type::op_equal(self : Type, other : Type) -> Bool {
     (Tuple(xs), Tuple(ys)) => xs == ys
     (Array(x), Array(y)) => x == y
     (Ptr, Ptr) => true
+    // --- Add this dfs check
+    (x, Var({ val: Some(y) })) => x == y
+    (Var({ val: Some(x) }), y) => x == y
+    // ----------------------
     (Var(x), Var(y)) => x.val == y.val
     _ => false
   }
