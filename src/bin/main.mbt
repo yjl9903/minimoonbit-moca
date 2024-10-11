@@ -93,7 +93,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       self.ast = Some(parsed)
     }
     Typecheck => {
-      let typechecked = @typing.type_check(self.ast.unwrap())
+      let typechecked = @typing.type_check(self.ast.unwrap(), externals())
       self.typechecked = Some(typechecked)
     }
     Knf => {
