@@ -2,8 +2,10 @@ struct Gamma {
   mut env : @immut/hashmap.T[String, Type]
 }
 
-fn Gamma::new() -> Gamma {
-  { env: @immut/hashmap.new() }
+fn Gamma::new(
+  ~externals : @immut/hashmap.T[String, @types.Type] = @immut/hashmap.new()
+) -> Gamma {
+  { env: externals }
 }
 
 fn Gamma::fork(self : Gamma) -> Gamma {
