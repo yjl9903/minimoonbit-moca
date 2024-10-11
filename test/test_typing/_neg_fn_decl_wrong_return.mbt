@@ -1,7 +1,7 @@
 fn foo() -> Int {
-  200.128
-}
+    200.128
+};
 
 fn main {
-  print_int(foo())
-}
+    print_int(foo())
+};
