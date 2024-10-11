@@ -1,8 +1,8 @@
 fn foo() -> Int {
-  114515
-}
+    114515
+};
 
 fn main {
-  let a : Double = foo()
-  ()
-}
+    let a: Double = foo();
+    ()
+};
