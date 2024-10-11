@@ -436,38 +436,6 @@ fn get_or_apply_level_expr(
       }
     },
   )
-  // .or(
-  //   Parser(get_or_apply_level_expr)
-  //   .and(token_lbracket)
-  //   .and(expr)
-  //   .and(token_rbracket)
-  //   .map(fn { (((lhs, _), rhs), _) => Syntax::Get(lhs, rhs) }),
-  // )
-  // .or(
-  //   Parser(get_or_apply_level_expr)
-  //   .and(token_lbracket)
-  //   .and(Parser(expr).and(token_comma.and(expr).many()).any())
-  //   .and(token_rparen)
-  //   .map(
-  //     fn {
-  //       (((lhs,_),list),_) =>{
-  //         let array : Array[Syntax] = match list{
-  //           None =>[]
-  //           Some((e,rest)) =>{
-  //             let res : Array[Syntax] = Array::new()
-  //             res.push(e)
-  //             for item in rest {
-  //               res.push(item.1)
-  //             }
-  //             res
-  //           }
-  //         }
-  //         Syntax::App(lhs,array)
-  //       }
-
-  //     },
-  //   ),
-  // )
   .parse(tokens)
 }
 
@@ -512,6 +480,19 @@ fn value_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
       fn {
         ((_, e), _) => {
           debug("value_expr->\{e}")
+          e
+        }
+      },
+    ),
+  )
+  .or(
+    token_lparen
+    .and(get_or_apply_level_expr)
+    .and(token_rparen)
+    .map(
+      fn {
+        ((_, e), _) => {
+          debug("(value_expr)->\{e}")
           e
         }
       },
@@ -746,7 +727,7 @@ fn fn_decl_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 fn assign_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   // debug("INSERT INTO assign_stmt")
   Parser(get_expr)
-  .and(token_eq)
+  .and(token_assign)
   .and(expr)
   .and(token_semicolon)
   .and(stmt)
@@ -875,10 +856,18 @@ fn fn_body(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 fn get_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   // debug("Into get_expr")
   Parser(get_or_apply_level_expr)
-  .and(token_lbracket)
-  .and(expr)
-  .and(token_rbracket)
-  .map(fn { (((e1, _), e2), _) => Syntax::Get(e1, e2) })
+  // .map(fn {
+  //   e =>{
+  //     match e {
+  //       Syntax::Get(lhs,rhs)=>Syntax::Get(lhs,rhs)
+  //       _ => None
+  //     }
+  //   }
+  // })
+  // .and(token_lbracket)
+  // .and(expr)
+  // .and(token_rbracket)
+  // .map(fn { (((e1, _), e2), _) => Syntax::Get(e1, e2) })
   .parse(tokens)
 }
 
