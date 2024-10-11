@@ -58,3 +58,15 @@ test {
     content="LetRec({name: (\"f\", Int), args: [(\"u\", Unit)], body: Int(123)}, LetRec({name: (\"g\", Int), args: [(\"u\", Unit)], body: Int(456)}, LetRec({name: (\"h\", Int), args: [(\"u\", Unit)], body: Int(789)}, LetRec({name: (\"main\", Fun([], Unit)), args: [], body: Let((\"x\", Var({val: None})), App(Var(\"f\"), [Unit]), App(Var(\"print_int\"), [Prim(If(LE(Var(\"x\"), Int(0)), App(Var(\"g\"), [Unit]), App(Var(\"h\"), [Unit])), Var(\"x\"), Add, kind=None)]))}, Unit))))",
   )
 }
+
+
+test {
+  let parser : Parser[Syntax] = Parser(get_or_apply_level_expr)
+  
+  let input : String = "f(g(456))(789)"
+  let context = @lex.Context::new(input)
+  let ok = @lex.lex(context)
+  let (expr, rest) = parser.parse(context.tokens[:]).unwrap()
+  println(expr)
+  assert_eq!(rest.length(), 0)
+}

@@ -351,6 +351,7 @@ fn mul_div_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
       },
     ),
   )
+  .or(Parser(if_level_expr))
   .or(
     token_lparen
     .and(add_sub_level_expr)
@@ -363,7 +364,6 @@ fn mul_div_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
     .and(token_rparen)
     .map(fn { ((_, e), _) => e }),
   )
-  .or(Parser(if_level_expr))
   .parse(tokens)
 }
 
@@ -431,7 +431,7 @@ fn get_or_apply_level_expr(
               }
           },
         )
-        // debug("get_or_apply_level_expr: -> \{result}\n")
+        debug("get_or_apply_level_expr: -> \{result} \n val: \{val}")
         result
       }
     },
