@@ -736,11 +736,15 @@ fn assign_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   .and(stmt)
   .map(
     fn {
-      ((((e1, _), e2), _), e3) => {
-        let result = Syntax::Put(e1, e2, e3)
-        debug("assign_stmt: -> \{result}\n")
-        result
-      }
+      ((((e1, _), e2), _), e3) =>
+        match e1 {
+          Get(arr, idx) => {
+            let result = Syntax::Put(arr, idx, e2)
+            debug("assign_stmt: -> \{result}\n")
+            @types.Syntax::Let(("_", Type::Unit), result, e3)
+          }
+          _ => @util.die("should put array")
+        }
     },
   )
   .parse(tokens)
