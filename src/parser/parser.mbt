@@ -474,6 +474,7 @@ fn value_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   .or(int_expr)
   .or(not_expr)
   .or(array_make_expr)
+  .or(block_expr)
   .or(
     token_lparen
     .and(value_expr)
