@@ -110,6 +110,7 @@ fn main_fn_decl(
 }
 
 fn top_fn_decl(tokens : ArrayView[Token]) -> (@types.Fundef, ArrayView[Token])? {
+  debug("Into top func")
   token_fn
   .and(token_identifier)
   .and(token_lparen)
@@ -122,7 +123,13 @@ fn top_fn_decl(tokens : ArrayView[Token]) -> (@types.Fundef, ArrayView[Token])? 
     fn {
       (((((((_, id), _), args), _), _), ty), body) => {
         let func : @types.Fundef = {
-          name: (id, ty),
+          name: (
+            id,
+            match ty {
+              Type::Fun(a, b) => Type::Fun(a, b)
+              c => Type::Fun([], c)
+            },
+          ),
           args: match args {
             Some(val) => val
             None => []
@@ -351,6 +358,7 @@ fn mul_div_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
       },
     ),
   )
+  .or(Parser(if_level_expr))
   .or(
     token_lparen
     .and(add_sub_level_expr)
@@ -363,7 +371,6 @@ fn mul_div_level_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? 
     .and(token_rparen)
     .map(fn { ((_, e), _) => e }),
   )
-  .or(Parser(if_level_expr))
   .parse(tokens)
 }
 
@@ -431,43 +438,11 @@ fn get_or_apply_level_expr(
               }
           },
         )
-        // debug("get_or_apply_level_expr: -> \{result}\n")
+        debug("get_or_apply_level_expr: -> \{result} \n val: \{val}")
         result
       }
     },
   )
-  // .or(
-  //   Parser(get_or_apply_level_expr)
-  //   .and(token_lbracket)
-  //   .and(expr)
-  //   .and(token_rbracket)
-  //   .map(fn { (((lhs, _), rhs), _) => Syntax::Get(lhs, rhs) }),
-  // )
-  // .or(
-  //   Parser(get_or_apply_level_expr)
-  //   .and(token_lbracket)
-  //   .and(Parser(expr).and(token_comma.and(expr).many()).any())
-  //   .and(token_rparen)
-  //   .map(
-  //     fn {
-  //       (((lhs,_),list),_) =>{
-  //         let array : Array[Syntax] = match list{
-  //           None =>[]
-  //           Some((e,rest)) =>{
-  //             let res : Array[Syntax] = Array::new()
-  //             res.push(e)
-  //             for item in rest {
-  //               res.push(item.1)
-  //             }
-  //             res
-  //           }
-  //         }
-  //         Syntax::App(lhs,array)
-  //       }
-
-  //     },
-  //   ),
-  // )
   .parse(tokens)
 }
 
@@ -512,6 +487,19 @@ fn value_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
       fn {
         ((_, e), _) => {
           debug("value_expr->\{e}")
+          e
+        }
+      },
+    ),
+  )
+  .or(
+    token_lparen
+    .and(get_or_apply_level_expr)
+    .and(token_rparen)
+    .map(
+      fn {
+        ((_, e), _) => {
+          debug("(value_expr)->\{e}")
           e
         }
       },
@@ -746,7 +734,7 @@ fn fn_decl_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 fn assign_stmt(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   // debug("INSERT INTO assign_stmt")
   Parser(get_expr)
-  .and(token_eq)
+  .and(token_assign)
   .and(expr)
   .and(token_semicolon)
   .and(stmt)
@@ -796,7 +784,11 @@ fn nontop_fn_decl(
             id,
             match ty {
               None => Type::Var({ val: None })
-              Some(val) => val.1
+              Some(val) =>
+                match val.1 {
+                  Type::Fun(a, b) => Type::Fun(a, b)
+                  ty => Type::Fun([], ty)
+                }
             },
           ),
           args: match args {
@@ -875,10 +867,18 @@ fn fn_body(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
 fn get_expr(tokens : ArrayView[Token]) -> (Syntax, ArrayView[Token])? {
   // debug("Into get_expr")
   Parser(get_or_apply_level_expr)
-  .and(token_lbracket)
-  .and(expr)
-  .and(token_rbracket)
-  .map(fn { (((e1, _), e2), _) => Syntax::Get(e1, e2) })
+  // .map(fn {
+  //   e =>{
+  //     match e {
+  //       Syntax::Get(lhs,rhs)=>Syntax::Get(lhs,rhs)
+  //       _ => None
+  //     }
+  //   }
+  // })
+  // .and(token_lbracket)
+  // .and(expr)
+  // .and(token_rbracket)
+  // .map(fn { (((e1, _), e2), _) => Syntax::Get(e1, e2) })
   .parse(tokens)
 }
 
