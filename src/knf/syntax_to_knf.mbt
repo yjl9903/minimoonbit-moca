@@ -8,7 +8,16 @@ struct KnfEnv {
 }
 
 pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
-  { counter: 1, env: @hashmap.new(), types: Array::new(), externals }
+  let env = { counter: 1, env: @hashmap.new(), types: Array::new(), externals }
+  externals.each(
+    fn {
+      name, typ => {
+        let _ = env.new_let_binding(name, typ)
+        ()
+      }
+    },
+  )
+  env
 }
 
 pub fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
