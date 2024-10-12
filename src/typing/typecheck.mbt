@@ -193,7 +193,7 @@ fn Gamma::inherit_let_rec(self : Gamma, def : @types.Fundef) -> Unit!TypeError {
   if is_having_type(def.name.1) {
     // Annotated with type, check it
     match def.name.1 {
-      Fun(t_args, t_ret) => {
+      Fun(t_args, t_ret) | Var({ val: Some(Fun(t_args, t_ret)) }) => {
         self.add(def.name.0, def.name.1)
         let new_env = self.fork()
         // Check args
@@ -387,15 +387,16 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
 
     // Let
     Let((name, typ), expr, rest) => {
-      let synthed = self.synthesis!(expr)
-      let unified = unify!(synthed, typ)
-      let new_env = self.fork()
-      new_env.add(name, unified)
-      new_env.synthesis!(rest)
+      self.inherit_let!((name, typ), expr)
+      self.synthesis!(rest)
     }
-    // TODO
-    LetRec(def, rest) => self.synthesis!(rest)
-    // TODO
-    LetTuple(_els, _expr, rest) => self.synthesis!(rest)
+    LetRec(def, rest) => {
+      self.inherit_let_rec!(def)
+      self.synthesis!(rest)
+    }
+    LetTuple(els, expr, rest) => {
+      self.inherit_let_tuple!(els, expr)
+      self.synthesis!(rest)
+    }
   }
 }
