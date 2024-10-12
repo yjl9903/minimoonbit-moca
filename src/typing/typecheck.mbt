@@ -147,7 +147,7 @@ fn Gamma::inherit(
           let _ = self.synthesis!(syntax)
           ()
         }
-        _ => raise TypeError("Type mismatch: should be Unit \{syntax}")
+        _ => raise TypeError("Type mismatch: should be Unit, find \{expected}, \{syntax}")
       }
 
     // Let
@@ -381,7 +381,7 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       let recv_typ = self.synthesis!(recv)
       self.inherit!(idx, Type::Int)
       let expr_typ = self.synthesis!(expr)
-      let _ = unify!(Array(recv_typ), expr_typ)
+      let _ = unify!(recv_typ, Array(expr_typ))
       Type::Unit
     }
 
