@@ -18,7 +18,7 @@ fn Gamma::inherit(
     // Literal
     Unit | Bool(_) | Int(_) | Double(_) => {
       let synthed = self.synthesis!(syntax)
-      let _ = unify!(synthed, expected) == synthed
+      let _ = unify!(synthed, expected)
       ()
     }
 
@@ -151,76 +151,111 @@ fn Gamma::inherit(
       }
 
     // Let
-    Let((name, typ), expr, rest) => {
-      if is_having_type(typ) {
-        // Annotated with type, check it
-        if not(is_known_type(typ)) {
-          raise TypeError("Unknown type \{typ}")
-        }
-        self.inherit!(expr, typ)
-      } else {
-        // Infer type from expr
-        let synthed = self.synthesis!(expr)
-        match typ {
-          Var(typ) => typ.val = Some(synthed)
-          _ => ()
-        }
-      }
-      self.add(name, typ)
+    Let(binding, expr, rest) => {
+      self.inherit_let!(binding, expr)
       self.inherit!(rest, expected)
     }
     LetRec(def, rest) => {
-      if is_having_type(def.name.1) {
-        // Annotated with type, check it
-        match def.name.1 {
-          Fun(t_args, t_ret) => {
-            self.add(def.name.0, def.name.1)
-            let new_env = self.fork()
-            // Check args
-            if def.args.length() == t_args.length() {
-              let n = def.args.length()
-              for i = 0; i < n; i = i + 1 {
-                let arg = def.args[i]
-                let typ = t_args[i]
-                if arg.1 != typ {
-                  raise TypeError(
-                    "Type mismatch: different arg type \{arg.1}, expected \{typ}",
-                  )
-                } else {
-                  new_env.add(arg.0, arg.1)
-                }
-              }
-            } else {
-              raise TypeError(
-                "Type mismatch: args length \{def.args}, expected \{t_args}",
-              )
-            }
-            // Check ret
-            new_env.inherit!(def.body, t_ret)
-          }
-          _ =>
-            raise TypeError(
-              "Type mismatch: should be function \{syntax} : \{def.name.1}",
-            )
-        }
-      } else {
-        match def.name.1 {
-          Var(vt) =>
-            vt.val = Some(
-              Fun(def.args.map(fn { (_, t) => t }), Type::Var(Ref::new(None))),
-            )
-          _ => abort("unreachable")
-        }
-        self.add(def.name.0, def.name.1)
-        let new_env = self.fork()
-        def.args.each(fn { (name, typ) => new_env.add(name, typ) })
-        let synthed = new_env.synthesis!(def.body)
-        new_env.inherit!(def.body, synthed)
-      }
+      self.inherit_let_rec!(def)
       self.inherit!(rest, expected)
     }
-    // TODO: check tuple
-    LetTuple(_els, _expr, rest) => self.inherit!(rest, expected)
+    LetTuple(els, expr, rest) => {
+      self.inherit_let_tuple!(els, expr)
+      self.inherit!(rest, expected)
+    }
+  }
+}
+
+fn Gamma::inherit_let(
+  self : Gamma,
+  binding : (String, Type),
+  expr : @types.Syntax
+) -> Unit!TypeError {
+  let (name, typ) = binding
+  if is_having_type(typ) {
+    // Annotated with type, check it
+    if not(is_known_type(typ)) {
+      raise TypeError("Unknown type \{typ}")
+    }
+    self.inherit!(expr, typ)
+  } else {
+    // Infer type from expr
+    let synthed = self.synthesis!(expr)
+    match typ {
+      Var(typ) => typ.val = Some(synthed)
+      _ => ()
+    }
+  }
+  self.add(name, typ)
+}
+
+fn Gamma::inherit_let_rec(self : Gamma, def : @types.Fundef) -> Unit!TypeError {
+  if is_having_type(def.name.1) {
+    // Annotated with type, check it
+    match def.name.1 {
+      Fun(t_args, t_ret) => {
+        self.add(def.name.0, def.name.1)
+        let new_env = self.fork()
+        // Check args
+        if def.args.length() == t_args.length() {
+          let n = def.args.length()
+          for i = 0; i < n; i = i + 1 {
+            let arg = def.args[i]
+            let typ = t_args[i]
+            if arg.1 != typ {
+              raise TypeError(
+                "Type mismatch: different arg type \{arg.1}, expected \{typ}",
+              )
+            } else {
+              new_env.add(arg.0, arg.1)
+            }
+          }
+        } else {
+          raise TypeError(
+            "Type mismatch: args length \{def.args}, expected \{t_args}",
+          )
+        }
+        // Check ret
+        new_env.inherit!(def.body, t_ret)
+      }
+      _ =>
+        raise TypeError(
+          "Type mismatch: should be function \{def} : \{def.name.1}",
+        )
+    }
+  } else {
+    match def.name.1 {
+      Var(vt) =>
+        vt.val = Some(
+          Fun(def.args.map(fn { (_, t) => t }), Type::Var(Ref::new(None))),
+        )
+      _ => @util.die("unreachable")
+    }
+    self.add(def.name.0, def.name.1)
+    let new_env = self.fork()
+    def.args.each(fn { (name, typ) => new_env.add(name, typ) })
+    let synthed = new_env.synthesis!(def.body)
+    new_env.inherit!(def.body, synthed)
+  }
+}
+
+fn Gamma::inherit_let_tuple(
+  self : Gamma,
+  els : Array[(String, Type)],
+  expr : @types.Syntax
+) -> Unit!TypeError {
+  let synthed_tuple = self.synthesis!(expr)
+  match synthed_tuple {
+    Tuple(synthed_els) | Var({ val: Some(Tuple(synthed_els)) }) =>
+      if els.length() == synthed_els.length() {
+        for i = 0; i < els.length(); i = i + 1 {
+          let unified = unify!(els[i].1, synthed_els[i])
+          self.add(els[i].0, unified)
+        }
+      } else {
+        raise TypeError("Type mismatch: different tuple length")
+      }
+    _ => raise TypeError("Type mismatch: should be Tuple")
   }
 }
 
