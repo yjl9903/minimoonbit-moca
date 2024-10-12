@@ -59,10 +59,8 @@ test {
   )
 }
 
-
 test {
   let parser : Parser[Syntax] = Parser(get_or_apply_level_expr)
-  
   let input : String = "f(g(456))(789)"
   let context = @lex.Context::new(input)
   let ok = @lex.lex(context)
