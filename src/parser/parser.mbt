@@ -122,18 +122,13 @@ fn top_fn_decl(tokens : ArrayView[Token]) -> (@types.Fundef, ArrayView[Token])? 
   .map(
     fn {
       (((((((_, id), _), args), _), _), ty), body) => {
+        let args = match args {
+          Some(val) => val
+          None => []
+        }
         let func : @types.Fundef = {
-          name: (
-            id,
-            match ty {
-              Type::Fun(a, b) => Type::Fun(a, b)
-              c => Type::Fun([], c)
-            },
-          ),
-          args: match args {
-            Some(val) => val
-            None => []
-          },
+          name: (id, Type::Fun(args.map(fn { a => a.1 }), ty)),
+          args,
           body,
         }
         debug("top_fn_decl: -> \{func}\n")
@@ -779,22 +774,19 @@ fn nontop_fn_decl(
   .map(
     fn {
       ((((((_, id), _), args), _), ty), body) => {
+        let args = match args {
+          Some(val) => val
+          None => []
+        }
         let func : @types.Fundef = {
           name: (
             id,
             match ty {
               None => Type::Var({ val: None })
-              Some(val) =>
-                match val.1 {
-                  Type::Fun(a, b) => Type::Fun(a, b)
-                  ty => Type::Fun([], ty)
-                }
+              Some(val) => Type::Fun(args.map(fn { a => a.1 }), val.1)
             },
           ),
-          args: match args {
-            Some(val) => val
-            None => []
-          },
+          args,
           body,
         }
         debug("nontop_fn_decl: -> \{func}\n")
