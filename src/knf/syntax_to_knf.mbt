@@ -121,17 +121,17 @@ fn KnfEnv::visit_global_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
     }
   }
 
-  self.bind_global_const(visitor(syntax))
+  self.bind_global_const(fn() { visitor(syntax) })
 }
 
 /// Bind const: %const_1
-fn KnfEnv::bind_global_const(self : KnfEnv, rest : Knf) -> Knf {
+fn KnfEnv::bind_global_const(self : KnfEnv, rest : () -> Knf) -> Knf {
   let ty = Type::Int
   let const0 = self.new_let_binding(@shared.zero_binding_name, ty)
   let expr0 = Knf::Int(0)
   let const1 = self.new_let_binding(@shared.one_binding_name, ty)
   let expr1 = Knf::Int(1)
-  Knf::Let((const0, ty), expr0, Knf::Let((const1, ty), expr1, rest))
+  Knf::Let((const0, ty), expr0, Knf::Let((const1, ty), expr1, rest()))
 }
 
 fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
