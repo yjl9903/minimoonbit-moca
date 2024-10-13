@@ -11,9 +11,9 @@ pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
   let env = { counter: 1, env: @hashmap.new(), types: Array::new(), externals }
   externals.each(
     fn {
-      name, typ => {
-        let _ = env.new_let_binding(name, typ)
-        ()
+      name, _ => {
+        let binding = Name::name_only("minimbt_" + name)
+        env.env.set(name, binding)
       }
     },
   )
@@ -83,7 +83,11 @@ fn KnfEnv::find_binding_by_string(self : KnfEnv, name : String) -> Name? {
 }
 
 fn KnfEnv::find_type_by_name(self : KnfEnv, name : Name) -> Type? {
-  self.types.get(name.slot - 1)
+  if name.slot == 0 {
+    None
+  } else {
+    self.types.get(name.slot - 1)
+  }
 }
 
 pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
