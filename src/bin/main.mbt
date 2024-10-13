@@ -67,7 +67,7 @@ fn CompileStatus::initialize(
   match start_stage {
     Parse => v.source_code = Some(file)
     Typecheck => v.ast = Some(@types.Syntax::from_json!(@json.parse!(file)))
-    Knf => v.typechecked = Some(@types.Syntax::from_json!(@json.parse!(file)))
+    Knf => v.ast = Some(@types.Syntax::from_json!(@json.parse!(file)))
     KnfOpt => {
       v.knf = Some(@knf.Knf::from_json!(@json.parse!(file)))
       v.knf_env.init_counter_from_existing(v.knf.unwrap())
@@ -97,7 +97,11 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       self.typechecked = Some(typechecked)
     }
     Knf => {
-      let knf = self.knf_env.to_knf(self.typechecked.unwrap())
+      let typechecked = match self.typechecked {
+        Some(typechecked) => typechecked
+        None => @typing.type_check(self.ast.unwrap(), externals())
+      }
+      let knf = self.knf_env.to_knf(typechecked)
       self.knf = Some(knf)
     }
     KnfOpt => {
