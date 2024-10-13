@@ -1,0 +1,109 @@
+[
+  "LetRec",
+  {
+    "name": [
+      "make_adder",
+      [
+        "Fun",
+        [
+          "Int"
+        ],
+        [
+          "Fun",
+          [
+            "Int"
+          ],
+          "Int"
+        ]
+      ]
+    ],
+    "args": [
+      [
+        "x",
+        "Int"
+      ]
+    ],
+    "body": [
+      "LetRec",
+      {
+        "name": [
+          "adder",
+          [
+            "Fun",
+            [
+              "Int"
+            ],
+            "Int"
+          ]
+        ],
+        "args": [
+          [
+            "y",
+            "Int"
+          ]
+        ],
+        "body": [
+          "Add",
+          [
+            "Var",
+            "x"
+          ],
+          [
+            "Var",
+            "y"
+          ]
+        ]
+      },
+      [
+        "Var",
+        "adder"
+      ]
+    ]
+  },
+  [
+    "LetRec",
+    {
+      "name": [
+        "main",
+        [
+          "Fun",
+          [],
+          "Unit"
+        ]
+      ],
+      "args": [],
+      "body": [
+        "App",
+        [
+          "Var",
+          "print_int"
+        ],
+        [
+          [
+            "App",
+            [
+              "App",
+              [
+                "Var",
+                "make_adder"
+              ],
+              [
+                [
+                  "Int",
+                  3
+                ]
+              ]
+            ],
+            [
+              [
+                "Int",
+                7
+              ]
+            ]
+          ]
+        ]
+      ]
+    },
+    "Unit"
+  ]
+]
