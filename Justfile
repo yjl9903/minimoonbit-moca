@@ -21,3 +21,6 @@ test-typing:
 
 test-knf:
   moon run src/bin --debug -- --end-stage knf ./test/test_src/adder.mbt
+
+submit:
+  git archive -o submit.zip HEAD
