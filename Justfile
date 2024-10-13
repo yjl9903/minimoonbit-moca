@@ -20,7 +20,7 @@ test-typing:
   # moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_untyped_unification_fail.mbt
 
 test-knf:
-  moon run src/bin --debug -- --end-stage knf ./test/test_src/adder.mbt
+  moon run src/bin --debug -- --knf-interpreter ./test/test_src/adder.mbt
 
 submit:
   git archive -o submit.zip HEAD
