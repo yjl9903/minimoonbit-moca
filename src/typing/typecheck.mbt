@@ -234,7 +234,7 @@ fn Gamma::inherit_let_rec(self : Gamma, def : @types.Fundef) -> Unit!TypeError {
           }
         } else {
           raise TypeError(
-            "Type mismatch: args length \{def.args}, expected \{t_args}",
+            "Type mismatch: different args length \{t_args}, expected \{def.args}",
           )
         }
         if is_having_type(t_ret) {
