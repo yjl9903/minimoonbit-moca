@@ -4,6 +4,8 @@ pub typealias Name = @types.Name
 
 pub typealias Type = @types.Type
 
+pub typealias Knf = @knf.Knf
+
 pub enum Expr {
   Unit
   Int(Int)
