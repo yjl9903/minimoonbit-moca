@@ -757,6 +757,7 @@ fn value_expr(state : State) -> Syntax!ParseError {
 pub fn parse_minimoonbit(source_code : String) -> Syntax {
   let input : String = source_code
   let context = @lex.Context::new(input)
+  println(source_code)
   let ok = @lex.lex(context)
   let state = State::new(context.tokens)
   let mut result : Syntax = Syntax::Unit
