@@ -47,13 +47,9 @@ fn KnfEnv::new_temp(self : KnfEnv, typ : Type) -> Name {
   temp
 }
 
-fn KnfEnv::new_named_temp(self : KnfEnv, name : Name, typ : Type) -> Name {
+fn KnfEnv::new_named_temp(self : KnfEnv, name : String, typ : Type) -> Name {
   let counter = self.counter
-  let binding = { ..name, slot: counter }
-  match binding.name {
-    Some(name) => self.env.set(name, binding)
-    _ => ()
-  }
+  let name = Name::{ name: Some(name), slot: counter }
   self.types.push(typ)
   self.counter += 1
   name
@@ -95,6 +91,7 @@ pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
 }
 
 fn KnfEnv::visit_global_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  let inits : Array[FuncDef] = []
   fn visitor(syntax : @types.Syntax) {
     match syntax {
       Unit => Knf::Unit
@@ -106,11 +103,31 @@ fn KnfEnv::visit_global_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       LetRec(def, rest) =>
         match def.name.0 {
           "init" => {
-            let body = self.visit_stmt(def.body)
+            let funcdef = self.visit_top_level_let_rec(def)
+            inits.push(funcdef)
             let rest = visitor(rest)
-            concat_knf(body, rest)
+            Knf::LetRec(funcdef, rest)
           }
-          "main" => self.visit_stmt(def.body)
+          "main" => {
+            let funcdef = self.visit_top_level_let_rec(def)
+            inits.push(funcdef)
+            Knf::LetRec(
+              funcdef,
+              inits.rev_fold(
+                fn {
+                  rest, funcdef => {
+                    let temp = self.new_temp(Type::Unit)
+                    Knf::Let(
+                      (temp, Type::Unit),
+                      Knf::Apply(funcdef.name, []),
+                      rest,
+                    )
+                  }
+                },
+                init=Knf::Unit,
+              ),
+            )
+          }
           _ => {
             let funcdef = self.visit_let_rec(def)
             let rest = visitor(rest)
@@ -132,6 +149,19 @@ fn KnfEnv::bind_global_const(self : KnfEnv, rest : () -> Knf) -> Knf {
   let const1 = self.new_let_binding(@shared.one_binding_name, ty)
   let expr1 = Knf::Int(1)
   Knf::Let((const0, ty), expr0, Knf::Let((const1, ty), expr1, rest()))
+}
+
+fn KnfEnv::visit_top_level_let_rec(
+  self : KnfEnv,
+  def : @types.Fundef
+) -> FuncDef {
+  let new_env = self.fork()
+  let args = def.args.map(
+    fn { (name, typ) => (new_env.new_let_binding(name, typ), typ) },
+  )
+  let body = new_env.visit_stmt(def.body)
+  let name = self.new_named_temp(def.name.0, def.name.1)
+  { name, ty: def.name.1, args, body }
 }
 
 fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
