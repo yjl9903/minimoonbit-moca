@@ -78,7 +78,7 @@ test {
   inspect!(
     parse_minimoonbit_file!("test/test_src/float.mbt"),
     content=
-      #|LetRec({name: ("main", Fun([], Unit)), args: [], body: App(Var("print_int"), [App(Var("int_of_float"), [Prim(Prim(App(Var("sin"), [App(Var("cos"), [App(Var("sqrt"), [App(Var("abs_float"), [Neg(Double(12.3), kind=None)])])])]), Prim(Double(4.5), Prim(Double(6.7), Prim(Double(8.9), Double(1.23456789), Div, kind=None), Mul, kind=None), Sub, kind=None), Add, kind=None), Int(1000000), Mul, kind=None)])])}, Unit)
+      #|LetRec({name: ("main", Fun([], Unit)), args: [], body: App(Var("print_int"), [App(Var("int_of_float"), [Prim(Prim(App(Var("sin"), [App(Var("cos"), [App(Var("sqrt"), [App(Var("abs_float"), [Neg(Double(12.3), kind=None)])])])]), Prim(Double(4.5), Prim(Double(6.7), Prim(Double(8.9), Double(1.23456789), Div, kind=None), Mul, kind=None), Sub, kind=None), Add, kind=None), App(Var("float_of_int"), [Int(1000000)]), Mul, kind=None)])])}, Unit)
     ,
   )
 }
