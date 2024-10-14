@@ -1,5 +1,7 @@
 pub type Label String derive(Show)
 
+pub typealias LocalEnv = @immut/hashmap.T[Name, LowType]
+
 pub typealias Name = @types.Name
 
 pub typealias Type = @types.Type

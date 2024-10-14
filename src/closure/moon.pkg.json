@@ -5,6 +5,7 @@
       "alias": "types"
     },
     "moonbitlang/minimbt/knf",
-    "moonbitlang/minimbt/util"
+    "moonbitlang/minimbt/util",
+    "moonbitlang/minimbt/shared"
   ]
 }
