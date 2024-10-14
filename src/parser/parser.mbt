@@ -73,9 +73,12 @@ fn top_level(state : State) -> Syntax!ParseError {
 
 fn top_let_decl(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::LET)
+  let id = state.peek!().raw
+  debug("ID: \{id}")
   state.accept!(TokenKind::IDENTIFIER)
-  let id = state.input[state.cursor - 1].raw
+  state.accept!(TokenKind::COLON)
   let value_ty = state.parse!(value_type)
+  debug("\{id} : \{value_ty}")
   state.accept!(TokenKind::ASSIGN)
   let exp = state.parse!(expr)
   state.accept!(TokenKind::SEMICOLON)
@@ -755,7 +758,7 @@ pub fn parse_minimoonbit(source_code : String) -> Syntax {
   let input : String = source_code
   let context = @lex.Context::new(input)
   let ok = @lex.lex(context)
-  let state = State::new([])
+  let state = State::new(context.tokens)
   let mut result : Syntax = Syntax::Unit
   if ok == 1 {
     @util.die("Lexer Failed")

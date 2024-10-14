@@ -102,6 +102,19 @@ test {
 }
 
 test {
+  inspect!(parse_minimoonbit_file!("test/test_typing/global_let.mbt"))
+}
+
+test {
+  inspect!(
+    parse_minimoonbit_file!("test/test_typing/arith.mbt"),
+    content=
+      #|LetRec({name: ("main", Fun([], Unit)), args: [], body: Let(("a", Var({val: None})), Prim(Int(1), Prim(Int(2), Prim(Prim(Int(3), Prim(Int(4), Int(6), Div, kind=None), Mul, kind=None), Prim(Int(7), Prim(Prim(Int(8), Int(9), Mul, kind=None), Int(11), Sub, kind=None), Mul, kind=None), Add, kind=None), Sub, kind=None), Add, kind=None), Let(("b", Var({val: None})), Prim(Neg(Var("a"), kind=None), Int(55), Add, kind=None), App(Var("print_int"), [Var("b")])))}, Unit)
+    ,
+  )
+}
+
+test {
   let input : String = "print_int((g(456))(789))"
   let context = @lex.Context::new(input)
   let ok = @lex.lex(context)
