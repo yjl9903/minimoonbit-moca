@@ -102,7 +102,8 @@ test {
 }
 
 test {
-  inspect!(parse_minimoonbit_file!("test/test_typing/global_let.mbt"))
+  inspect!(parse_minimoonbit_file!("test/test_typing/global_let.mbt"), content=#|Let(("a", Int), Int(100), LetRec({name: ("main", Fun([], Unit)), args: [], body: Let(("x", Var({val: None})), Int(1), Let(("y", Var({val: None})), Int(2), Let(("z", Var({val: None})), Prim(Var("x"), Prim(Var("y"), Var("a"), Add, kind=None), Add, kind=None), App(Var("print_int"), [Var("z")]))))}, Unit))
+  )
 }
 
 test {
@@ -111,6 +112,20 @@ test {
     content=
       #|LetRec({name: ("main", Fun([], Unit)), args: [], body: Let(("a", Var({val: None})), Prim(Int(1), Prim(Int(2), Prim(Prim(Int(3), Prim(Int(4), Int(6), Div, kind=None), Mul, kind=None), Prim(Int(7), Prim(Prim(Int(8), Int(9), Mul, kind=None), Int(11), Sub, kind=None), Mul, kind=None), Add, kind=None), Sub, kind=None), Add, kind=None), Let(("b", Var({val: None})), Prim(Neg(Var("a"), kind=None), Int(55), Add, kind=None), App(Var("print_int"), [Var("b")])))}, Unit)
     ,
+  )
+}
+
+test{
+  inspect!(
+    parse_minimoonbit_file!("test/test_typing/ident.mbt")
+  , content=#|LetRec({name: ("main", Fun([], Unit)), args: [], body: Let(("a", Var({val: None})), Int(0), Let(("bcdef", Var({val: None})), Int(100), Let(("c_d_e_f", Var({val: None})), Int(200), Let(("Aaaaaaaaaaaaaaaaaaaaaaaaaaaaarghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh", Var({val: None})), Int(114514), Unit))))}, Unit)
+  )
+}
+
+test{
+  inspect!(
+    parse_minimoonbit_file!("test/test_typing/very_deep.mbt")
+  , content=#|LetRec({name: ("main", Fun([], Unit)), args: [], body: LetRec({name: ("foo", Var({val: None})), args: [], body: LetRec({name: ("bar", Var({val: None})), args: [], body: LetRec({name: ("baz", Var({val: None})), args: [], body: LetRec({name: ("level1", Var({val: None})), args: [], body: LetRec({name: ("level2", Var({val: None})), args: [], body: LetRec({name: ("level3", Var({val: None})), args: [], body: LetRec({name: ("level4", Var({val: None})), args: [], body: LetRec({name: ("level5", Var({val: None})), args: [], body: LetRec({name: ("level6", Var({val: None})), args: [], body: LetRec({name: ("level7", Var({val: None})), args: [], body: LetRec({name: ("level8", Var({val: None})), args: [], body: LetRec({name: ("level9", Var({val: None})), args: [], body: LetRec({name: ("level10", Var({val: None})), args: [], body: LetRec({name: ("level11", Var({val: None})), args: [], body: LetRec({name: ("level12", Var({val: None})), args: [], body: LetRec({name: ("level13", Var({val: None})), args: [], body: LetRec({name: ("level14", Var({val: None})), args: [], body: LetRec({name: ("level15", Var({val: None})), args: [], body: LetRec({name: ("level16", Var({val: None})), args: [], body: LetRec({name: ("level17", Var({val: None})), args: [], body: LetRec({name: ("level18", Var({val: None})), args: [], body: LetRec({name: ("level19", Var({val: None})), args: [], body: LetRec({name: ("level20", Var({val: None})), args: [], body: Unit}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)}, Unit)
   )
 }
 
