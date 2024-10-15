@@ -68,10 +68,7 @@ fn KnfEnv::enter_scope(self : KnfEnv, def : MutFuncDef) -> Unit {
 }
 
 fn KnfEnv::get_scope_path_name(self : KnfEnv, def : @knf.FuncDef) -> String {
-  let scope = String::concat(
-    self.scope_path.map(fn { d => d.name }),
-    separator="/",
-  )
+  let scope = self.scope_path.map(fn { d => d.name }).join("/")
   scope + "/" + def.name.name.or("$")
 }
 
