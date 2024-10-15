@@ -2,31 +2,40 @@
 /// 1. De-apply
 /// 2. Collect free vars
 
+/// Mutable func def
 struct MutFuncDef {
   name : String
-  def : @knf.FuncDef
   slot : Int
+  mut def : @knf.FuncDef
 
   /// It must be closure
-  force_closure : Bool
+  mut force_closure : Bool
   /// Collected free variables
-  free_vars : @immut/hashset.T[Name]
+  mut free_vars : @immut/hashset.T[Name]
 }
 
-fn MutFuncDef::new(
-  world : KnfWorld,
-  def : @knf.FuncDef,
-  free_vars : @immut/hashset.T[Name]
-) -> MutFuncDef {
+fn MutFuncDef::new(world : KnfWorld, def : @knf.FuncDef) -> MutFuncDef {
   let slot = world.func_defs.length()
   let scope = String::concat(
     world.scope_path.map(fn { d => d.name }),
     separator="/",
   )
   let name = scope + "/" + def.name.name.or("$")
-  let mutdef = { name, def, slot, force_closure: false, free_vars }
+  let mutdef = {
+    name,
+    def,
+    slot,
+    force_closure: false,
+    free_vars: @immut/hashset.new(),
+  }
   world.func_defs.push(mutdef)
   mutdef
+}
+
+fn MutFuncDef::update_body(self : MutFuncDef, body : Knf) -> @knf.FuncDef {
+  let def = { ..self.def, body, }
+  self.def = def
+  def
 }
 
 fn MutFuncDef::to_string(self : MutFuncDef) -> String {
@@ -36,6 +45,15 @@ fn MutFuncDef::to_string(self : MutFuncDef) -> String {
 struct KnfWorld {
   func_defs : Array[MutFuncDef]
   scope_path : Array[MutFuncDef]
+}
+
+fn KnfWorld::enter_scope(self : KnfWorld, def : MutFuncDef) -> Unit {
+  self.scope_path.push(def)
+}
+
+fn KnfWorld::exit_scope(self : KnfWorld) -> Unit {
+  let _ = self.scope_path.pop()
+  ()
 }
 
 struct KnfEnv {
@@ -69,10 +87,13 @@ fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
   {
     world: self.world,
     global: self.global,
-    // func_defs: self.func_defs,
     free_vars: @immut/hashset.new(),
     local: @hashset.new(),
   }
+}
+
+fn KnfEnv::add_local_var(self : KnfEnv, name : Name) -> Unit {
+  self.local.insert(name)
 }
 
 fn KnfEnv::collect_free_var(self : KnfEnv, name : Name) -> Unit {
@@ -86,6 +107,10 @@ fn KnfEnv::collect_free_var(self : KnfEnv, name : Name) -> Unit {
   }
 }
 
+fn KnfEnv::collect_free_vars(self : KnfEnv, names : Iter[Name]) -> Unit {
+  names.each(fn { name => self.collect_free_var(name) })
+}
+
 /// -------------
 fn knf_preprocess(knf : Knf, externals : Map[String, Type]) -> (Knf, KnfEnv) {
   let env = KnfEnv::new(externals)
@@ -93,12 +118,7 @@ fn knf_preprocess(knf : Knf, externals : Map[String, Type]) -> (Knf, KnfEnv) {
   (knf, env)
 }
 
-fn KnfEnv::visit_stmt(
-  self : KnfEnv,
-  knf : Knf,
-  // Used for apply
-  ~applier : ((Name) -> Knf)? = None
-) -> Knf {
+fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
   match knf {
     // Literal
     Unit | Int(_) | Double(_) => knf
@@ -117,34 +137,35 @@ fn KnfEnv::visit_stmt(
       self.collect_free_var(rhs)
       knf
     }
-    Apply(_) => abort("todo")
+    Apply(sig, args) => {
+      self.collect_free_var(sig)
+      self.collect_free_vars(args.iter())
+      knf
+    }
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch) => {
       self.collect_free_var(lhs)
       self.collect_free_var(rhs)
-      let true_branch = self.visit_stmt(true_branch, ~applier)
-      let false_branch = self.visit_stmt(false_branch, ~applier)
+      let true_branch = self.visit_stmt(true_branch)
+      let false_branch = self.visit_stmt(false_branch)
       IfEq(lhs, rhs, true_branch, false_branch)
     }
     IfLe(lhs, rhs, true_branch, false_branch) => {
       self.collect_free_var(lhs)
       self.collect_free_var(rhs)
-      let true_branch = self.visit_stmt(true_branch, ~applier)
-      let false_branch = self.visit_stmt(false_branch, ~applier)
+      let true_branch = self.visit_stmt(true_branch)
+      let false_branch = self.visit_stmt(false_branch)
       IfLe(lhs, rhs, true_branch, false_branch)
     }
 
     // Binding
     Var(name) => {
       self.collect_free_var(name)
-      match applier {
-        Some(applier) => applier(name)
-        None => knf
-      }
+      knf
     }
     Tuple(els) => {
-      els.each(fn { el => self.collect_free_var(el) })
+      self.collect_free_vars(els.iter())
       knf
     }
 
@@ -162,9 +183,35 @@ fn KnfEnv::visit_stmt(
     }
 
     // Let
-    Let((name, _), expr, rest) => abort("todo")
-    LetTuple(els, expr, rest) => abort("todo")
-    LetRec(def, rest) => abort("todo")
+    Let((name, typ), expr, rest) => {
+      let expr = self.visit_stmt(expr)
+      self.add_local_var(name)
+      Let((name, typ), expr, self.visit_stmt(rest))
+    }
+    LetTuple(els, expr, rest) => {
+      self.collect_free_var(expr)
+      self.collect_free_vars(els.map(fn { el => el.0 }).iter())
+      LetTuple(els, expr, self.visit_stmt(rest))
+    }
+    LetRec(def, rest) => {
+      // Add func def to local env
+      self.add_local_var(def.name)
+      // Create mutable func def to maintain some extra information
+      let mutdef = MutFuncDef::new(self.world, def)
+      // 1. Fork new env for function body
+      let new_env = self.fork()
+      new_env.world.enter_scope(mutdef)
+      // 2. Add params to local env
+      def.args.each(fn { (name, _) => new_env.add_local_var(name) })
+      // 3. Visit the function body, and update the current def
+      let updated_def = mutdef.update_body(self.visit_stmt(def.body))
+      // 4. Record function free variables, and nest free variables
+      mutdef.free_vars = new_env.free_vars
+      self.collect_free_vars(new_env.free_vars.iter())
+      // 5. Back to the prev env
+      new_env.world.exit_scope()
+      LetRec(updated_def, self.visit_stmt(rest))
+    }
 
     // Unused
     ExternalArray(_) | ExternalFunctionApplication(_) =>
