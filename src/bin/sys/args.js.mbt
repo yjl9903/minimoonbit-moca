@@ -4,3 +4,7 @@ pub fn get_args() -> Array[String] {
   // return ["-h"]
   return ["--knf-interpreter", "./test/test_knf/cls-reg-bug.mbt"]
 }
+
+pub fn is_debug() -> Bool {
+  true
+}
