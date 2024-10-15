@@ -54,7 +54,22 @@ pub fn knf_program_to_closure(
   knf : Knf,
   externals : Map[String, Type]
 ) -> Program {
-  let (knf, _) = knf_preprocess(knf, externals)
+  let (knf, env) = knf_preprocess(knf, externals)
+  @shared.debug(
+    String::concat(
+      env.world.func_defs.mapi(
+        fn {
+          i, d =>
+            i.to_string() +
+            ". " +
+            d.to_string() +
+            ": " +
+            d.free_vars.to_string()
+        },
+      ),
+      separator="\n",
+    ),
+  )
   let context = Context::new(externals)
   context.visit_global_defs(knf)
 }
