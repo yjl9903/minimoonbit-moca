@@ -58,7 +58,9 @@ jobs:
           moonrun --version
 
       - name: moon update
-        run: moon update
+        run: |
+          moon update
+          moon install
 
       - name: format diff
         run: |
