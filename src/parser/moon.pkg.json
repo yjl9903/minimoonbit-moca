@@ -2,6 +2,7 @@
     "import": [
         "moonbitlang/minimbt/lex",
         "moonbitlang/minimbt/util",
+        "moonbitlang/minimbt/shared",
         "moonbitlang/x/fs",
         {
             "path": "moonbitlang/minimbt",
