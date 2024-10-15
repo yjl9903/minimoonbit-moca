@@ -28,15 +28,31 @@ fn Stages::next(self : Stages) -> Stages {
     Stages::Typecheck => Stages::Knf
     Stages::Knf => Stages::KnfOpt
     Stages::KnfOpt => Stages::Closure
-    Stages::Closure => @util.die("TODO")
+    Stages::Closure => Stages::Asm
     Stages::Asm => Stages::Finished
     Stages::Finished => Stages::Finished
+  }
+}
+
+/// Support backends
+enum Backends {
+  RSICV
+  JS
+  WASM
+} derive(Show, Eq, Compare)
+
+fn Backends::from_string(s : String) -> Backends {
+  match s {
+    "js" => JS
+    "wasm" => WASM
+    _ => RSICV
   }
 }
 
 struct CompileStatus {
   mut curr_stage : Stages
   end_stage : Stages
+  mut backend : Backends
   mut source_code : String?
   mut ast : @types.Syntax?
   mut typechecked : @types.Syntax?
@@ -55,6 +71,7 @@ fn CompileStatus::initialize(
   let v = CompileStatus::{
     curr_stage: start_stage,
     end_stage,
+    backend: RSICV,
     source_code: None,
     ast: None,
     typechecked: None,
@@ -116,10 +133,15 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       )
       self.closure_ir = Some(closure_ir)
     }
-    Asm => {
-      let real_asm = @riscv.emit(@util.die("TODO"))
-      self.asm = Some(real_asm)
-    }
+    Asm =>
+      match self.backend {
+        RSICV => {
+          let real_asm = @riscv.emit(@util.die("TODO"))
+          self.asm = Some(real_asm)
+        }
+        JS => @util.die("TODO: JS backend")
+        WASM => @util.die("TODO: WASM backend")
+      }
     Finished => ()
   }
   self.curr_stage = self.curr_stage.next()
@@ -162,6 +184,8 @@ fn main {
   let end_stage = Ref::new(Stages::Finished)
   let knf_interpreter = Ref::new(false)
   let closure_interpreter = Ref::new(false)
+  let js_backend = Ref::new(false)
+  let wasm_backend = Ref::new(false)
   let out_file = Ref::new("-")
   let print = Ref::new([])
 
@@ -229,7 +253,7 @@ fn main {
             let i = @strconv.parse_int?(s)
             match i {
               Ok(i) => knf_opt_iters.val = i
-              Err(e) => @util.die("Invalid number")
+              Err(_) => @util.die("Invalid number")
             }
           },
         ),
@@ -243,12 +267,14 @@ fn main {
             let i = @strconv.parse_int?(s)
             match i {
               Ok(i) => knf_opt_inline_threshold.val = i
-              Err(e) => @util.die("Invalid number")
+              Err(_) => @util.die("Invalid number")
             }
           },
         ),
         "Inline threshold for KNF optimization",
       ),
+      ("--js", "", @ArgParser.Set(js_backend), "Target JS backend"),
+      ("--wasm", "", @ArgParser.Set(wasm_backend), "Target WASM backend"),
     ],
     fn(s) {
       if file.is_empty().not() {
@@ -287,7 +313,14 @@ fn main {
   // Compilation
   let status = match
     CompileStatus::initialize?(start_stage.val, end_stage.val.next(), contents) {
-    Ok(status) => status
+    Ok(status) => {
+      if js_backend.val {
+        status.backend = JS
+      } else if wasm_backend.val {
+        status.backend = WASM
+      }
+      status
+    }
     Err(e) => {
       println(e)
       @util.die("Initialization error")

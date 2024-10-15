@@ -177,5 +177,8 @@ test-closure:
   diff -Z test/test_src/spill3.ans temp/spill3.out
 
 
+test-closure:
+  moon run src/bin --debug -- --end-stage closure ./test/test_src/adder.mbt
+
 submit:
   git archive -o submit.zip HEAD
