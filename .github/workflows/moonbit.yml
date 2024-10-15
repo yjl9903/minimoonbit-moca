@@ -9,8 +9,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - uses: extractions/setup-just@v1
 
       - name: install
         run: |
@@ -29,7 +32,33 @@ jobs:
         run: moon check
 
       - run: moon test --target all
+
       - run: moon test --release --target all
+
+      - run: |
+          just test-parse
+          just test-typecheck
+          just test-knf
+          just test-closure
+
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s minimoonbit
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: moon version
+        run: |
+          moon version --all
+          moonrun --version
+
+      - name: moon update
+        run: moon update
 
       - name: format diff
         run: |
