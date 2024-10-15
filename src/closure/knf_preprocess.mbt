@@ -43,6 +43,7 @@ fn MutFuncDef::to_string(self : MutFuncDef) -> String {
 }
 
 struct KnfWorld {
+  externals : @immut/hashset.T[Name]
   func_defs : Array[MutFuncDef]
   scope_path : Array[MutFuncDef]
 }
@@ -74,7 +75,7 @@ fn KnfEnv::new(externals : Map[String, Type]) -> KnfEnv {
     },
   )
   {
-    world: KnfWorld::{ func_defs: [], scope_path: [] },
+    world: KnfWorld::{ externals: global, func_defs: [], scope_path: [] },
     global,
     free_vars: @immut/hashset.new(),
     local: @hashset.new(),
@@ -86,7 +87,7 @@ fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
   self.local.each(fn { name => global = global.add(name) })
   {
     world: self.world,
-    global: self.global,
+    global,
     free_vars: @immut/hashset.new(),
     local: @hashset.new(),
   }
@@ -101,7 +102,10 @@ fn KnfEnv::collect_free_var(self : KnfEnv, name : Name) -> Unit {
     true => ()
     false =>
       match self.global.contains(name) {
-        true => self.free_vars = self.free_vars.add(name)
+        true =>
+          if not(self.world.externals.contains(name)) {
+            self.free_vars = self.free_vars.add(name)
+          }
         false => @util.die("Unknown identifier name \{name}")
       }
   }
@@ -190,7 +194,7 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
     }
     LetTuple(els, expr, rest) => {
       self.collect_free_var(expr)
-      self.collect_free_vars(els.map(fn { el => el.0 }).iter())
+      els.each(fn { el => self.add_local_var(el.0) })
       LetTuple(els, expr, self.visit_stmt(rest))
     }
     LetRec(def, rest) => {
@@ -204,7 +208,7 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       // 2. Add params to local env
       def.args.each(fn { (name, _) => new_env.add_local_var(name) })
       // 3. Visit the function body, and update the current def
-      let updated_def = mutdef.update_body(self.visit_stmt(def.body))
+      let updated_def = mutdef.update_body(new_env.visit_stmt(def.body))
       // 4. Record function free variables, and nest free variables
       mutdef.free_vars = new_env.free_vars
       self.collect_free_vars(new_env.free_vars.iter())
