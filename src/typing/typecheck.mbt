@@ -166,7 +166,10 @@ fn Gamma::inherit(
           let _ = self.synthesis!(syntax)
           ()
         }
-        _ => raise TypeError("Type mismatch: should be Unit, find \{expected}, \{syntax}")
+        _ =>
+          raise TypeError(
+            "Type mismatch: should be Unit, find \{expected}, \{syntax}",
+          )
       }
 
     // Let
