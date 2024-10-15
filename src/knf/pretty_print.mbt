@@ -83,7 +83,7 @@ fn PrettyKnf::print_one_level(
       self.print_one_level(logger, e)
     }
     LetRec(fundef, e) => {
-      let { name, ty, args, body } = fundef
+      let { id: _, name, ty, args, body } = fundef
       logger.write_string("let rec \{name}: \{ty} = (")
       let mut first = true
       for arg in args {
