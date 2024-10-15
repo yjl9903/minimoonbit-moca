@@ -30,9 +30,18 @@ pub enum Knf {
   ExternalFunctionApplication(String, Array[Name])
 } derive(Show, Eq)
 
+let func_def_id : Ref[Int] = Ref::new(0)
+
 pub struct FuncDef {
+  id : Int
   name : Name
   ty : Type
   args : Array[(Name, Type)]
   body : Knf
 } derive(Show, Eq)
+
+fn generate_func_id() -> Int {
+  let id = func_def_id.val
+  func_def_id.val = func_def_id.val + 1
+  id
+}
