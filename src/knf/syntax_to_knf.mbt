@@ -161,7 +161,7 @@ fn KnfEnv::visit_top_level_let_rec(
   )
   let body = new_env.visit_stmt(def.body)
   let name = self.new_named_temp(def.name.0, def.name.1)
-  { name, ty: def.name.1, args, body }
+  { id: generate_func_id(), name, ty: def.name.1, args, body }
 }
 
 fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
@@ -171,7 +171,7 @@ fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
     fn { (name, typ) => (new_env.new_let_binding(name, typ), typ) },
   )
   let body = new_env.visit_stmt(def.body)
-  { name, ty: def.name.1, args, body }
+  { id: generate_func_id(), name, ty: def.name.1, args, body }
 }
 
 fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> Knf {

@@ -128,6 +128,7 @@ pub fn FuncDef::from_json(json : Json) -> FuncDef! {
         }
       }
       {
+        id: generate_func_id(),
         name: Name::from_json!(n),
         ty: Type::from_json!(t),
         args: rargs,
