@@ -22,8 +22,8 @@ pub enum TokenKind {
   ELSE
   FN
   LET
-  NUMBER(Int)
-  IDENTIFIER(String)
+  NUMBER
+  IDENTIFIER
   DOT
   ADD
   SUB
@@ -77,11 +77,7 @@ fn Context::lex_number_rest(context : Context, number : String) -> UInt {
   let { offset, str, tokens, row, col } = context
   if offset >= str.length() {
     tokens.push(
-      {
-        kind: NUMBER(@strconv.parse_int?(number).unwrap()),
-        raw: number,
-        pos: { row, col: col - number.length() },
-      },
+      { kind: NUMBER, raw: number, pos: { row, col: col - number.length() } },
     )
     return 0
   }
@@ -92,11 +88,7 @@ fn Context::lex_number_rest(context : Context, number : String) -> UInt {
     lex_number_rest(context, number + ch.to_string())
   } else {
     tokens.push(
-      {
-        kind: NUMBER(@strconv.parse_int?(number).unwrap()),
-        raw: number,
-        pos: { row, col: col - number.length() },
-      },
+      { kind: NUMBER, raw: number, pos: { row, col: col - number.length() } },
     )
     lex(context)
   }
@@ -147,7 +139,7 @@ fn Context::get_token(text : String) -> TokenKind {
     "else" => ELSE
     "fn" => FN
     "let" => LET
-    _ => IDENTIFIER(text)
+    _ => IDENTIFIER
   }
 }
 
