@@ -109,6 +109,10 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       self.collect_free_vars(args.iter())
       knf
     }
+    ExternalFunctionApplication(_, args) => {
+      self.collect_free_vars(args.iter())
+      knf
+    }
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch) => {
@@ -173,36 +177,17 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       // 3. Visit the function body, and update the current def
       let updated_def = mutdef.update_body(new_env.visit_stmt(def.body))
       // 4. Record function free variables, and nest free variables
-      mutdef.free_vars = new_env.free_vars
+      mutdef.free_vars = @immut/hashset.from_array(
+        // Note: we should not pass itself for recursion, for it has not been initialized
+        new_env.free_vars.iter().filter(fn { n => n != def.name }).collect(),
+      )
       self.collect_free_vars(new_env.free_vars.iter())
       // 5. Back to the prev env
       new_env.exit_scope()
       LetRec(updated_def, self.visit_stmt(rest))
     }
 
-    // Unused
-    ExternalArray(_) | ExternalFunctionApplication(_) =>
-      @util.die("unreachable")
-  }
-}
-
-/// --- Types ---
-
-fn to_direct_fn_low_type(typ : Type) -> LowType {
-  match typ {
-    Unit => Unit
-    Bool => Bool
-    Int => Int
-    Double => Double
-    Ptr => Ptr
-    Fun(args, ret) =>
-      DirectFn(
-        args.map(fn { a => to_direct_fn_low_type(a) }),
-        to_direct_fn_low_type(ret),
-      )
-    Tuple(els) => Tuple(els.map(fn { el => to_direct_fn_low_type(el) }))
-    Array(arr) => Array(to_direct_fn_low_type(arr))
-    Var({ val: Some(t) }) => to_direct_fn_low_type(t)
-    Var({ val: None }) => @util.die("Unknown type \{typ}")
+    // External
+    ExternalArray(_) => @util.die("unreachable")
   }
 }
