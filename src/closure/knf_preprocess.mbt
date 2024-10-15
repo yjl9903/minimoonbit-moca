@@ -1,6 +1,4 @@
-/// KNF preprocess:
-/// 1. De-apply
-/// 2. Collect free vars
+/// KNF preprocess: collect free vars
 
 /// Mutable func def
 struct MutFuncDef {
