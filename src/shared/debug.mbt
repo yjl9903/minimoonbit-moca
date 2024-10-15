@@ -1,4 +1,4 @@
-let enable_debug : Bool = false
+let enable_debug : Bool = @sys.is_debug()
 
 let enable_loc : Bool = false
 
