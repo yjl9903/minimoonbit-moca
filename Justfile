@@ -46,12 +46,12 @@ test-typecheck:
   moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/very_deep.mbt
   moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/untyped_inner_fn.mbt
   moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/landins_knot.mbt
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_apply_wrong_return.mbt && exit 1
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_param.mbt && exit 1
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_return.mbt && exit 1
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_int_plus_float.mbt && exit 1
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_self.mbt && exit 1
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_untyped_unification_fail.mbt && exit 1
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_apply_wrong_return.mbt || exit 1
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_param.mbt || exit 1
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_return.mbt || exit 1
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_int_plus_float.mbt || exit 1
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_self.mbt || exit 1
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_untyped_unification_fail.mbt || exit 1
 
 test-knf:
   moon run src/bin --debug -- --knf-interpreter ./test/test_knf/inprod.mbt
