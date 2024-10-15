@@ -1,9 +1,9 @@
 let enable_debug : Bool = false
 
-let enable_loc : Bool = true
+let enable_loc : Bool = false
 
-pub fn debug(str : Show, ~loc : SourceLoc = _) -> Unit {
-  if not(enable_debug) {
+pub fn debug(str : Show, ~enable : Bool? = None, ~loc : SourceLoc = _) -> Unit {
+  if not(enable.or(enable_debug)) {
     return
   }
   if enable_loc {
