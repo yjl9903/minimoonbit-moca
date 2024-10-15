@@ -137,8 +137,7 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
       let rest = self.visit_stmt(rest)
       Let((name, low_type), expr, rest)
     }
-    LetTuple(els, expr, rest) => {
-      let rest = self.visit_stmt(rest)
+    LetTuple(els, expr, rest) =>
       LetTuple(
         els.mapi(
           fn {
@@ -150,9 +149,8 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
           },
         ),
         expr,
-        rest,
+        self.visit_stmt(rest),
       )
-    }
     LetRec(def, rest) => {
       // 1. Check whether it should be closure
       let name = def.name
