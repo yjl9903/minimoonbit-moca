@@ -178,7 +178,13 @@ test-closure:
 
 
 test-closure:
-  moon run src/bin --debug -- --end-stage closure ./test/test_src/adder.mbt
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/adder.mbt
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/adder2.mbt
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-bug.mbt
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-bug2.mbt
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-reg-bug.mbt
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/fib.mbt
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/float.mbt
 
 submit:
   git archive -o submit.zip HEAD
