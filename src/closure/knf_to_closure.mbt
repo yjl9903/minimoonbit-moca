@@ -1,8 +1,9 @@
 priv struct Context {
   world : KnfWorld
-  global : @immut/hashmap.T[Name, Type]
-  func_defs : @hashmap.T[Name, FuncDef]
-  local_vars : @hashmap.T[Name, Type]
+  func_defs : @hashmap.T[Int, FuncDef]
+  global : @immut/hashmap.T[Name, LowType]
+  local_closures : @hashmap.T[Name, FuncDef]
+  local_vars : @hashmap.T[Name, LowType]
 }
 
 fn Context::new(externals : Map[String, Type], world : KnfWorld) -> Context {
@@ -11,11 +12,17 @@ fn Context::new(externals : Map[String, Type], world : KnfWorld) -> Context {
     fn {
       name, typ => {
         let binding = Name::name_only(@shared.ffi_prefix + name)
-        global = global.add(binding, typ)
+        global = global.add(binding, to_direct_fn_low_type(typ))
       }
     },
   )
-  { world, global, func_defs: @hashmap.new(), local_vars: @hashmap.new() }
+  {
+    world,
+    func_defs: @hashmap.new(),
+    global,
+    local_closures: @hashmap.new(),
+    local_vars: @hashmap.new(),
+  }
 }
 
 fn Context::fork(self : Context) -> Context {
@@ -23,10 +30,33 @@ fn Context::fork(self : Context) -> Context {
   self.local_vars.each(fn { name, typ => global = global.add(name, typ) })
   {
     world: self.world,
-    global: self.global,
     func_defs: self.func_defs,
+    global,
+    local_closures: @hashmap.new(),
     local_vars: @hashmap.new(),
   }
+}
+
+fn Context::add_local_var(self : Context, name : Name, typ : LowType) -> Unit {
+  self.local_vars.set(name, typ)
+}
+
+fn Context::get_low_type_of(self : Context, name : Name) -> LowType {
+  match self.local_vars.get(name) {
+    Some(t) => t
+    None =>
+      match self.global.find(name) {
+        Some(t) => t
+        None => @util.die("Unknown identifier name \{name}")
+      }
+  }
+}
+
+fn Context::get_low_types_of(
+  self : Context,
+  names : Array[Name]
+) -> Array[LowType] {
+  names.map(fn { n => self.get_low_type_of(n) })
 }
 
 /// -------
@@ -41,7 +71,10 @@ pub fn knf_program_to_closure(
 
 fn Context::visit_global_defs(self : Context, knf : Knf) -> Program {
   let body = self.visit_stmt(knf)
-  Program::{ fundefs: [], body }
+  Program::{
+    fundefs: self.func_defs.iter().map(fn { (_, d) => d }).collect(),
+    body,
+  }
 }
 
 fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
@@ -62,41 +95,114 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
     FSub(lhs, rhs) => FSub(lhs, rhs)
     FMul(lhs, rhs) => FMul(lhs, rhs)
     FDiv(lhs, rhs) => FDiv(lhs, rhs)
-    Apply(_) => abort("todo")
+    Apply(sig, args) =>
+      match self.local_closures.get(sig) {
+        // It is defined locally
+        Some(func) =>
+          if not(func.is_closure) {
+            CallDirect(func.name, args)
+          } else {
+            CallClosure(sig, args)
+          }
+        // It may be passed from outside
+        None => CallClosure(sig, args)
+      }
+    ExternalFunctionApplication(sig, args) => CallDirect(sig, args)
 
     // If
-    IfEq(lhs, rhs, true_branch, false_branch) =>
-      IfEq(
-        lhs,
-        rhs,
-        self.visit_stmt(true_branch),
-        self.visit_stmt(false_branch),
-      )
-    IfLe(lhs, rhs, true_branch, false_branch) =>
-      IfLe(
-        lhs,
-        rhs,
-        self.visit_stmt(true_branch),
-        self.visit_stmt(false_branch),
-      )
+    IfEq(lhs, rhs, true_branch, false_branch) => {
+      let true_branch = self.visit_stmt(true_branch)
+      let false_branch = self.visit_stmt(false_branch)
+      IfEq(lhs, rhs, true_branch, false_branch)
+    }
+    IfLe(lhs, rhs, true_branch, false_branch) => {
+      let true_branch = self.visit_stmt(true_branch)
+      let false_branch = self.visit_stmt(false_branch)
+      IfLe(lhs, rhs, true_branch, false_branch)
+    }
 
     // Array
     Get(recv, idx) => ArrayGet(recv, idx)
     Put(recv, idx, expr) => ArrayPut(recv, idx, expr)
 
     // Binding
-    Var(name) =>
-      // let _ = self.collect_free_var(name)
-      Var(name)
+    Var(name) => Var(name)
     Tuple(els) => MakeTuple(els)
 
     // Let
-    Let(_) => abort("todo")
-    LetTuple(_) => abort("todo")
-    LetRec(_) => abort("todo")
+    Let((name, typ), expr, rest) => {
+      let expr = self.visit_stmt(expr)
+      let low_type = to_closure_fn_low_type(typ)
+      self.add_local_var(name, low_type)
+      let rest = self.visit_stmt(rest)
+      Let((name, low_type), expr, rest)
+    }
+    LetTuple(els, expr, rest) => {
+      let rest = self.visit_stmt(rest)
+      LetTuple(
+        els.mapi(
+          fn {
+            _, (name, typ) => {
+              let low_type = to_closure_fn_low_type(typ)
+              self.add_local_var(name, low_type)
+              (name, low_type)
+            }
+          },
+        ),
+        expr,
+        rest,
+      )
+    }
+    LetRec(def, rest) => {
+      // 1. Check whether it should be closure
+      let name = def.name
+      let mutdef = self.world.func_defs.get(def.id).unwrap()
+      let is_closure = mutdef.force_closure || mutdef.free_vars.size() > 0
+      let args_type = def.args.map(fn { a => to_closure_fn_low_type(a.1) })
+      let ret_type = match def.ty {
+        Fun(_, ret) => to_closure_fn_low_type(ret)
+        _ => @util.die("unreachable")
+      }
+      let func_type = if is_closure {
+        ClosureFn(args_type, ret_type)
+      } else {
+        DirectFn(args_type, ret_type)
+      }
+      // 2. Fork new env
+      self.add_local_var(name, func_type)
+      let new_env = self.fork()
+      def.args.eachi(
+        fn { i, (name, _) => new_env.add_local_var(name, args_type[i]) },
+      )
+      let body = new_env.visit_stmt(def.body)
+      // 3. Func def
+      let func = FuncDef::{
+        name: mutdef.to_label(),
+        old_name: name,
+        is_closure,
+        ty: ret_type,
+        args: def.args.mapi(fn { i, a => (a.0, args_type[i]) }),
+        formal_free_vars: mutdef.free_vars
+        .iter()
+        .map(fn { fv => (fv, self.get_low_type_of(fv)) })
+        .collect(),
+        body,
+      }
+      self.func_defs.set(def.id, func)
+      self.local_closures.set(name, func)
+      // 3. Continue
+      let rest = self.visit_stmt(rest)
+      MakeClosure(
+        (name, func_type),
+        Closure::{
+          name: mutdef.to_label(),
+          actual_free_vars: mutdef.free_vars.iter().collect(),
+        },
+        rest,
+      )
+    }
 
     // Unused
-    ExternalArray(_) | ExternalFunctionApplication(_) =>
-      @util.die("unreachable")
+    ExternalArray(_) => @util.die("unreachable")
   }
 }

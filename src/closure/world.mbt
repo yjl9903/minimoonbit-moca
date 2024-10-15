@@ -4,7 +4,7 @@ struct MutFuncDef {
   mut def : @knf.FuncDef
 
   /// It must be closure
-  mut force_closure : Bool
+  force_closure : Bool
   /// Collected free variables
   mut free_vars : @immut/hashset.T[Name]
 }
@@ -35,7 +35,15 @@ fn MutFuncDef::to_string(self : MutFuncDef) -> String {
   self.name + "." + self.slot().to_string()
 }
 
+fn MutFuncDef::to_label(self : MutFuncDef) -> String {
+  self.name + "." + self.slot().to_string()
+}
+
 struct KnfWorld {
-  externals : @immut/hashset.T[Name]
+  externals : @immut/hashmap.T[Name, LowType]
   func_defs : Map[Int, MutFuncDef]
+}
+
+fn KnfWorld::find_external(self : KnfWorld, name : String) -> LowType? {
+  self.externals.find(Name::name_only(name))
 }
