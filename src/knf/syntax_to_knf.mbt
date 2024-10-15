@@ -3,16 +3,15 @@ pub typealias LocalEnv = @immut/hashmap.T[String, Type]
 struct KnfEnv {
   mut counter : Int
   env : @hashmap.T[String, Name]
-  types : Array[Type]
   externals : @immut/hashmap.T[String, Type]
 }
 
 pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
-  let env = { counter: 1, env: @hashmap.new(), types: Array::new(), externals }
+  let env = { counter: 1, env: @hashmap.new(), externals }
   externals.each(
     fn {
       name, _ => {
-        let binding = Name::name_only("minimbt_" + name)
+        let binding = Name::name_only(@shared.ffi_prefix + name)
         env.env.set(name, binding)
       }
     },
@@ -21,15 +20,9 @@ pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
 }
 
 pub fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
-  let fork_types = self.types.copy()
   let fork_env = @hashmap.new()
   self.env.each(fn { k, v => fork_env.set(k, v) })
-  {
-    counter: self.counter,
-    env: fork_env,
-    types: fork_types,
-    externals: self.externals,
-  }
+  { counter: self.counter, env: fork_env, externals: self.externals }
 }
 
 pub fn KnfEnv::init_counter_from_existing(
@@ -39,27 +32,24 @@ pub fn KnfEnv::init_counter_from_existing(
   self.counter = knf_max_counter(existing) + 1
 }
 
-fn KnfEnv::new_temp(self : KnfEnv, typ : Type) -> Name {
+fn KnfEnv::new_temp(self : KnfEnv, _typ : Type) -> Name {
   let counter = self.counter
   let temp = Name::slot_only(counter)
-  self.types.push(typ)
   self.counter += 1
   temp
 }
 
-fn KnfEnv::new_named_temp(self : KnfEnv, name : String, typ : Type) -> Name {
+fn KnfEnv::new_named_temp(self : KnfEnv, name : String, _typ : Type) -> Name {
   let counter = self.counter
   let name = Name::{ name: Some(name), slot: counter }
-  self.types.push(typ)
   self.counter += 1
   name
 }
 
-fn KnfEnv::new_let_binding(self : KnfEnv, name : String, typ : Type) -> Name {
+fn KnfEnv::new_let_binding(self : KnfEnv, name : String, _typ : Type) -> Name {
   let counter = self.counter
   let binding : Name = { name: Some(name), slot: counter }
   self.env.set(name, binding)
-  self.types.push(typ)
   self.counter += 1
   binding
 }
@@ -69,21 +59,12 @@ fn KnfEnv::new_let_rec_binding(self : KnfEnv, def : @types.Fundef) -> Name {
   let name = def.name.0
   let binding : Name = { name: Some(name), slot: counter }
   self.env.set(name, binding)
-  self.types.push(def.name.1)
   self.counter += 1
   binding
 }
 
 fn KnfEnv::find_binding_by_string(self : KnfEnv, name : String) -> Name? {
   self.env.get(name)
-}
-
-fn KnfEnv::find_type_by_name(self : KnfEnv, name : Name) -> Type? {
-  if name.slot == 0 {
-    None
-  } else {
-    self.types.get(name.slot - 1)
-  }
 }
 
 pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
