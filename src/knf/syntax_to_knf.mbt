@@ -279,14 +279,28 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
         Some(Double) => self.to_let_temp(expr, fn { name => Knf::FNeg(name) })
         None => @util.die("miss typing information : Neg(expr, None)")
       }
-    App(sig, args) =>
-      /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...))
-      self.to_let_temp(
-        sig,
-        fn {
-          sig => self.to_let_temps(args, fn { args => Knf::Apply(sig, args) })
-        },
-      )
+    /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...)) 
+    App(sig, args) => {
+      let external = match sig {
+        Var(name) => self.externals.find(name).map(fn { _ => name })
+        _ => None
+      }
+      match external {
+        Some(name) =>
+          self.to_let_temps(
+            args,
+            fn { args => ExternalFunctionApplication(name, args) },
+          )
+        None =>
+          self.to_let_temp(
+            sig,
+            fn {
+              sig =>
+                self.to_let_temps(args, fn { args => Knf::Apply(sig, args) })
+            },
+          )
+      }
+    }
     Get(recv, idx) =>
       /// let _recv = (recv) in let _idx = (idx) in Get(_recv, _idx)
       self.to_let_temp(
