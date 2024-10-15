@@ -1,4 +1,4 @@
-set windows-shell := ["nu.exe", "-c"]
+set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-c"]
 
 test-parse:
   moon run src/bin --debug -- --end-stage parse ./test/test_src/ack.mbt
@@ -46,12 +46,12 @@ test-typecheck:
   moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/very_deep.mbt
   moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/untyped_inner_fn.mbt
   moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/landins_knot.mbt
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_apply_wrong_return.mbt || echo $?
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_param.mbt || echo $?
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_return.mbt || echo $?
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_int_plus_float.mbt || echo $?
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_self.mbt || echo $?
-  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_untyped_unification_fail.mbt || echo $?
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_apply_wrong_return.mbt    ; [ $? -ne 0 ]
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_param.mbt      ; [ $? -ne 0 ]
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_fn_decl_wrong_return.mbt     ; [ $? -ne 0 ]
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_int_plus_float.mbt           ; [ $? -ne 0 ]
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_self.mbt                     ; [ $? -ne 0 ]
+  moon run src/bin --debug -- --end-stage typecheck ./test/test_typing/_neg_untyped_unification_fail.mbt ; [ $? -ne 0 ]
 
 test-knf:
   moon run src/bin --debug -- --knf-interpreter ./test/test_knf/inprod.mbt
