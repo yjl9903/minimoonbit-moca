@@ -480,98 +480,93 @@ fn expr(state : State) -> Syntax!ParseError {
   }
 }
 
-fn add_sub_level_expr(state : State) -> Syntax!ParseError {
-  state.parse!(
-    or(
-      [
-        fn {
-          s => {
-            let lhs = s.parse!(mul_div_level_expr)
-            let mut flag = 0
-            if state.try_parse(TokenKind::ADD) {
-              state.accept!(TokenKind::ADD)
-              flag = 1
-            } else if state.try_parse(TokenKind::SUB) {
-              state.accept!(TokenKind::SUB)
-              flag = 2
-            } else {
-              return lhs
-            }
-            let rhs = s.parse!(add_sub_level_expr)
-            debug("flag : \{flag}, lhs: \{lhs}, rhs: \{rhs}")
-            if flag == 1 {
-              return Syntax::Prim(lhs, rhs, @types.Op::Add, kind=None)
-            } else {
-              return Syntax::Prim(lhs, rhs, @types.Op::Sub, kind=None)
-            }
-          }
-        },
-        // fn {
-        //   s => {
-        //     s.accept!(TokenKind::LPAREN)
-        //     let result = s.parse!(add_sub_level_expr)
-        //     debug("(add_sub_level_expr) : \{result}")
-        //     s.accept!(TokenKind::RPAREN)
-        //     result
-        //   }
-        // },
-        // fn {
-        //   s => {
-        //     s.accept!(TokenKind::LPAREN)
-        //     let result = s.parse!(mul_div_level_expr)
-        //     s.accept!(TokenKind::RPAREN)
-        //     result
-        //   }
-        // },
-      ],
-    ),
-  )
+// add ::= item rhs 
+
+//  rhs ::= (+-*/ item)*
+
+fn bin_op_rhs(state : State) -> (@types.Op, Syntax)!ParseError {
+  let mut op = @types.Op::Add
+  if state.try_parse(TokenKind::ADD) {
+    state.accept!(TokenKind::ADD)
+    op = @types.Op::Add
+  } else if state.try_parse(TokenKind::SUB) {
+    state.accept!(TokenKind::SUB)
+    op = @types.Op::Sub
+  } else if state.try_parse(TokenKind::MUL) {
+    state.accept!(TokenKind::MUL)
+    op = @types.Op::Mul
+  } else if state.try_parse(TokenKind::DIV) {
+    state.accept!(TokenKind::DIV)
+    op = @types.Op::Div
+  } else {
+    raise ParseError("Error Op!")
+  }
+  let item = state.parse!(if_level_expr)
+  (op, item)
 }
 
-fn mul_div_level_expr(state : State) -> Syntax!ParseError {
-  state.parse!(
-    or(
-      [
-        fn {
-          s => {
-            let lhs = s.parse!(if_level_expr)
-            let mut flag = 0
-            if state.try_parse(TokenKind::MUL) {
-              state.accept!(TokenKind::MUL)
-              flag = 1
-            } else if state.try_parse(TokenKind::DIV) {
-              state.accept!(TokenKind::DIV)
-              flag = 2
-            } else {
-              return lhs
-            }
-            let rhs = s.parse!(mul_div_level_expr)
-            if flag == 1 {
-              return Syntax::Prim(lhs, rhs, @types.Op::Mul, kind=None)
-            } else {
-              return Syntax::Prim(lhs, rhs, @types.Op::Div, kind=None)
-            }
+fn get_op_prec(op : TokenKind) -> Int {
+  match op {
+    TokenKind::ADD | TokenKind::SUB => 20
+    TokenKind::MUL | TokenKind::DIV => 40
+    _ => -1
+  }
+}
+
+fn add_sub_level_expr(state : State) -> Syntax!ParseError {
+  let i1 = state.parse!(if_level_expr)
+  fn bin_op_rhs(
+    state : State,
+    expr_prec : Int,
+    lhs : Syntax
+  ) -> Syntax?!ParseError {
+    let mut lhs = lhs
+    while true {
+      let tok_prec = get_op_prec(state.peek!().kind)
+      if tok_prec < expr_prec {
+        return Some(lhs)
+      }
+      let mut op = @types.Op::Add
+      if state.try_parse(TokenKind::ADD) {
+        state.accept!(TokenKind::ADD)
+        op = @types.Op::Add
+      } else if state.try_parse(TokenKind::SUB) {
+        state.accept!(TokenKind::SUB)
+        op = @types.Op::Sub
+      } else if state.try_parse(TokenKind::MUL) {
+        state.accept!(TokenKind::MUL)
+        op = @types.Op::Mul
+      } else if state.try_parse(TokenKind::DIV) {
+        state.accept!(TokenKind::DIV)
+        op = @types.Op::Div
+      } else {
+        raise ParseError("Error Op!")
+      }
+      debug("Op: \{op},lhs: \{lhs}")
+      let mut rhs = Syntax::Unit
+      rhs = state.parse!(if_level_expr)
+      debug("rhs : \{rhs}")
+      let next_prec = get_op_prec(state.peek!().kind)
+      if tok_prec < next_prec {
+        try {
+          rhs = match bin_op_rhs!(state, tok_prec + 1, rhs) {
+            Some(val) => val
+            _ => raise ParseError("rhs parse error")
           }
-        },
-        // fn {
-        //   s => {
-        //     s.accept!(TokenKind::LPAREN)
-        //     let result = s.parse!(add_sub_level_expr)
-        //     s.accept!(TokenKind::RPAREN)
-        //     result
-        //   }
-        // },
-        // fn {
-        //   s => {
-        //     s.accept!(TokenKind::LPAREN)
-        //     let result = s.parse!(mul_div_level_expr)
-        //     s.accept!(TokenKind::RPAREN)
-        //     result
-        //   }
-        // },
-      ],
-    ),
-  )
+        } catch {
+          _ => return None
+        }
+      }
+      debug("lhs : \{lhs},rhs : \{rhs},op : \{op}")
+      lhs = Syntax::Prim(lhs, rhs, op, kind=None)
+    }
+    raise ParseError("Unreachable Code")
+  }
+
+  match bin_op_rhs!(state, 0, i1) {
+    Some(val) => val
+    _ => raise ParseError("add_sub_level_expr parse Error")
+  }
 }
 
 fn if_level_expr(state : State) -> Syntax!ParseError {
@@ -755,5 +750,5 @@ pub fn parse_minimoonbit(source_code : String) -> Syntax {
   } catch {
     _ => @util.die("Parser Failed")
   }
-  return result
+  return parser_opt(result)
 }
