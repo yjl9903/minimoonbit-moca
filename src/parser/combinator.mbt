@@ -4,8 +4,6 @@ typealias Syntax = @types.Syntax
 
 typealias Type = @types.Type
 
-typealias TokenKind = @lex.TokenKind
-
 type Parser[V] (State) -> V!ParseError
 
 fn Parser::parse[V](self : Parser[V], state : State) -> V!ParseError {
