@@ -9,17 +9,19 @@ struct KnfEnv {
 }
 
 fn KnfEnv::new(externals : Map[String, Type]) -> KnfEnv {
+  let mut world_global = @immut/hashmap.new()
   let mut global = @immut/hashset.new()
   externals.each(
     fn {
-      name, _ => {
+      name, typ => {
         let binding = Name::name_only(@shared.ffi_prefix + name)
+        world_global = world_global.add(binding, to_direct_fn_low_type(typ))
         global = global.add(binding)
       }
     },
   )
   {
-    world: KnfWorld::{ externals: global, func_defs: Map::new() },
+    world: KnfWorld::{ externals: world_global, func_defs: Map::new() },
     scope_path: [],
     global,
     free_vars: @immut/hashset.new(),
@@ -49,7 +51,7 @@ fn KnfEnv::collect_free_var(self : KnfEnv, name : Name) -> Unit {
     false =>
       match self.global.contains(name) {
         true =>
-          if not(self.world.externals.contains(name)) {
+          if self.world.externals.find(name).is_empty() {
             self.free_vars = self.free_vars.add(name)
           }
         false => @util.die("Unknown identifier name \{name}")
