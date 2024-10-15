@@ -4,8 +4,8 @@ enum Pass {
 }
 
 pub fn parser_opt(ast : Syntax) -> Syntax {
-  // let pass_arr = [Constprop, Liveness]
-  let pass_arr = []
+  println("Original ast : \{ast} \n")
+  let pass_arr = [Constprop, Liveness]
   pass_arr.fold(
     init=ast,
     fn {
