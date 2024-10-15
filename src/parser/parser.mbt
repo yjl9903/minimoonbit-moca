@@ -113,10 +113,7 @@ fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
       None => []
     }
     let func : @types.Fundef = {
-      name: (
-        raw,
-        Type::Fun(args.map(fn { a => a.1 }), func_type)
-      ),
+      name: (raw, Type::Fun(args.map(fn { a => a.1 }), func_type)),
       args,
       body,
     }
@@ -250,10 +247,7 @@ fn nontop_fn_decl(state : State) -> @types.Fundef!ParseError {
     Some(val) => val
   }
   let func : @types.Fundef = {
-    name: (
-      raw,
-      Type::Fun(args.map(fn { a => a.1 }), ty)
-    ),
+    name: (raw, Type::Fun(args.map(fn { a => a.1 }), ty)),
     args,
     body,
   }
