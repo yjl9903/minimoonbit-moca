@@ -282,7 +282,8 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
     /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...)) 
     App(sig, args) => {
       let external = match sig {
-        Var(name) => self.externals.find(name).map(fn { _ => name })
+        Var(name) =>
+          self.externals.find(name).map(fn { _ => @shared.ffi_prefix + name })
         _ => None
       }
       match external {
