@@ -1,62 +1,8 @@
 /// KNF preprocess: collect free vars
 
-/// Mutable func def
-struct MutFuncDef {
-  name : String
-  slot : Int
-  mut def : @knf.FuncDef
-
-  /// It must be closure
-  mut force_closure : Bool
-  /// Collected free variables
-  mut free_vars : @immut/hashset.T[Name]
-}
-
-fn MutFuncDef::new(world : KnfWorld, def : @knf.FuncDef) -> MutFuncDef {
-  let slot = world.func_defs.length()
-  let scope = String::concat(
-    world.scope_path.map(fn { d => d.name }),
-    separator="/",
-  )
-  let name = scope + "/" + def.name.name.or("$")
-  let mutdef = {
-    name,
-    def,
-    slot,
-    force_closure: false,
-    free_vars: @immut/hashset.new(),
-  }
-  world.func_defs.push(mutdef)
-  mutdef
-}
-
-fn MutFuncDef::update_body(self : MutFuncDef, body : Knf) -> @knf.FuncDef {
-  let def = { ..self.def, body, }
-  self.def = def
-  def
-}
-
-fn MutFuncDef::to_string(self : MutFuncDef) -> String {
-  self.name + "." + self.slot.to_string()
-}
-
-struct KnfWorld {
-  externals : @immut/hashset.T[Name]
-  func_defs : Array[MutFuncDef]
-  scope_path : Array[MutFuncDef]
-}
-
-fn KnfWorld::enter_scope(self : KnfWorld, def : MutFuncDef) -> Unit {
-  self.scope_path.push(def)
-}
-
-fn KnfWorld::exit_scope(self : KnfWorld) -> Unit {
-  let _ = self.scope_path.pop()
-  ()
-}
-
 struct KnfEnv {
   world : KnfWorld
+  scope_path : Array[MutFuncDef]
   global : @immut/hashset.T[Name]
   local : @hashset.T[Name]
   mut free_vars : @immut/hashset.T[Name]
@@ -73,7 +19,8 @@ fn KnfEnv::new(externals : Map[String, Type]) -> KnfEnv {
     },
   )
   {
-    world: KnfWorld::{ externals: global, func_defs: [], scope_path: [] },
+    world: KnfWorld::{ externals: global, func_defs: Map::new() },
+    scope_path: [],
     global,
     free_vars: @immut/hashset.new(),
     local: @hashset.new(),
@@ -85,6 +32,7 @@ fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
   self.local.each(fn { name => global = global.add(name) })
   {
     world: self.world,
+    scope_path: self.scope_path,
     global,
     free_vars: @immut/hashset.new(),
     local: @hashset.new(),
@@ -113,11 +61,28 @@ fn KnfEnv::collect_free_vars(self : KnfEnv, names : Iter[Name]) -> Unit {
   names.each(fn { name => self.collect_free_var(name) })
 }
 
+fn KnfEnv::enter_scope(self : KnfEnv, def : MutFuncDef) -> Unit {
+  self.scope_path.push(def)
+}
+
+fn KnfEnv::get_scope_path_name(self : KnfEnv, def : @knf.FuncDef) -> String {
+  let scope = String::concat(
+    self.scope_path.map(fn { d => d.name }),
+    separator="/",
+  )
+  scope + "/" + def.name.name.or("$")
+}
+
+fn KnfEnv::exit_scope(self : KnfEnv) -> Unit {
+  let _ = self.scope_path.pop()
+  ()
+}
+
 /// -------------
-fn knf_preprocess(knf : Knf, externals : Map[String, Type]) -> (Knf, KnfEnv) {
+fn knf_preprocess(knf : Knf, externals : Map[String, Type]) -> (Knf, KnfWorld) {
   let env = KnfEnv::new(externals)
   let knf = env.visit_stmt(knf)
-  (knf, env)
+  (knf, env.world)
 }
 
 fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
@@ -199,10 +164,10 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       // Add func def to local env
       self.add_local_var(def.name)
       // Create mutable func def to maintain some extra information
-      let mutdef = MutFuncDef::new(self.world, def)
+      let mutdef = MutFuncDef::new(self, def)
       // 1. Fork new env for function body
       let new_env = self.fork()
-      new_env.world.enter_scope(mutdef)
+      new_env.enter_scope(mutdef)
       // 2. Add params to local env
       def.args.each(fn { (name, _) => new_env.add_local_var(name) })
       // 3. Visit the function body, and update the current def
@@ -211,7 +176,7 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       mutdef.free_vars = new_env.free_vars
       self.collect_free_vars(new_env.free_vars.iter())
       // 5. Back to the prev env
-      new_env.world.exit_scope()
+      new_env.exit_scope()
       LetRec(updated_def, self.visit_stmt(rest))
     }
 
