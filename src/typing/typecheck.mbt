@@ -82,6 +82,25 @@ fn Gamma::inherit(
           self.inherit!(lhs, Type::Double)
           self.inherit!(rhs, Type::Double)
         }
+        Var({ val: None } as vt) => {
+          let lhs_typ = self.synthesis!(lhs)
+          let rhs_typ = self.synthesis!(rhs)
+          match unify!(lhs_typ, rhs_typ) {
+            Int => {
+              vt.val = Some(Int)
+              prim.kind = Some(Kind::Int)
+              self.inherit!(lhs, Type::Int)
+              self.inherit!(rhs, Type::Int)
+            }
+            Double => {
+              vt.val = Some(Double)
+              prim.kind = Some(Kind::Double)
+              self.inherit!(lhs, Type::Double)
+              self.inherit!(rhs, Type::Double)
+            }
+            _ => raise TypeError("Type mismatch: should be numeric")
+          }
+        }
         _ => raise TypeError("Type mismatch: should be numeric")
       }
     Eq(lhs, rhs) | LE(lhs, rhs) =>
@@ -215,8 +234,13 @@ fn Gamma::inherit_let_rec(self : Gamma, def : @types.Fundef) -> Unit!TypeError {
             "Type mismatch: args length \{def.args}, expected \{t_args}",
           )
         }
-        // Check ret
-        new_env.inherit!(def.body, t_ret)
+        if is_having_type(t_ret) {
+          // Check ret
+          new_env.inherit!(def.body, t_ret)
+        } else {
+          let synthed = new_env.synthesis!(def.body)
+          new_env.inherit!(def.body, synthed)
+        }
       }
       _ =>
         raise TypeError(
