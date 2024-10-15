@@ -35,11 +35,13 @@ jobs:
 
       - run: moon test --release --target all
 
-      - run: |
-          just test-parse
-          just test-typecheck
-          just test-knf
-          just test-closure
+      - run: just test-parse
+
+      - run: just test-typecheck
+
+      - run: just test-knf
+
+      - run: just test-closure
 
   format:
     runs-on: ubuntu-latest
