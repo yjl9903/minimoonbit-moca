@@ -219,6 +219,9 @@ pub fn FuncDef::to_json(self : FuncDef) -> Json {
   }
 }
 
+// Generate unique id
+let func_def_id : Ref[Int] = Ref::new(0)
+
 pub fn FuncDef::from_json(json : Json) -> FuncDef! {
   match json {
     {
@@ -247,7 +250,10 @@ pub fn FuncDef::from_json(json : Json) -> FuncDef! {
           _ => fail!("invalid json")
         }
       }
+      let id = func_def_id.val
+      func_def_id.val = id + 1
       {
+        id,
         name: Label(name),
         old_name: Name::from_json!(n),
         is_closure: @json.from_json!(b),
