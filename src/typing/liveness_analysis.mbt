@@ -83,6 +83,54 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       let live_set = live_set.union(tmp_set);
       return (Put(lhs,rhs,next_stmt),live_set)
     }
+    Not(val) => {
+      let (val,live_set) = liveness_dfs(val);
+      return (Not(val),live_set);
+    }
+    Tuple(arr) => {
+      let live_set = arr.fold(
+        init=@hashset.new(),
+        fn { lhs, rhs => lhs.union(liveness_dfs(rhs).1) },
+      )
+      (ast,live_set)
+    }
+    LetTuple(arr,expr,next_stmt) =>{
+      let live_set = @hashset.new()
+      // dfs next_stmt
+      let (next_stmt, next_live_set) = liveness_dfs(next_stmt)
+      let live_set = live_set.union(next_live_set)
+      let (expr, expr_live_set) = liveness_dfs(expr)
+      let live_set = live_set.union(expr_live_set) // union use
+      let mut used = false;
+      for item in arr{
+        live_set.remove(item.0);
+        if next_live_set.contains(item.0){
+          used = true;
+        }
+      }
+      if used || live_set.contains("FUNC!") {
+        if live_set.contains("FUNC!") { live_set.remove("FUNC!");}
+        (LetTuple(arr, expr, next_stmt), live_set)
+      } else {
+        (next_stmt, live_set)
+      }
+    }
+    Eq(lhs,rhs) =>{
+      let live_set = @hashset.new()
+      let (lhs,lhs_set) = liveness_dfs(lhs);
+      let live_set = live_set.union(lhs_set);
+      let (rhs,rhs_set) = liveness_dfs(rhs);
+      let live_set = live_set.union(rhs_set);
+      return (Eq(lhs,rhs),live_set)
+    }
+    LE(lhs,rhs) =>{
+       let live_set = @hashset.new()
+      let (lhs,lhs_set) = liveness_dfs(lhs);
+      let live_set = live_set.union(lhs_set);
+      let (rhs,rhs_set) = liveness_dfs(rhs);
+      let live_set = live_set.union(rhs_set);
+      return (LE(lhs,rhs),live_set)
+    }
     ast => (ast, @hashset.new())
   }
 }
