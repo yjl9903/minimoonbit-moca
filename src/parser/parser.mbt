@@ -480,8 +480,7 @@ fn expr(state : State) -> Syntax!ParseError {
   }
 }
 
-// add ::= item rhs 
-
+// add ::= item rhs
 
 fn get_op_prec(op : TokenKind) -> Int {
   match op {

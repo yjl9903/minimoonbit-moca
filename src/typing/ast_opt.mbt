@@ -2,7 +2,9 @@ enum Pass {
   Constprop
   Liveness
 }
+
 typealias Syntax = @types.Syntax
+
 pub fn parser_opt(ast : Syntax) -> Syntax {
   @shared.debug("Original ast : \{ast} \n")
   let pass_arr = [Constprop, Liveness]
