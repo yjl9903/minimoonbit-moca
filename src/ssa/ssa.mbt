@@ -5,6 +5,7 @@ typealias PrimeKind = @types.Kind
 typealias Type = @closure.LowType
 
 pub struct Var {
+  id : Int
   name : String?
   slot : Int
   ty : Type
@@ -13,14 +14,21 @@ pub struct Var {
   is_global : Bool // from global
 }
 
+pub struct FreeVar {
+  id : Int
+  name : String?
+  slot : Int
+  ty : Type
+}
+
 pub enum RValue {
   Var(Var) // _
   Prim(Var, Var, PrimOp, PrimeKind) // _ + - * / _
   Tuple(Array[Var]) // (_0, _1, _2, ...)
-  Closure(Int, Array[Var]) // signature, free vars
+  Closure(Int, Array[(FreeVar, Var)]) // signature, free vars
   GetTuple(Var, Int) // _.0 / _.1 / _.2 / ...
   GetArray(Var, Var) // _ [ _ ]
-  GetClosure(Var, Int) // this->_
+  GetClosure(Var, FreeVar) // this->_
   Apply(Var, Array[Var]) // _ (_0, _1, ...)
   ExternalApply(Name, Array[Var])
   Phi(Array[Var]) // phi (_0, _1, ...)
@@ -52,4 +60,8 @@ pub struct Method {
   args : Array[Var]
   local : Array[Var]
   body : Array[Stmt]
+
+  // closure
+  is_closure : Bool
+  formal_free_vars : Array[FreeVar]
 }
