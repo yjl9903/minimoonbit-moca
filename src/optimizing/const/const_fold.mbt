@@ -2,7 +2,7 @@ pub fn const_fold_dfs(
   ast : Syntax,
   mp : @hashmap.T[(String, String), Int]
 ) -> Syntax {
-  return match ast {
+  match ast {
     Prim(lhs, rhs, op, ~kind) => {
       // debug("Matched Prim")
       let new_lhs = const_fold_dfs(lhs, mp)
@@ -23,9 +23,9 @@ pub fn const_fold_dfs(
     Var(id) =>
       // @shared.debug("Matched Var \{id}")
       if mp.contains((id, "Int")) {
-        return Int(mp.get((id, "Int")).unwrap())
+        Int(mp.get((id, "Int")).unwrap())
       } else {
-        return Var(id)
+        Var(id)
       }
     If(exp, block, else_stmt) => {
       // @shared.debug("exp : \{exp}\n block : \{block}\n else_stmt:\{else_stmt}")
@@ -34,7 +34,7 @@ pub fn const_fold_dfs(
       let rhs = const_fold_dfs(block, mp)
       let next_stmt = const_fold_dfs(else_stmt, mp)
       @shared.debug("Ihs : \{lhs}\n rhs : \{rhs}\n next:\{next_stmt}")
-      return If(lhs, rhs, next_stmt)
+      If(lhs, rhs, next_stmt)
     }
     _ => ast
   }
@@ -45,7 +45,7 @@ fn const_fold_dfs_fundef(
   mp : @hashmap.T[(String, String), Int]
 ) -> @types.Fundef {
   // @shared.debug("mp: \{mp}");
-  return {
+  {
     name: fundef.name,
     args: fundef.args,
     body: const_fold_dfs(fundef.body, mp),
@@ -61,7 +61,7 @@ fn const_fold_dfs_let(
 ) -> Syntax {
   // @shared.debug("Matched Let id: \{id}")
   let new_expr = const_fold_dfs(expr, mp)
-  return match new_expr {
+  match new_expr {
     Int(const_value) => {
       mp.set((id, "Int"), const_value)
       Let((id, value_type), Int(const_value), const_fold_dfs(next_stmt, mp))
