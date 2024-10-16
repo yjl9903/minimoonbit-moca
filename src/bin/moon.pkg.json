@@ -13,6 +13,7 @@
     "moonbitlang/minimbt/knf",
     "moonbitlang/minimbt/typing",
     "moonbitlang/minimbt/closure",
+    "moonbitlang/minimbt/ssa",
     "moonbitlang/minimbt/riscv",
     "moonbitlang/minimbt/optimizing",
     "moonbitlang/minimbt/util",
