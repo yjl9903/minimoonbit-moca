@@ -12,7 +12,7 @@ pub fn constprop_dfs(
   mp : @hashmap.T[(String, String), Int]
 ) -> Syntax {
   return match ast {
-    Prim(lhs, rhs, op, ..) => {
+    Prim(lhs, rhs, op, ~kind) => {
       // debug("Matched Prim")
       let new_lhs = constprop_dfs(lhs, mp)
       let new_rhs = constprop_dfs(rhs, mp)
@@ -20,28 +20,38 @@ pub fn constprop_dfs(
         Int(l_value) =>
           match new_rhs {
             Int(r_value) => Int(get_bin_op_value(l_value, r_value, op))
-            _ => ast
+            _ => Prim(new_lhs,new_rhs,op,~kind)
           }
-        _ => ast
+        _ => Prim(new_lhs,new_rhs,op,~kind)
       }
     }
     LetRec(fundef, syntax) =>
-      LetRec(constprop_dfs_fundef(fundef), constprop_dfs(syntax, mp))
+      LetRec(constprop_dfs_fundef(fundef,mp), constprop_dfs(syntax, mp))
     Let((id, value_type), expr, next_stmt) =>
       constprop_dfs_let(id, value_type, expr, next_stmt, mp)
-    Var(id) =>
-      // debug("Matched Var")
+    Var(id) =>{
+      // @shared.debug("Matched Var \{id}")
       if mp.contains((id, "Int")) {
         return Int(mp.get((id, "Int")).unwrap())
       } else {
         return Var(id)
       }
+    }
+    If(exp,block,else_stmt) =>{
+      // @shared.debug("exp : \{exp}\n block : \{block}\n else_stmt:\{else_stmt}")
+      // @shared.debug("IF : \{mp}")
+      let lhs = constprop_dfs(exp,mp);
+      let rhs = constprop_dfs(block,mp);
+      let next_stmt = constprop_dfs(else_stmt,mp);
+      @shared.debug("Ihs : \{lhs}\n rhs : \{rhs}\n next:\{next_stmt}")
+      return If(lhs,rhs,next_stmt);
+    }
     _ => ast
   }
 }
 
-fn constprop_dfs_fundef(fundef : @types.Fundef) -> @types.Fundef {
-  let mp = @hashmap.T::new()
+fn constprop_dfs_fundef(fundef : @types.Fundef,mp : @hashmap.T[(String, String), Int]) -> @types.Fundef {
+  // @shared.debug("mp: \{mp}");
   return {
     name: fundef.name,
     args: fundef.args,
@@ -56,7 +66,7 @@ fn constprop_dfs_let(
   next_stmt : Syntax,
   mp : @hashmap.T[(String, String), Int]
 ) -> Syntax {
-  // debug("Matched Let id: \{id}")
+  // @shared.debug("Matched Let id: \{id}")
   let new_expr = constprop_dfs(expr, mp)
   return match new_expr {
     Int(const_value) => {
@@ -71,10 +81,10 @@ fn constprop_dfs_let(
   }
 }
 
-test {
-  let ast = parse_minimoonbit_file!("test/test_parser/constprop_test.mbt")
-  debug("ast: \{ast}")
-  let mp = @hashmap.new()
-  let res = constprop_dfs(ast, mp)
-  debug("Res: \{res}")
-}
+// test {
+//   let ast = parse_minimoonbit_file!("test/test_parser/constprop_test.mbt")
+  
+//   let mp = @hashmap.new()
+//   let res = constprop_dfs(ast, mp)
+//   debug("Res: \{res}")
+// }

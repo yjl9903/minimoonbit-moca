@@ -482,28 +482,6 @@ fn expr(state : State) -> Syntax!ParseError {
 
 // add ::= item rhs 
 
-//  rhs ::= (+-*/ item)*
-
-fn bin_op_rhs(state : State) -> (@types.Op, Syntax)!ParseError {
-  let mut op = @types.Op::Add
-  if state.try_parse(TokenKind::ADD) {
-    state.accept!(TokenKind::ADD)
-    op = @types.Op::Add
-  } else if state.try_parse(TokenKind::SUB) {
-    state.accept!(TokenKind::SUB)
-    op = @types.Op::Sub
-  } else if state.try_parse(TokenKind::MUL) {
-    state.accept!(TokenKind::MUL)
-    op = @types.Op::Mul
-  } else if state.try_parse(TokenKind::DIV) {
-    state.accept!(TokenKind::DIV)
-    op = @types.Op::Div
-  } else {
-    raise ParseError("Error Op!")
-  }
-  let item = state.parse!(if_level_expr)
-  (op, item)
-}
 
 fn get_op_prec(op : TokenKind) -> Int {
   match op {
@@ -750,5 +728,5 @@ pub fn parse_minimoonbit(source_code : String) -> Syntax {
   } catch {
     _ => @util.die("Parser Failed")
   }
-  return parser_opt(result)
+  return result
 }
