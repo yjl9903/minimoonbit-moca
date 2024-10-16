@@ -1,3 +1,5 @@
+typealias Syntax = @types.Syntax
+
 pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
   let result = match ast {
     Prim(lhs, rhs, op, ..) =>
