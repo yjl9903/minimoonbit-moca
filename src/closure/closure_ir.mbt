@@ -42,6 +42,7 @@ pub struct Closure {
 } derive(Show)
 
 pub struct FuncDef {
+  id : Int
   name : Label
   old_name : Name
   /// true if the function is a closure function, and the closure will be available at `s11` on 
