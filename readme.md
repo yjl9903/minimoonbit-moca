@@ -1,8 +1,10 @@
 # MiniMoonBit
 
-## Quickstart
+[![moonbit-check](https://github.com/yjl9903/minimoonbit-moca/actions/workflows/moonbit.yml/badge.svg)](https://github.com/yjl9903/minimoonbit-moca/actions/workflows/moonbit.yml)
 
-Install moonbit VS Code extension.
+Mini Moonbit implementation from 加力燃烧器.
+
+## Quickstart
 
 Install moonbit compiler.
 
@@ -10,7 +12,9 @@ Install moonbit compiler.
 curl -fsSL https://cli.moonbitlang.cn/install/unix.sh | bash -s minimoonbit
 ```
 
-Then
+Install moonbit VS Code extension `moonbit.moonbit-lang`.
+
+Then:
 
 ```bash
 moon update
@@ -19,7 +23,7 @@ moon install
 
 ## Test
 
-Install [Just](https://github.com/casey/just).
+Install [Just](https://github.com/casey/just?tab=readme-ov-file#packages).
 
 ```bash
 just test-parse
@@ -30,4 +34,4 @@ just test-closure
 
 ## Reference
 
-- Original repo: [minimoonbit-public](https://github.com/moonbitlang/minimoonbit-public/tree/main)
+- Original Repository: [minimoonbit-public](https://github.com/moonbitlang/minimoonbit-public/tree/main)
