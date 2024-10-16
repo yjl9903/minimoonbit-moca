@@ -134,7 +134,11 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       )
       self.closure_ir = Some(closure_ir)
     }
-    Asm =>
+    Asm => {
+      // Build SSA
+      let builder = @ssa.WorldBuilder::new()
+      let _ = builder.build()
+      // Backend
       match self.backend {
         RSICV => {
           let real_asm = @riscv.emit(@util.die("TODO"))
@@ -143,6 +147,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         JS => @util.die("TODO: JS backend")
         WASM => @util.die("TODO: WASM backend")
       }
+    }
     Finished => ()
   }
   self.curr_stage = self.curr_stage.next()
