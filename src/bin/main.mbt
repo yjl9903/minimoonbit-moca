@@ -137,7 +137,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     Asm => {
       // Build SSA
       let builder = @ssa.WorldBuilder::new()
-      let _ = builder.build()
+      let _ = builder.build(self.closure_ir.unwrap())
       // Backend
       match self.backend {
         RSICV => {
