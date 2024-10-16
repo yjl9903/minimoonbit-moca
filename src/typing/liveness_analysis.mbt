@@ -1,5 +1,5 @@
 pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
-  return match ast {
+  let result = match ast {
     Prim(lhs, rhs, op, ..) =>
       (
         ast,
@@ -51,7 +51,7 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       let live_set = live_set.union(lhs_set)
       let (rhs, rhs_set) = liveness_dfs(rhs)
       let live_set = live_set.union(rhs_set)
-      return (Get(lhs, rhs), live_set)
+      (Get(lhs, rhs), live_set)
     }
     Array(lhs, rhs) => {
       let live_set = @hashset.new()
@@ -62,7 +62,7 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       @shared.debug(
         " Array -> lhs : \{lhs} ; rhs : \{rhs}; live_set : \{live_set}",
       )
-      return (Array(lhs, rhs), live_set)
+      (Array(lhs, rhs), live_set)
     }
     If(condition, block, else_stmt) => {
       let live_set = @hashset.new()
@@ -72,11 +72,11 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       let live_set = live_set.union(tmp_set)
       let (else_stmt, tmp_set) = liveness_dfs(else_stmt)
       let live_set = live_set.union(tmp_set)
-      return (If(condition, block, else_stmt), live_set)
+      (If(condition, block, else_stmt), live_set)
     }
     Neg(val, ~kind) => {
       let (val, live_set) = liveness_dfs(val)
-      return (Neg(val, ~kind), live_set)
+      (Neg(val, ~kind), live_set)
     }
     Put(lhs, rhs, next_stmt) => {
       let live_set = @hashset.new()
@@ -86,11 +86,11 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       let live_set = live_set.union(tmp_set)
       let (next_stmt, tmp_set) = liveness_dfs(next_stmt)
       let live_set = live_set.union(tmp_set)
-      return (Put(lhs, rhs, next_stmt), live_set)
+      (Put(lhs, rhs, next_stmt), live_set)
     }
     Not(val) => {
       let (val, live_set) = liveness_dfs(val)
-      return (Not(val), live_set)
+      (Not(val), live_set)
     }
     Tuple(arr) => {
       let live_set = arr.fold(
@@ -128,7 +128,7 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       let live_set = live_set.union(lhs_set)
       let (rhs, rhs_set) = liveness_dfs(rhs)
       let live_set = live_set.union(rhs_set)
-      return (Eq(lhs, rhs), live_set)
+      (Eq(lhs, rhs), live_set)
     }
     LE(lhs, rhs) => {
       let live_set = @hashset.new()
@@ -136,10 +136,11 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       let live_set = live_set.union(lhs_set)
       let (rhs, rhs_set) = liveness_dfs(rhs)
       let live_set = live_set.union(rhs_set)
-      return (LE(lhs, rhs), live_set)
+      (LE(lhs, rhs), live_set)
     }
     ast => (ast, @hashset.new())
   }
+  return result
 }
 
 fn liveness_dfs_fundef(
