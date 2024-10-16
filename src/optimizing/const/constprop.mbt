@@ -1,3 +1,5 @@
+typealias Syntax = @types.Syntax
+
 fn get_bin_op_value(lhs : Int, rhs : Int, op : @types.Op) -> Int {
   match op {
     Add => lhs + rhs
@@ -63,7 +65,7 @@ fn constprop_dfs_fundef(
 
 fn constprop_dfs_let(
   id : String,
-  value_type : Type,
+  value_type : @types.Type,
   expr : Syntax,
   next_stmt : Syntax,
   mp : @hashmap.T[(String, String), Int]

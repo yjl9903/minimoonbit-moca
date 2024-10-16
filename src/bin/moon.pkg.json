@@ -12,10 +12,11 @@
     "moonbitlang/minimbt/lex",
     "moonbitlang/minimbt/knf",
     "moonbitlang/minimbt/typing",
-    "moonbitlang/minimbt/knf_eval",
     "moonbitlang/minimbt/closure",
     "moonbitlang/minimbt/riscv",
+    "moonbitlang/minimbt/optimizing",
     "moonbitlang/minimbt/util",
+    "moonbitlang/minimbt/knf_eval",
     "moonbitlang/minimbt/closure_eval"
   ]
 }
