@@ -111,6 +111,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     }
     Typecheck => {
       let typechecked = @typing.type_check(self.ast.unwrap(), externals())
+      let typechecked = @typing.parser_opt(typechecked)
       self.typechecked = Some(typechecked)
     }
     Knf => {
