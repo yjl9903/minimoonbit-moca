@@ -1,8 +1,6 @@
-typealias Syntax = @types.Syntax
-
 pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
   let result = match ast {
-    Prim(lhs, rhs, op, ..) =>
+    Prim(lhs, rhs, _, ..) =>
       (
         ast,
         @hashset.new().union(liveness_dfs(lhs).1).union(liveness_dfs(rhs).1),
