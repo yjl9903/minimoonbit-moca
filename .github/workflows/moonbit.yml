@@ -41,7 +41,7 @@ jobs:
 
       - run: just test-knf
 
-      # - run: just test-closure
+      - run: just test-closure
 
   format:
     runs-on: ubuntu-latest
