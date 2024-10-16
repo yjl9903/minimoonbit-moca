@@ -1,25 +1,56 @@
-typealias Syntax = @types.Syntax
-
-pub enum Pass {
-  ConstFold
-  ConstProp
-  Liveness
+pub struct Manager {
+  ast_passes : Array[AstOptPass]
+  knf_passes : Array[KnfOptPass]
+  closure_passes : Array[ClosureOptPass]
+  ssa_passes : Array[SsaOptPass]
 }
 
-pub fn parser_opt(ast : Syntax) -> Syntax {
-  @shared.debug("Original ast : \{ast} \n")
-  let pass_arr = [ConstFold, Liveness]
-  let result = pass_arr.fold(
-    init=ast,
+pub fn Manager::new() -> Manager {
+  { ast_passes: [], knf_passes: [], closure_passes: [], ssa_passes: [] }
+}
+
+pub fn Manager::add_opt_pass(self : Manager, pass : Pass) -> Manager {
+  match pass {
+    Ast(p) => self.ast_passes.push(p)
+    Knf(p) => self.knf_passes.push(p)
+    Closure(p) => self.closure_passes.push(p)
+    Ssa(p) => self.ssa_passes.push(p)
+  }
+  self
+}
+
+pub fn Manager::add_opt_passes(self : Manager, passes : Array[Pass]) -> Manager {
+  passes.each(
     fn {
-      ast, pass_name =>
-        match pass_name {
-          ConstFold => @const.const_fold_dfs(ast, @hashmap.new())
-          Liveness => @liveness.liveness_dfs(ast).0
-          _ => @util.die("todo")
-        }
+      p => {
+        let _ = self.add_opt_pass(p)
+        ()
+      }
     },
   )
-  @shared.debug("Pass ast : \{result}")
+  self
+}
+
+pub fn Manager::optimize_ast(
+  self : Manager,
+  ast : @types.Syntax
+) -> @types.Syntax {
+  @shared.debug("Original AST : \{ast} \n")
+  let result = self.ast_passes.fold(
+    init=ast,
+    fn { ast, pass => pass.optimize(ast) },
+  )
+  @shared.debug("Pass AST : \{result}")
   result
+}
+
+pub fn Manager::optimize_knf(_self : Manager, _knf : @knf.Knf) -> @knf.Knf {
+  abort("")
+}
+
+pub fn Manager::optimize_closure(
+  _self : Manager,
+  _prog : @closure.Program
+) -> @closure.Program {
+  abort("")
 }
