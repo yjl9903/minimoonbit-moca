@@ -174,7 +174,8 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
       )
       let body = new_env.visit_stmt(def.body)
       // 3. Func def
-      let func = FuncDef::{
+      let func : FuncDef = {
+        id: def.id,
         name: mutdef.to_label(),
         old_name: name,
         is_closure,
