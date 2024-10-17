@@ -10,7 +10,8 @@ struct MethodBuilder {
   is_closure : Bool
   formal_free_vars : Array[(Name, Type)]
 
-  /// World builder
+  /// Builders
+  ssa_builder : SsaBuilder
   world_builder : WorldBuilder
 }
 
@@ -24,6 +25,7 @@ fn MethodBuilder::new_main(world_builder : WorldBuilder) -> MethodBuilder {
     args: [],
     is_closure: false,
     formal_free_vars: [],
+    ssa_builder: SsaBuilder::new(world_builder),
     world_builder,
   }
 }
@@ -32,6 +34,8 @@ fn MethodBuilder::new(
   world_builder : WorldBuilder,
   def : @closure.FuncDef
 ) -> MethodBuilder {
+  let free_vars = def.formal_free_vars
+  // TODO: filter out global var
   {
     id: def.id,
     name: def.name._,
@@ -39,11 +43,367 @@ fn MethodBuilder::new(
     ty: def.ty,
     args: def.args,
     is_closure: def.is_closure,
-    formal_free_vars: def.formal_free_vars,
+    formal_free_vars: free_vars,
+    ssa_builder: SsaBuilder::new(world_builder),
     world_builder,
   }
 }
 
+struct SsaBuilder {
+  mut this : Var?
+  formal_free_vars : Map[Name, FreeVar]
+  params : Array[Var]
+  stmts : Array[Stmt]
+
+  // Transform name to var
+  free_vars : Map[Name, Var]
+  local_vars : Map[Name, Var]
+  mut free_vars_counter : Int
+  mut local_vars_counter : Int
+
+  // Builder
+  world_builder : WorldBuilder
+}
+
+fn SsaBuilder::new(world_builder : WorldBuilder) -> SsaBuilder {
+  {
+    this: None,
+    formal_free_vars: Map::new(),
+    params: [],
+    stmts: [],
+    free_vars: Map::new(),
+    local_vars: Map::new(),
+    free_vars_counter: 0,
+    local_vars_counter: 0,
+    world_builder,
+  }
+}
+
+fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
+  self.this = Some(
+    {
+      id: self.local_vars_counter,
+      name: Some("%this"),
+      slot: self.local_vars_counter,
+      // TODO: define the correct closure type
+      ty: @closure.LowType::ClosureFn([], Unit),
+      is_this: true,
+      is_param: true,
+      is_global: false,
+    },
+  )
+  self.local_vars_counter = self.local_vars_counter + 1
+}
+
+fn SsaBuilder::add_free_vars(
+  self : SsaBuilder,
+  free_vars : Array[(Name, @closure.LowType)]
+) -> Unit {
+  let this = self.this.unwrap()
+  free_vars.each(
+    fn {
+      fv => {
+        let free_var = {
+          id: self.free_vars_counter,
+          name: fv.0.name,
+          slot: self.free_vars_counter,
+          ty: fv.1,
+        }
+        self.free_vars_counter = self.free_vars_counter + 1
+        self.formal_free_vars.set(fv.0, free_var)
+        let local_var = self.add_local_var(fv.0, fv.1)
+        // let _i = this->_fv
+        let _ = self.emit(
+          Definition(Some(local_var), GetClosure(this, free_var)),
+        )
+        ()
+      }
+    },
+  )
+}
+
+fn SsaBuilder::add_param_vars(
+  self : SsaBuilder,
+  params : Array[(Name, @closure.LowType)]
+) -> Unit {
+  self.params.push_iter(
+    params.map(fn { p => self.add_local_var(p.0, p.1, is_param=true) }).iter(),
+  )
+}
+
+fn SsaBuilder::add_local_var(
+  self : SsaBuilder,
+  name : Name,
+  typ : Type,
+  ~is_param : Bool = false
+) -> Var {
+  let var = {
+    id: self.local_vars_counter,
+    name: name.name,
+    slot: self.local_vars_counter,
+    ty: typ,
+    is_this: false,
+    is_param,
+    is_global: false,
+  }
+  self.local_vars_counter = self.local_vars_counter + 1
+  self.local_vars.set(name, var)
+  var
+}
+
+fn SsaBuilder::get_var(self : SsaBuilder, name : Name) -> Var {
+  // 1. Find in the local env
+  match self.local_vars.get(name) {
+    Some(var) => var
+    None =>
+      match self.free_vars.get(name) {
+        // 2. Find in the closure env
+        Some(var) => var
+        None =>
+          // 3. Find in the global env
+          match self.world_builder.global_vars.get(name) {
+            Some(var) => var
+            None => @util.die("Unknown identifier \{name}")
+          }
+      }
+  }
+}
+
+fn SsaBuilder::emit(self : SsaBuilder, stmt : StmtKind) -> Stmt {
+  let stmt = { slot: self.stmts.length(), stmt }
+  self.stmts.push(stmt)
+  stmt
+}
+
 fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
-  abort("")
+  // 1. Build this and free vars
+  if self.is_closure {
+    self.ssa_builder.add_this()
+    self.ssa_builder.add_free_vars(self.formal_free_vars)
+  }
+  // 2. Build parms
+  self.ssa_builder.add_param_vars(self.args)
+  // 3. Visit stmts
+  let _ = self.visit_stmt(expr)
+  // 4. Return method
+  {
+    name: self.name,
+    slot: self.id,
+    ty: self.ty,
+    this: self.ssa_builder.this,
+    params: self.ssa_builder.params,
+    local_vars: self.ssa_builder.local_vars.values().collect(),
+    body: self.ssa_builder.stmts,
+    is_closure: self.is_closure,
+    formal_free_vars: self.ssa_builder.formal_free_vars.values().collect(),
+    actual_free_vars: self.ssa_builder.free_vars.values().collect(),
+  }
+}
+
+/// Build the stmt
+/// Return the final stmt
+fn MethodBuilder::visit_stmt(
+  self : MethodBuilder,
+  expr : @closure.Expr,
+  ~cont : ((RValue) -> Stmt)? = None
+) -> Stmt {
+  match expr {
+    Let((name, typ), expr, rest) => {
+      // TODO: speical handle array put
+      let _ = self.visit_expr(
+        expr,
+        fn {
+          rvalue =>
+            self.ssa_builder.emit(
+              Definition(
+                Some(self.ssa_builder.add_local_var(name, typ)),
+                rvalue,
+              ),
+            )
+        },
+      )
+      self.visit_stmt(rest, ~cont)
+    }
+    LetTuple(els, expr, rest) => {
+      let rvalue = self.ssa_builder.get_var(expr)
+      els.eachi(
+        fn {
+          i, el => {
+            let local_var = self.ssa_builder.add_local_var(el.0, el.1)
+            let _ = self.ssa_builder.emit(
+              Definition(Some(local_var), GetTuple(rvalue, i)),
+            )
+            ()
+          }
+        },
+      )
+      self.visit_stmt(rest, ~cont)
+    }
+    MakeClosure((name, typ), closure, rest) => {
+      // TODO: prebuilt all the closure free var
+      let local_var = self.ssa_builder.add_local_var(name, typ)
+      self.visit_stmt(rest, ~cont)
+    }
+    _ =>
+      match cont {
+        Some(cont) => self.visit_expr(expr, cont)
+        _ =>
+          self.visit_expr(
+            expr,
+            fn(rvalue) { self.ssa_builder.emit(Return(rvalue)) },
+          )
+      }
+  }
+}
+
+/// Build the expr
+/// Return the final stmt
+fn MethodBuilder::visit_expr(
+  self : MethodBuilder,
+  expr : @closure.Expr,
+  cont : (RValue) -> Stmt
+) -> Stmt {
+  match expr {
+    Unit => cont(Unit)
+    Int(v) => cont(Int(v))
+    Double(v) => cont(Double(v))
+    Neg(v) => cont(Neg(self.ssa_builder.get_var(v), Int))
+    FNeg(v) => cont(Neg(self.ssa_builder.get_var(v), Double))
+    Add(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Add,
+          Int,
+        ),
+      )
+    Sub(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Sub,
+          Int,
+        ),
+      )
+    Mul(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Mul,
+          Int,
+        ),
+      )
+    Div(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Div,
+          Int,
+        ),
+      )
+    FAdd(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Add,
+          Double,
+        ),
+      )
+    FSub(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Sub,
+          Double,
+        ),
+      )
+    FMul(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Mul,
+          Double,
+        ),
+      )
+    FDiv(lhs, rhs) =>
+      cont(
+        Prim(
+          self.ssa_builder.get_var(lhs),
+          self.ssa_builder.get_var(rhs),
+          Div,
+          Double,
+        ),
+      )
+
+    // Array
+    ArrayGet(_) => abort("todo")
+    ArrayPut(_) => abort("todo")
+
+    // Var
+    Var(name) => cont(Var(self.ssa_builder.get_var(name)))
+    MakeTuple(els) =>
+      cont(Tuple(els.map(fn { el => self.ssa_builder.get_var(el) })))
+
+    // If
+    IfEq(lhs, rhs, true_branch, false_branch)
+    | IfLe(lhs, rhs, true_branch, false_branch) => {
+      let lhs = self.ssa_builder.get_var(lhs)
+      let rhs = self.ssa_builder.get_var(rhs)
+      let condition = match expr {
+        IfEq(_) => Condition::Eq(lhs, rhs)
+        IfLe(_) => Condition::Le(lhs, rhs)
+        _ => @util.die("unreachable")
+      }
+      let if_stmt = self.ssa_builder.emit(IfGoto(condition, None, None))
+      let mut true_var : Var? = None
+      let true_stmt = self.visit_expr(
+        true_branch,
+        fn {
+          rvalue => {
+            let local_var = self.ssa_builder.add_local_var(abort(""), abort(""))
+            true_var = Some(local_var)
+            let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+            self.ssa_builder.emit(Goto(-1))
+          }
+        },
+      )
+      let mut false_var : Var? = None
+      let false_stmt = self.visit_expr(
+        false_branch,
+        fn {
+          rvalue => {
+            let local_var = self.ssa_builder.add_local_var(abort(""), abort(""))
+            false_var = Some(local_var)
+            let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+            self.ssa_builder.emit(Goto(-1))
+          }
+        },
+      )
+      let phi_var = self.ssa_builder.add_local_var(abort(""), abort(""))
+      let phi_stmt = self.ssa_builder.emit(
+        Definition(Some(phi_var), Phi([true_var.unwrap(), false_var.unwrap()])),
+      )
+      // TODO: back write label
+      cont(Var(phi_var))
+    }
+
+    // Call
+    CallDirect(_) => abort("todo")
+    CallClosure(_) => abort("todo")
+
+    // Stmt
+    Let(_) => self.visit_stmt(expr, cont=Some(cont))
+    LetTuple(_) => self.visit_stmt(expr, cont=Some(cont))
+    MakeClosure(_) => self.visit_stmt(expr, cont=Some(cont))
+
+    // Unused
+    ExternalArray(_) => @util.die("unreachable")
+  }
 }
