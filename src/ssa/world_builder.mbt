@@ -77,7 +77,7 @@ pub fn WorldBuilder::build(
   let methods = prog.fundefs.map(fn { def => (def.id, self.build_method(def)) })
   // 4. Create the world
   let world : World = {
-    global: Set::new(),
+    global: @hashset.new(),
     methods: Map::from_array(methods),
     main_method,
   }
