@@ -44,8 +44,8 @@ pub fn Manager::optimize_ast(
   result
 }
 
-pub fn Manager::optimize_knf(_self : Manager, _knf : @knf.Knf) -> @knf.Knf {
-  abort("")
+pub fn Manager::optimize_knf(self : Manager, knf : @knf.Knf) -> @knf.Knf {
+  self.knf_passes.fold(init=knf, fn { knf, pass => pass.optimize(knf) })
 }
 
 pub fn Manager::optimize_closure(
