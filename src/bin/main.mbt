@@ -5,6 +5,7 @@ enum Stages {
   Knf
   KnfOpt
   Closure
+  Ssa
   Asm
   Finished
 } derive(Show, Eq, Compare)
@@ -16,6 +17,7 @@ fn Stages::from_string(s : String) -> Stages? {
     "knf" => Some(Stages::Knf)
     "knf-opt" => Some(Stages::KnfOpt)
     "closure" => Some(Stages::Closure)
+    "ssa" => Some(Stages::Ssa)
     "riscv" => Some(Stages::Asm)
     "finished" => Some(Stages::Finished)
     _ => None
@@ -28,7 +30,8 @@ fn Stages::next(self : Stages) -> Stages {
     Stages::Typecheck => Stages::Knf
     Stages::Knf => Stages::KnfOpt
     Stages::KnfOpt => Stages::Closure
-    Stages::Closure => Stages::Asm
+    Stages::Closure => Stages::Ssa
+    Stages::Ssa => Stages::Asm
     Stages::Asm => Stages::Finished
     Stages::Finished => Stages::Finished
   }
@@ -124,7 +127,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     }
     KnfOpt => {
       let knf = self.knf.unwrap()
-      // TODO: optimize
+      let knf = optimizing_manager.optimize_knf(knf)
       self.opt_knf = Some(knf)
     }
     Closure => {
@@ -134,10 +137,13 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       )
       self.closure_ir = Some(closure_ir)
     }
-    Asm => {
+    Ssa => {
       // Build SSA
-      let builder = @ssa.WorldBuilder::new()
+      let builder = @ssa.WorldBuilder::new(externals())
       let _ = builder.build(self.closure_ir.unwrap())
+      ()
+    }
+    Asm =>
       // Backend
       match self.backend {
         RSICV => {
@@ -147,7 +153,6 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         JS => @util.die("TODO: JS backend")
         WASM => @util.die("TODO: WASM backend")
       }
-    }
     Finished => ()
   }
   self.curr_stage = self.curr_stage.next()
@@ -162,6 +167,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Knf => @json.stringify(self.typechecked.unwrap().to_json())
       KnfOpt => @json.stringify(self.knf.unwrap().to_json())
       Closure => @json.stringify(self.opt_knf.unwrap().to_json())
+      Ssa => @util.die("TODO")
       Asm => @util.die("TODO")
       Finished => @riscv.print_functions(self.asm.unwrap())
     }
@@ -172,6 +178,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Knf => self.typechecked.unwrap().to_string()
       KnfOpt => self.knf.unwrap().to_string()
       Closure => self.opt_knf.unwrap().to_string()
+      Ssa => @util.die("TODO")
       Asm => @util.die("TODO")
       Finished => @riscv.print_functions(self.asm.unwrap())
     }

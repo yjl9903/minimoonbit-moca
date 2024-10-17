@@ -45,13 +45,14 @@ pub struct FuncDef {
   id : Int
   name : Label
   old_name : Name
-  /// true if the function is a closure function, and the closure will be available at `s11` on 
-  /// function entry.
-  is_closure : Bool
   ty : LowType
   args : Array[(Name, LowType)]
-  formal_free_vars : Array[(Name, LowType)]
   body : Expr
+
+  /// true if the function is a closure function, and the closure will be available at `s11` on 
+  /// function entry.
+  mut is_closure : Bool
+  mut formal_free_vars : Array[(Name, LowType)]
 } derive(Show)
 
 pub struct Program {
