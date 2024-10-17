@@ -10,7 +10,7 @@ pub fn World::get_world() -> World {
 
 pub struct World {
   // TODO: external
-  global : Set[Var]
+  global : @hashset.T[Var]
   methods : Map[Int, Method]
   main_method : Method
 }
