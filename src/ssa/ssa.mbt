@@ -22,8 +22,12 @@ pub struct FreeVar {
 }
 
 pub enum RValue {
-  Var(Var) // _
+  Unit
+  Int(Int)
+  Double(Double)
+  Neg(Var, PrimeKind) // - _
   Prim(Var, Var, PrimOp, PrimeKind) // _ + - * / _
+  Var(Var) // _
   Tuple(Array[Var]) // (_0, _1, _2, ...)
   Closure(Int, Array[(FreeVar, Var)]) // signature, free vars
   GetTuple(Var, Int) // _.0 / _.1 / _.2 / ...
@@ -57,11 +61,13 @@ pub struct Method {
   name : String
   slot : Int
   ty : Type
-  args : Array[Var]
-  local : Array[Var]
+  this: Var?
+  params : Array[Var]
+  local_vars : Array[Var]
   body : Array[Stmt]
 
   // closure
   is_closure : Bool
   formal_free_vars : Array[FreeVar]
+  actual_free_vars : Array[Var]
 }
