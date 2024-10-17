@@ -30,7 +30,8 @@ pub enum Knf {
   ExternalFunctionApplication(String, Array[Name])
 } derive(Show, Eq)
 
-let func_def_id : Ref[Int] = Ref::new(0)
+/// Generate unique function id, 0 is kept for the main function
+let func_def_id : Ref[Int] = Ref::new(1)
 
 pub struct FuncDef {
   id : Int
