@@ -14,6 +14,10 @@ pub struct Var {
   is_global : Bool // from global
 }
 
+pub fn Var::to_string(self : Var) -> String {
+  self.name.or("") + "." + self.id.to_string()
+}
+
 pub struct FreeVar {
   id : Int
   name : String?
