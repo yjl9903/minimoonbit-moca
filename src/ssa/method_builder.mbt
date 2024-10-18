@@ -120,9 +120,10 @@ fn SsaBuilder::add_free_vars(
           slot: self.free_vars_counter,
           ty: fv.1,
         }
+        let local_var = self.add_local_var(fv.0, fv.1)
         self.free_vars_counter = self.free_vars_counter + 1
         self.formal_free_vars.set(fv.0, free_var)
-        let local_var = self.add_local_var(fv.0, fv.1)
+        self.free_vars.set(fv.0, local_var)
         // let _i = this->_fv
         let _ = self.emit(
           Definition(Some(local_var), GetClosure(this, free_var)),
@@ -226,7 +227,7 @@ fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
     body: self.ssa_builder.stmts,
     is_closure: self.is_closure,
     formal_free_vars: self.ssa_builder.formal_free_vars.values().collect(),
-    actual_free_vars: self.ssa_builder.free_vars.values().collect(),
+    local_free_vars: self.ssa_builder.free_vars.values().collect(),
   }
 }
 
@@ -269,10 +270,29 @@ fn MethodBuilder::visit_stmt(
       self.visit_stmt(rest, ~cont)
     }
     MakeClosure((name, typ), closure, rest) => {
-      // TODO: prebuilt all the closure free var
+      // Connect actual free vars and formal free vars
+      let actual_free_vars = closure.actual_free_vars.filter(
+        fn {
+          name => not(self.ssa_builder.world_builder.global_vars.contains(name))
+        },
+      )
+      let closure_builder = self.ssa_builder.world_builder.get_method_builder(
+        closure.name._,
+      )
+      let formal_free_vars = closure_builder.ssa_builder.formal_free_vars
+      assert_eq?(actual_free_vars.length(), formal_free_vars.size()).or_else(
+        fn() { @util.die("unreachable") },
+      )
+      let free_vars = actual_free_vars.map(
+        fn {
+          fv =>
+            (formal_free_vars.get(fv).unwrap(), self.ssa_builder.get_var(fv))
+        },
+      )
+      // Make a new closure
       let local_var = self.ssa_builder.add_local_var(name, typ)
       let _ = self.ssa_builder.emit(
-        Definition(Some(local_var), Closure(closure.name._, [])),
+        Definition(Some(local_var), Closure(closure.name._, free_vars)),
       )
       self.visit_stmt(rest, ~cont)
     }
