@@ -144,7 +144,7 @@ fn WorldBuilder::build_top_level(
     MakeClosure((name, typ), closure, rest) => {
       let def = self.get_func_def(closure.name)
       closure.actual_free_vars.eachi(
-        fn { i, name => self.add_global_var(name, def.args[i].1) },
+        fn { i, name => self.add_global_var(name, def.formal_free_vars[i].1) },
       )
       self.add_global_fun(name, closure)
       MakeClosure(
