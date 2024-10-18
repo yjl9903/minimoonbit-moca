@@ -33,8 +33,8 @@ pub enum RValue {
   GetTuple(Var, Int) // _.0 / _.1 / _.2 / ...
   GetArray(Var, Var) // _ [ _ ]
   GetClosure(Var, FreeVar) // this->_
-  Apply(Var, Array[Var]) // _ (_0, _1, ...)
-  ExternalApply(Name, Array[Var])
+  InvokeVirtual(Var, Array[Var]) // _ (_0, _1, ...)
+  InvokeStatic(String, Array[Var])
   Phi(Array[Var]) // phi (_0, _1, ...)
 }
 
@@ -45,7 +45,7 @@ pub enum Condition {
 
 pub enum StmtKind {
   Definition(Var?, RValue) // _ = _
-  ArrayPut(Var, Var, Var) // _[_] = _
+  PutArray(Var, Var, Var) // _[_] = _
   IfGoto(Condition, Int?, Int?) // if _ { _ } else { _ }
   Goto(Int) // goto _
   Nop // nop
@@ -54,7 +54,7 @@ pub enum StmtKind {
 
 pub struct Stmt {
   slot : Int
-  stmt : StmtKind
+  mut stmt : StmtKind
 }
 
 pub struct Method {
