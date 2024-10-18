@@ -253,6 +253,9 @@ fn MethodBuilder::visit_stmt(
     MakeClosure((name, typ), closure, rest) => {
       // TODO: prebuilt all the closure free var
       let local_var = self.ssa_builder.add_local_var(name, typ)
+      let _ = self.ssa_builder.emit(
+        Definition(Some(local_var), Closure(closure.name._, [])),
+      )
       self.visit_stmt(rest, ~cont)
     }
     _ =>
