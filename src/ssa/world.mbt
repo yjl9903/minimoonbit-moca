@@ -45,6 +45,13 @@ pub fn Method::print(self : Method) -> Unit {
   // TODO: typing error
   // let ret = self.ty
   println("fn \{self.name}(\{params}) -> ? {")
+  if self.formal_free_vars.length() > 0 {
+    println("  closure {")
+    self.formal_free_vars.each(
+      fn { fv => println("    \{fv.to_string()} : \{fv.ty}") },
+    )
+    println("  }")
+  }
   self.body.each(fn { stmt => println("  [\{stmt.slot}] \{stmt.stmt}") })
   println("}")
 }
