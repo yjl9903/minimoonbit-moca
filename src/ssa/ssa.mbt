@@ -65,7 +65,7 @@ pub enum StmtKind {
   IfGoto(Condition, Int?, Int?) // if _ { _ } else { _ }
   Goto(Int) // goto _
   Nop // nop
-  Return(RValue) // return _
+  Return(Var) // return _
 }
 
 pub struct Stmt {
