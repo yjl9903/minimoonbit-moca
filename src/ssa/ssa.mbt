@@ -41,6 +41,14 @@ pub struct FreeVar {
   ty : Type
 }
 
+pub fn FreeVar::op_equal(self : FreeVar, other : FreeVar) -> Bool {
+  self.id == other.id
+}
+
+pub fn FreeVar::to_string(self : FreeVar) -> String {
+  self.name.or("") + "_" + self.id.to_string()
+}
+
 pub enum RValue {
   Unit
   Int(Int)
@@ -88,8 +96,8 @@ pub struct Method {
 
   // closure
   is_closure : Bool
+  local_free_vars : Array[Var]
   formal_free_vars : Array[FreeVar]
-  actual_free_vars : Array[Var]
 }
 
 pub fn PrimOp::to_string(self : PrimOp) -> String {
@@ -113,10 +121,15 @@ pub fn RValue::to_string(self : RValue) -> String {
       let els = els.map(fn { el => el.to_string() }).join(", ")
       "(\{els})"
     }
-    Closure(_) => "make_closure"
+    Closure(label, free_vars) => {
+      let bindings = free_vars
+        .map(fn { (fv, var) => "\{fv.to_string()} = \{var.to_string()}" })
+        .join(", ")
+      "make_closure \"\{label}\" { \{bindings} } "
+    }
     GetTuple(recv, idx) => "\{recv.to_string()}.\{idx.to_string()}"
     GetArray(recv, idx) => "\{recv.to_string()}[\{idx.to_string()}]"
-    GetClosure(v, _) => "get_closure \{v} -> ?"
+    GetClosure(v, fv) => "get_closure \{v} -> \{fv.to_string()}"
     InvokeVirtual(callee, args) => {
       let args = args.map(fn { el => el.to_string() }).join(", ")
       "invoke_virtual \{callee} (\{args})"
