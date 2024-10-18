@@ -201,6 +201,7 @@ fn main {
   let wasm_backend = Ref::new(false)
   let out_file = Ref::new("-")
   let print = Ref::new([])
+  let emit_ssa = Ref::new(false)
 
   // 
   @ArgParser.parse(
@@ -243,6 +244,7 @@ fn main {
         @ArgParser.Set(closure_interpreter),
         "Run with closure interpreter",
       ),
+      ("--emit-ssa", "", @ArgParser.Set(emit_ssa), "Dump SSA"),
       (
         "--out-file",
         "-o",
@@ -305,6 +307,9 @@ fn main {
   }
   if closure_interpreter.val {
     end_stage.val = Stages::Closure
+  }
+  if emit_ssa.val {
+    end_stage.val = Stages::Ssa
   }
   let stages_to_print = print.val.map(
     fn(s) {
@@ -374,6 +379,8 @@ fn main {
         @util.die("Closure interpreter error")
       }
     }
+  } else if emit_ssa.val {
+    @ssa.get_world().print()
   } else {
     let out_string = status.output(json.val)
     if out_file.val == "-" {
