@@ -23,7 +23,11 @@ pub struct Var {
 }
 
 pub fn Var::to_string(self : Var) -> String {
-  self.name.or("") + "_" + self.id.to_string()
+  if self.is_this {
+    self.name.unwrap()
+  } else {
+    self.name.or("") + "_" + self.id.to_string()
+  }
 }
 
 pub struct FreeVar {
