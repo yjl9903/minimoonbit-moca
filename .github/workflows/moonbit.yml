@@ -43,6 +43,8 @@ jobs:
 
       - run: just test-closure
 
+      - run: just test-ssa
+
   format:
     runs-on: ubuntu-latest
 
