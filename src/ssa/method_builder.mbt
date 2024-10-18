@@ -266,7 +266,21 @@ fn MethodBuilder::visit_stmt(
         _ =>
           self.visit_expr(
             expr,
-            fn(rvalue) { self.ssa_builder.emit(Return(rvalue)) },
+            fn(rvalue) {
+              match rvalue {
+                Var(var) => self.ssa_builder.emit(Return(var))
+                _ => {
+                  // TODO: typing use function type?
+                  let local_var = self.ssa_builder.add_local_temp_var(
+                    Type::Unit,
+                  )
+                  let _ = self.ssa_builder.emit(
+                    Definition(Some(local_var), rvalue),
+                  )
+                  self.ssa_builder.emit(Return(local_var))
+                }
+              }
+            },
           )
       }
   }
