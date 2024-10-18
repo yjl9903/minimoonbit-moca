@@ -1,6 +1,8 @@
 struct WorldBuilder {
   externals : @immut/hashmap.T[String, @types.Type]
   all_funs : Map[String, @closure.FuncDef]
+  // Builders
+  builders : Map[String, MethodBuilder]
   // Mark some closure name as call direct
   direct_closure : Map[Name, @closure.FuncDef]
   // Global functions
@@ -16,6 +18,7 @@ pub fn WorldBuilder::new(
   {
     externals,
     all_funs: Map::new(),
+    builders: Map::new(),
     direct_closure: Map::new(),
     global_funs: Map::new(),
     global_vars: Map::new(),
@@ -71,10 +74,16 @@ pub fn WorldBuilder::build(
   prog.fundefs.each(fn { f => self.all_funs.set(f.name._, f) })
   // 1. Build top-level expr
   let main_expr = self.build_top_level(prog.body)
-  // 2. Build main method
-  let main_method = self.build_main_method(main_expr)
+  // 2. Prepare all the method builders
+  let main_method_builder = self.create_main_method_builder()
+  let method_builders = prog.fundefs.map(
+    fn { def => (def, self.create_method_builder(def)) },
+  )
   // 3. Build all the method
-  let methods = prog.fundefs.map(fn { def => (def.id, self.build_method(def)) })
+  let main_method = main_method_builder.build(main_expr)
+  let methods = method_builders.map(
+    fn { (def, builder) => (def.id, builder.build(def.body)) },
+  )
   // 4. Create the world
   let world : World = {
     global: @hashset.new(),
@@ -150,18 +159,19 @@ fn WorldBuilder::build_top_level(
   }
 }
 
-fn WorldBuilder::build_main_method(
-  self : WorldBuilder,
-  expr : @closure.Expr
-) -> Method {
+fn WorldBuilder::create_main_method_builder(
+  self : WorldBuilder
+) -> MethodBuilder {
   let builder = MethodBuilder::new_main(self)
-  builder.build(expr)
+  self.builders.set(builder.name, builder)
+  builder
 }
 
-fn WorldBuilder::build_method(
+fn WorldBuilder::create_method_builder(
   self : WorldBuilder,
   def : @closure.FuncDef
-) -> Method {
+) -> MethodBuilder {
   let builder = MethodBuilder::new(self, def)
-  builder.build(def.body)
+  self.builders.set(builder.name, builder)
+  builder
 }
