@@ -1,6 +1,14 @@
-typealias PrimOp = @types.Op
+pub enum PrimKind {
+  Int
+  Double
+} derive(Show, Eq)
 
-typealias PrimeKind = @types.Kind
+pub enum PrimOp {
+  Add
+  Sub
+  Mul
+  Div
+} derive(Eq)
 
 typealias Type = @closure.LowType
 
@@ -15,7 +23,7 @@ pub struct Var {
 }
 
 pub fn Var::to_string(self : Var) -> String {
-  self.name.or("") + "." + self.id.to_string()
+  self.name.or("") + "_" + self.id.to_string()
 }
 
 pub struct FreeVar {
@@ -29,11 +37,11 @@ pub enum RValue {
   Unit
   Int(Int)
   Double(Double)
-  Neg(Var, PrimeKind) // - _
-  Prim(Var, Var, PrimOp, PrimeKind) // _ + - * / _
+  Neg(Var, PrimKind) // - _
+  Prim(Var, Var, PrimOp, PrimKind) // _ + - * / _
   Var(Var) // _
   Tuple(Array[Var]) // (_0, _1, _2, ...)
-  Closure(Int, Array[(FreeVar, Var)]) // signature, free vars
+  Closure(String, Array[(FreeVar, Var)]) // signature, free vars
   GetTuple(Var, Int) // _.0 / _.1 / _.2 / ...
   GetArray(Var, Var) // _ [ _ ]
   GetClosure(Var, FreeVar) // this->_
@@ -74,4 +82,57 @@ pub struct Method {
   is_closure : Bool
   formal_free_vars : Array[FreeVar]
   actual_free_vars : Array[Var]
+}
+
+pub fn PrimOp::to_string(self : PrimOp) -> String {
+  match self {
+    Add => "+"
+    Sub => "-"
+    Mul => "*"
+    Div => "/"
+  }
+}
+
+pub fn RValue::to_string(self : RValue) -> String {
+  match self {
+    Unit => "Unit"
+    Int(v) => "(Int) \{v}"
+    Double(v) => "(Double) \{v}"
+    Neg(v, kind) => "(\{kind}) -\{v.to_string()}"
+    Prim(lhs, rhs, op, kind) => "(\{kind}) \{lhs} \{op} \{rhs}"
+    Var(v) => v.to_string()
+    Tuple(els) => {
+      let els = els.map(fn { el => el.to_string() }).join(", ")
+      "(\{els})"
+    }
+    Closure(_) => "make_closure"
+    GetTuple(recv, idx) => "\{recv.to_string()}.\{idx.to_string()}"
+    GetArray(recv, idx) => "\{recv.to_string()}[\{idx.to_string()}]"
+    GetClosure(v, _) => "get_closure \{v} -> ?"
+    InvokeVirtual(callee, args) => {
+      let args = args.map(fn { el => el.to_string() }).join(", ")
+      "invoke_virtual \{callee} (\{args})"
+    }
+    InvokeStatic(label, args) => {
+      let args = args.map(fn { el => el.to_string() }).join(", ")
+      "invoke_static \{label} (\{args})"
+    }
+    Phi(els) => {
+      let els = els.map(fn { el => el.to_string() }).join(", ")
+      "phi (\{els})"
+    }
+  }
+}
+
+pub fn StmtKind::to_string(self : StmtKind) -> String {
+  match self {
+    Definition(Some(lhs), rvalue) =>
+      "let \{lhs.to_string()} : \{lhs.ty.to_string()} = \{rvalue.to_string()}"
+    Definition(None, rvalue) => rvalue.to_string()
+    PutArray(_, _, _) => ""
+    IfGoto(_, _, _) => ""
+    Goto(t) => "goto \{t};"
+    Nop => "nop;"
+    Return(rvalue) => "return \{rvalue.to_string()}"
+  }
 }
