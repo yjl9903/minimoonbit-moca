@@ -61,7 +61,7 @@ pub struct Method {
   name : String
   slot : Int
   ty : Type
-  this: Var?
+  this : Var?
   params : Array[Var]
   local_vars : Array[Var]
   body : Array[Stmt]
