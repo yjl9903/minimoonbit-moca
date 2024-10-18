@@ -16,15 +16,16 @@ struct MethodBuilder {
 
 fn MethodBuilder::new_main(world_builder : WorldBuilder) -> MethodBuilder {
   let name = "$main"
+  let old_name = Name::name_only(name)
   {
     id: 0,
-    name: "$main",
-    old_name: Name::name_only(name),
+    name,
+    old_name,
     ty: DirectFn([], Unit),
     args: [],
     is_closure: false,
     formal_free_vars: [],
-    ssa_builder: SsaBuilder::new(world_builder),
+    ssa_builder: SsaBuilder::new(world_builder, old_name),
   }
 }
 
@@ -45,11 +46,11 @@ fn MethodBuilder::new(
     args: def.args,
     is_closure: def.is_closure,
     formal_free_vars: free_vars,
-    ssa_builder: SsaBuilder::new(world_builder),
+    ssa_builder: SsaBuilder::new(world_builder, def.old_name),
   }
   // Build this and free vars
+  builder.ssa_builder.add_this()
   if builder.is_closure {
-    builder.ssa_builder.add_this()
     builder.ssa_builder.add_free_vars(builder.formal_free_vars)
   }
   // Build parms
@@ -58,6 +59,7 @@ fn MethodBuilder::new(
 }
 
 struct SsaBuilder {
+  old_name : Name
   mut this : Var?
   formal_free_vars : Map[Name, FreeVar]
   params : Array[Var]
@@ -73,8 +75,9 @@ struct SsaBuilder {
   world_builder : WorldBuilder
 }
 
-fn SsaBuilder::new(world_builder : WorldBuilder) -> SsaBuilder {
+fn SsaBuilder::new(world_builder : WorldBuilder, old_name : Name) -> SsaBuilder {
   {
+    old_name,
     this: None,
     formal_free_vars: Map::new(),
     params: [],
@@ -187,15 +190,20 @@ fn SsaBuilder::get_var(self : SsaBuilder, name : Name) -> Var {
   match self.local_vars.get(name) {
     Some(var) => var
     None =>
-      match self.free_vars.get(name) {
-        // 2. Find in the closure env
-        Some(var) => var
-        None =>
-          // 3. Find in the global env
-          match self.world_builder.global_vars.get(name) {
-            Some(var) => var
-            None => @util.die("Unknown identifier \{name}")
-          }
+      // 2. Recursion
+      if name == self.old_name {
+        self.this.unwrap()
+      } else {
+        match self.free_vars.get(name) {
+          // 3. Find in the closure env
+          Some(var) => var
+          None =>
+            // 4. Find in the global env
+            match self.world_builder.global_vars.get(name) {
+              Some(var) => var
+              None => @util.die("Unknown identifier \{name}")
+            }
+        }
       }
   }
 }
