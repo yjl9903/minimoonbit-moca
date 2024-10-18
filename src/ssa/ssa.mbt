@@ -22,6 +22,10 @@ pub struct Var {
   is_global : Bool // from global
 }
 
+pub fn Var::op_equal(self : Var, other : Var) -> Bool {
+  self.id == other.id
+}
+
 pub fn Var::to_string(self : Var) -> String {
   if self.is_this {
     self.name.unwrap()
@@ -119,7 +123,7 @@ pub fn RValue::to_string(self : RValue) -> String {
     }
     InvokeStatic(label, args) => {
       let args = args.map(fn { el => el.to_string() }).join(", ")
-      "invoke_static \{label} (\{args})"
+      "invoke_static \"\{label}\" (\{args})"
     }
     Phi(els) => {
       let els = els.map(fn { el => el.to_string() }).join(", ")
@@ -131,7 +135,7 @@ pub fn RValue::to_string(self : RValue) -> String {
 pub fn StmtKind::to_string(self : StmtKind) -> String {
   match self {
     Definition(Some(lhs), rvalue) =>
-      "let \{lhs.to_string()} : \{lhs.ty.to_string()} = \{rvalue.to_string()}"
+      "\{lhs.to_string()} : \{lhs.ty.to_string()} = \{rvalue.to_string()}"
     Definition(None, rvalue) => rvalue.to_string()
     PutArray(_, _, _) => ""
     IfGoto(_, _, _) => ""
