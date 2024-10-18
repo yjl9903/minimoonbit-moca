@@ -145,18 +145,27 @@ fn SsaBuilder::add_local_var(
   typ : Type,
   ~is_param : Bool = false
 ) -> Var {
-  let var = {
-    id: self.local_vars_counter,
-    name: name.name,
-    slot: self.local_vars_counter,
-    ty: typ,
-    is_this: false,
-    is_param,
-    is_global: false,
+  match self.free_vars.get(name) {
+    Some(var) => var
+    None =>
+      match self.world_builder.global_vars.get(name) {
+        Some(var) => var
+        None => {
+          let var = {
+            id: self.local_vars_counter,
+            name: name.name,
+            slot: self.local_vars_counter,
+            ty: typ,
+            is_this: false,
+            is_param,
+            is_global: false,
+          }
+          self.local_vars_counter = self.local_vars_counter + 1
+          self.local_vars.set(name, var)
+          var
+        }
+      }
   }
-  self.local_vars_counter = self.local_vars_counter + 1
-  self.local_vars.set(name, var)
-  var
 }
 
 fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
@@ -222,7 +231,6 @@ fn MethodBuilder::visit_stmt(
 ) -> Stmt {
   match expr {
     Let((name, typ), expr, rest) => {
-      // TODO: speical handle array put
       let _ = self.visit_expr(
         expr,
         fn {
