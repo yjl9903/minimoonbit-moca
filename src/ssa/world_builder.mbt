@@ -33,6 +33,13 @@ fn WorldBuilder::get_func_def(
   self.all_funs.get(label._).unwrap()
 }
 
+fn WorldBuilder::get_method_builder(
+  self : WorldBuilder,
+  label : String
+) -> MethodBuilder {
+  self.builders.get(label).unwrap()
+}
+
 fn WorldBuilder::add_global_var(
   self : WorldBuilder,
   name : Name,
