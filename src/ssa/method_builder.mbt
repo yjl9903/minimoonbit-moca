@@ -33,8 +33,11 @@ fn MethodBuilder::new(
   def : @closure.FuncDef
 ) -> MethodBuilder {
   let free_vars = def.formal_free_vars
-  // TODO: filter out global var
-  {
+  // Filter global var
+  let free_vars = free_vars.filter(
+    fn { (name, _) => not(world_builder.global_vars.contains(name)) },
+  )
+  let builder= {
     id: def.id,
     name: def.name._,
     old_name: def.old_name,
@@ -44,6 +47,14 @@ fn MethodBuilder::new(
     formal_free_vars: free_vars,
     ssa_builder: SsaBuilder::new(world_builder),
   }
+  // Build this and free vars
+  if builder.is_closure {
+    builder.ssa_builder.add_this()
+    builder.ssa_builder.add_free_vars(builder.formal_free_vars)
+  }
+  // Build parms
+  builder.ssa_builder.add_param_vars(builder.args)
+  builder
 }
 
 struct SsaBuilder {
@@ -187,16 +198,7 @@ fn SsaBuilder::emit(self : SsaBuilder, stmt : StmtKind) -> Stmt {
 }
 
 fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
-  // 1. Build this and free vars
-  if self.is_closure {
-    self.ssa_builder.add_this()
-    self.ssa_builder.add_free_vars(self.formal_free_vars)
-  }
-  // 2. Build parms
-  self.ssa_builder.add_param_vars(self.args)
-  // 3. Visit stmts
   let _ = self.visit_stmt(expr)
-  // 4. Return method
   {
     name: self.name,
     slot: self.id,
