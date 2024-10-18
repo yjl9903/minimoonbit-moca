@@ -29,13 +29,22 @@ pub fn World::print(self : World) -> Unit {
   .each(
     fn {
       method => {
-        println("fn \{method.name}() {")
-        println("}")
+        method.print()
         println("")
       }
     },
   )
   let main_method = self.main_method
-  println("fn \{main_method.name}() {")
+  main_method.print()
+}
+
+pub fn Method::print(self : Method) -> Unit {
+  let params = self.params
+    .map(fn { p => "\{p.to_string()} : \{p.ty}" })
+    .join(", ")
+  // TODO: typing error
+  // let ret = self.ty
+  println("fn \{self.name}(\{params}) -> ? {")
+  self.body.each(fn { stmt => println("  [\{stmt.slot}] \{stmt.stmt}") })
   println("}")
 }
