@@ -86,7 +86,7 @@ pub fn WorldBuilder::build(
   )
   // 4. Create the world
   let world : World = {
-    global: @hashset.new(),
+    global: self.global_vars.values().collect(),
     methods: Map::from_array(methods),
     main_method,
   }

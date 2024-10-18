@@ -10,7 +10,7 @@ pub fn World::get_world() -> World {
 
 pub struct World {
   // TODO: external
-  global : @hashset.T[Var]
+  global : Array[Var]
   methods : Map[Int, Method]
   main_method : Method
 }
@@ -19,7 +19,7 @@ pub fn World::print(self : World) -> Unit {
   self.global.each(
     fn {
       v => {
-        println("let \{v} : \{v.ty} = ?;")
+        println("let \{v} : \{v.ty};")
         println("")
       }
     },
