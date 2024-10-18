@@ -37,7 +37,7 @@ fn MethodBuilder::new(
   let free_vars = free_vars.filter(
     fn { (name, _) => not(world_builder.global_vars.contains(name)) },
   )
-  let builder= {
+  let builder = {
     id: def.id,
     name: def.name._,
     old_name: def.old_name,
