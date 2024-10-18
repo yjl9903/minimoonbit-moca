@@ -12,7 +12,6 @@ struct MethodBuilder {
 
   /// Builders
   ssa_builder : SsaBuilder
-  world_builder : WorldBuilder
 }
 
 fn MethodBuilder::new_main(world_builder : WorldBuilder) -> MethodBuilder {
@@ -26,7 +25,6 @@ fn MethodBuilder::new_main(world_builder : WorldBuilder) -> MethodBuilder {
     is_closure: false,
     formal_free_vars: [],
     ssa_builder: SsaBuilder::new(world_builder),
-    world_builder,
   }
 }
 
@@ -45,7 +43,6 @@ fn MethodBuilder::new(
     is_closure: def.is_closure,
     formal_free_vars: free_vars,
     ssa_builder: SsaBuilder::new(world_builder),
-    world_builder,
   }
 }
 
@@ -148,6 +145,20 @@ fn SsaBuilder::add_local_var(
   }
   self.local_vars_counter = self.local_vars_counter + 1
   self.local_vars.set(name, var)
+  var
+}
+
+fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
+  let var = {
+    id: self.local_vars_counter,
+    name: None,
+    slot: self.local_vars_counter,
+    ty: typ,
+    is_this: false,
+    is_param: false,
+    is_global: false,
+  }
+  self.local_vars_counter = self.local_vars_counter + 1
   var
 }
 
@@ -343,8 +354,20 @@ fn MethodBuilder::visit_expr(
       )
 
     // Array
-    ArrayGet(_) => abort("todo")
-    ArrayPut(_) => abort("todo")
+    ArrayGet(recv, idx) =>
+      cont(
+        GetArray(self.ssa_builder.get_var(recv), self.ssa_builder.get_var(idx)),
+      )
+    ArrayPut(recv, idx, expr) => {
+      let _ = self.ssa_builder.emit(
+        PutArray(
+          self.ssa_builder.get_var(recv),
+          self.ssa_builder.get_var(idx),
+          self.ssa_builder.get_var(expr),
+        ),
+      )
+      cont(Unit)
+    }
 
     // Var
     Var(name) => cont(Var(self.ssa_builder.get_var(name)))
@@ -362,41 +385,73 @@ fn MethodBuilder::visit_expr(
         _ => @util.die("unreachable")
       }
       let if_stmt = self.ssa_builder.emit(IfGoto(condition, None, None))
+      // Visit true branch
+      let true_start = self.ssa_builder.stmts.length()
       let mut true_var : Var? = None
       let true_stmt = self.visit_expr(
         true_branch,
         fn {
           rvalue => {
-            let local_var = self.ssa_builder.add_local_var(abort(""), abort(""))
+            // TODO: get type
+            let local_var = self.ssa_builder.add_local_temp_var(Type::Unit)
             true_var = Some(local_var)
             let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
             self.ssa_builder.emit(Goto(-1))
           }
         },
       )
+      // Visit false branch
+      let false_start = self.ssa_builder.stmts.length()
       let mut false_var : Var? = None
       let false_stmt = self.visit_expr(
         false_branch,
         fn {
           rvalue => {
-            let local_var = self.ssa_builder.add_local_var(abort(""), abort(""))
+            // TODO: get type
+            let local_var = self.ssa_builder.add_local_temp_var(Type::Unit)
             false_var = Some(local_var)
             let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
             self.ssa_builder.emit(Goto(-1))
           }
         },
       )
-      let phi_var = self.ssa_builder.add_local_var(abort(""), abort(""))
+      // TODO: get type
+      let phi_var = self.ssa_builder.add_local_temp_var(Type::Unit)
       let phi_stmt = self.ssa_builder.emit(
         Definition(Some(phi_var), Phi([true_var.unwrap(), false_var.unwrap()])),
       )
-      // TODO: back write label
+      // Back write label
+      match if_stmt.stmt {
+        IfGoto(_) =>
+          if_stmt.stmt = IfGoto(condition, Some(true_start), Some(false_start))
+        _ => @util.die("should be if goto stmt")
+      }
+      match true_stmt.stmt {
+        Goto(_) => true_stmt.stmt = Goto(phi_stmt.slot)
+        _ => @util.die("should be goto stmt")
+      }
+      match false_stmt.stmt {
+        Goto(_) => false_stmt.stmt = Goto(phi_stmt.slot)
+        _ => @util.die("should be goto stmt")
+      }
       cont(Var(phi_var))
     }
 
     // Call
-    CallDirect(_) => abort("todo")
-    CallClosure(_) => abort("todo")
+    CallDirect(label, args) =>
+      cont(
+        InvokeStatic(
+          label._,
+          args.map(fn { el => self.ssa_builder.get_var(el) }),
+        ),
+      )
+    CallClosure(callee, args) =>
+      cont(
+        InvokeVirtual(
+          self.ssa_builder.get_var(callee),
+          args.map(fn { el => self.ssa_builder.get_var(el) }),
+        ),
+      )
 
     // Stmt
     Let(_) => self.visit_stmt(expr, cont=Some(cont))
