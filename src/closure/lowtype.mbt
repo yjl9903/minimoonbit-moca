@@ -9,7 +9,34 @@ pub enum LowType {
   Tuple(Array[LowType])
   Array(LowType)
   Ptr
-} derive(Show, Eq)
+} derive(Eq)
+
+pub fn LowType::output(self : LowType, logger : Logger) -> Unit {
+  logger.write_string(self.to_string())
+}
+
+pub fn LowType::to_string(self : LowType) -> String {
+  match self {
+    Unit => "Unit"
+    Bool => "Bool"
+    Int => "Int"
+    Double => "Double"
+    ClosureFn(params, ret) => {
+      let params = params.map(fn { p => p.to_string() }).join(", ")
+      "(\{params}) -> \{ret.to_string()}"
+    }
+    DirectFn(params, ret) => {
+      let params = params.map(fn { p => p.to_string() }).join(", ")
+      "(\{params}) -> \{ret.to_string()}"
+    }
+    Tuple(els) => {
+      let els = els.map(fn { p => p.to_string() }).join(", ")
+      "(\{els})"
+    }
+    Array(arr) => "Array[\{arr}]"
+    Ptr => "Pointer"
+  }
+}
 
 pub fn LowType::is_ptr_like(self : LowType) -> Bool {
   match self {
@@ -36,7 +63,7 @@ pub fn LowType::size_of(self : LowType, size_of_ptr : Int) -> Int {
 }
 
 // ---
-fn extract_return_type(typ : LowType) -> LowType {
+pub fn extract_return_type(typ : LowType) -> LowType {
   match typ {
     DirectFn(_, ret) | ClosureFn(_, ret) => ret
     _ => @util.die("Type mismatch: should be Function type \{typ}")
