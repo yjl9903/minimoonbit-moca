@@ -118,19 +118,19 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
     }
 
     // If
-    IfEq(lhs, rhs, true_branch, false_branch) => {
+    IfEq(lhs, rhs, true_branch, false_branch, typ) => {
       self.collect_free_var(lhs)
       self.collect_free_var(rhs)
       let true_branch = self.visit_stmt(true_branch)
       let false_branch = self.visit_stmt(false_branch)
-      IfEq(lhs, rhs, true_branch, false_branch)
+      IfEq(lhs, rhs, true_branch, false_branch, typ)
     }
-    IfLe(lhs, rhs, true_branch, false_branch) => {
+    IfLe(lhs, rhs, true_branch, false_branch, typ) => {
       self.collect_free_var(lhs)
       self.collect_free_var(rhs)
       let true_branch = self.visit_stmt(true_branch)
       let false_branch = self.visit_stmt(false_branch)
-      IfLe(lhs, rhs, true_branch, false_branch)
+      IfLe(lhs, rhs, true_branch, false_branch, typ)
     }
 
     // Binding

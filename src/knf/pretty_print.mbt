@@ -26,7 +26,7 @@ fn PrettyKnf::print_one_level(
     FSub(e1, e2) => logger.write_string("FSub(\{e1}, \{e2})")
     FMul(e1, e2) => logger.write_string("FMul(\{e1}, \{e2})")
     FDiv(e1, e2) => logger.write_string("FDiv(\{e1}, \{e2})")
-    IfEq(e1, e2, e3, e4) => {
+    IfEq(e1, e2, e3, e4, _) => {
       logger.write_string("if (\{e1} == \{e2}) then {")
       logger.indent()
       logger.write_string("\n")
@@ -40,7 +40,7 @@ fn PrettyKnf::print_one_level(
       logger.outdent()
       logger.write_string("\n}")
     }
-    IfLe(e1, e2, e3, e4) => {
+    IfLe(e1, e2, e3, e4, _) => {
       logger.write_string("if (\{e1} <= \{e2}) then {")
       logger.indent()
       logger.write_string("\n")

@@ -110,12 +110,12 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
     ExternalFunctionApplication(sig, args) => CallDirect(sig, args)
 
     // If
-    IfEq(lhs, rhs, true_branch, false_branch) => {
+    IfEq(lhs, rhs, true_branch, false_branch, _) => {
       let true_branch = self.visit_stmt(true_branch)
       let false_branch = self.visit_stmt(false_branch)
       IfEq(lhs, rhs, true_branch, false_branch)
     }
-    IfLe(lhs, rhs, true_branch, false_branch) => {
+    IfLe(lhs, rhs, true_branch, false_branch, _) => {
       let true_branch = self.visit_stmt(true_branch)
       let false_branch = self.visit_stmt(false_branch)
       IfLe(lhs, rhs, true_branch, false_branch)

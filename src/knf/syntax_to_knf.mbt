@@ -400,7 +400,10 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
               (lhs, _), (rhs, _) => {
                 let (true_branch, true_type) = self.visit_stmt(true_branch)
                 let (false_branch, _) = self.visit_stmt(false_branch)
-                (Knf::IfEq(lhs, rhs, true_branch, false_branch), true_type)
+                (
+                  Knf::IfEq(lhs, rhs, true_branch, false_branch, true_type),
+                  true_type,
+                )
               }
             },
           )
@@ -412,7 +415,10 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
               (lhs, _), (rhs, _) => {
                 let (true_branch, true_type) = self.visit_stmt(true_branch)
                 let (false_branch, _) = self.visit_stmt(false_branch)
-                (Knf::IfLe(lhs, rhs, true_branch, false_branch), true_type)
+                (
+                  Knf::IfLe(lhs, rhs, true_branch, false_branch, true_type),
+                  true_type,
+                )
               }
             },
           )
@@ -429,6 +435,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
                     self.find_name_by_string(@shared.one_binding_name).unwrap(),
                     true_branch,
                     false_branch,
+                    true_type,
                   ),
                   true_type,
                 )
@@ -476,7 +483,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
         rhs,
         fn {
           (lhs, _), (rhs, _) =>
-            (Knf::IfEq(lhs, rhs, Knf::Int(1), Knf::Int(0)), Int)
+            (Knf::IfEq(lhs, rhs, Knf::Int(1), Knf::Int(0), Type::Int), Int)
         },
       )
     LE(lhs, rhs) =>
@@ -486,7 +493,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
         rhs,
         fn {
           (lhs, _), (rhs, _) =>
-            (Knf::IfLe(lhs, rhs, Knf::Int(1), Knf::Int(0)), Int)
+            (Knf::IfLe(lhs, rhs, Knf::Int(1), Knf::Int(0), Type::Int), Int)
         },
       )
 
