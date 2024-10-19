@@ -166,7 +166,6 @@ fn KnfEnv::to_let_temp(
   expr : @types.Syntax,
   rest : ((Name, Type)) -> (Knf, Type)
 ) -> (Knf, Type) {
-  // TODO: infer the correct type
   let (expr, expr_type) = self.visit_expr(expr)
   let name = self.new_temp(expr_type)
   let (rest, rest_type) = rest((name, expr_type))
@@ -377,7 +376,6 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
           (recv, recv_type) =>
             self.to_let_temp(
               idx,
-              // TODO: typing
               fn {
                 (idx, _) =>
                   (
