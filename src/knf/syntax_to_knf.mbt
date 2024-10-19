@@ -2,7 +2,7 @@ pub typealias LocalEnv = @immut/hashmap.T[String, Type]
 
 struct KnfEnv {
   mut counter : Int
-  env : @hashmap.T[String, Name]
+  env : @hashmap.T[String, (Name, Type)]
   externals : @immut/hashmap.T[String, Type]
 }
 
@@ -10,9 +10,9 @@ pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
   let env = { counter: 1, env: @hashmap.new(), externals }
   externals.each(
     fn {
-      name, _ => {
+      name, typ => {
         let binding = Name::name_only(@shared.ffi_prefix + name)
-        env.env.set(name, binding)
+        env.env.set(name, (binding, typ))
       }
     },
   )
@@ -46,10 +46,10 @@ fn KnfEnv::new_named_temp(self : KnfEnv, name : String, _typ : Type) -> Name {
   name
 }
 
-fn KnfEnv::new_let_binding(self : KnfEnv, name : String, _typ : Type) -> Name {
+fn KnfEnv::new_let_binding(self : KnfEnv, name : String, typ : Type) -> Name {
   let counter = self.counter
   let binding : Name = { name: Some(name), slot: counter }
-  self.env.set(name, binding)
+  self.env.set(name, (binding, typ))
   self.counter += 1
   binding
 }
@@ -58,13 +58,20 @@ fn KnfEnv::new_let_rec_binding(self : KnfEnv, def : @types.Fundef) -> Name {
   let counter = self.counter
   let name = def.name.0
   let binding : Name = { name: Some(name), slot: counter }
-  self.env.set(name, binding)
+  self.env.set(name, (binding, def.name.1))
   self.counter += 1
   binding
 }
 
-fn KnfEnv::find_binding_by_string(self : KnfEnv, name : String) -> Name? {
+fn KnfEnv::find_binding_by_string(
+  self : KnfEnv,
+  name : String
+) -> (Name, Type)? {
   self.env.get(name)
+}
+
+fn KnfEnv::find_name_by_string(self : KnfEnv, name : String) -> Name? {
+  self.env.get(name).map(fn { v => v.0 })
 }
 
 pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
@@ -76,18 +83,18 @@ fn KnfEnv::visit_global_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
     match syntax {
       Unit => Knf::Unit
       Let((name, typ), expr, rest) => {
-        let expr = self.visit_expr(expr)
+        let (expr, _) = self.visit_expr(expr)
         let name = self.new_let_binding(name, typ)
         Knf::Let((name, typ), expr, visitor(rest))
       }
       LetRec(def, rest) =>
         match def.name.0 {
           "init" => {
-            let body = self.visit_stmt(def.body)
+            let (body, _) = self.visit_stmt(def.body)
             let rest = visitor(rest)
             concat_knf(body, rest)
           }
-          "main" => self.visit_stmt(def.body)
+          "main" => self.visit_stmt(def.body).0
           _ => {
             let funcdef = self.visit_let_rec(def)
             let rest = visitor(rest)
@@ -117,20 +124,22 @@ fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
   let args = def.args.map(
     fn { (name, typ) => (new_env.new_let_binding(name, typ), typ) },
   )
-  let body = new_env.visit_stmt(def.body)
+  let (body, _) = new_env.visit_stmt(def.body)
   { id: generate_func_id(), name, ty: def.name.1, args, body }
 }
 
-fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
   match syntax {
     Let((name, typ), expr, rest) => {
-      let expr = self.visit_expr(expr)
+      let (expr, _) = self.visit_expr(expr)
       let name = self.new_let_binding(name, typ)
-      Knf::Let((name, typ), expr, self.visit_stmt(rest))
+      let (rest, rest_type) = self.visit_stmt(rest)
+      (Knf::Let((name, typ), expr, rest), rest_type)
     }
     LetRec(def, rest) => {
       let funcdef = self.visit_let_rec(def)
-      Knf::LetRec(funcdef, self.visit_stmt(rest))
+      let (rest, rest_type) = self.visit_stmt(rest)
+      (Knf::LetRec(funcdef, rest), rest_type)
     }
     LetTuple(names, expr, rest) => {
       let bindings = names.map(
@@ -138,7 +147,12 @@ fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       )
       self.to_let_temp(
         expr,
-        fn { expr => Knf::LetTuple(bindings, expr, self.visit_stmt(rest)) },
+        fn {
+          (expr, _) => {
+            let (rest, rest_type) = self.visit_stmt(rest)
+            (Knf::LetTuple(bindings, expr, rest), rest_type)
+          }
+        },
       )
     }
     _ => self.visit_expr(syntax)
@@ -150,12 +164,13 @@ fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> Knf {
 fn KnfEnv::to_let_temp(
   self : KnfEnv,
   expr : @types.Syntax,
-  rest : (Name) -> Knf
-) -> Knf {
+  rest : ((Name, Type)) -> (Knf, Type)
+) -> (Knf, Type) {
   // TODO: infer the correct type
-  let typ = Type::Unit
-  let name = self.new_temp(typ)
-  Knf::Let((name, typ), self.visit_expr(expr), rest(name))
+  let (expr, expr_type) = self.visit_expr(expr)
+  let name = self.new_temp(expr_type)
+  let (rest, rest_type) = rest((name, expr_type))
+  (Knf::Let((name, expr_type), expr, rest), rest_type)
 }
 
 /// Bind two temp variables
@@ -164,8 +179,8 @@ fn KnfEnv::to_let_binary_temps(
   self : KnfEnv,
   lhs : @types.Syntax,
   rhs : @types.Syntax,
-  rest : (@types.Name, @types.Name) -> Knf
-) -> Knf {
+  rest : ((Name, Type), (Name, Type)) -> (Knf, Type)
+) -> (Knf, Type) {
   self.to_let_temp(
     lhs,
     fn { lhs => self.to_let_temp(rhs, fn { rhs => rest(lhs, rhs) }) },
@@ -179,8 +194,8 @@ fn KnfEnv::to_let_triple_temps(
   op1 : @types.Syntax,
   op2 : @types.Syntax,
   op3 : @types.Syntax,
-  rest : (@types.Name, @types.Name, @types.Name) -> Knf
-) -> Knf {
+  rest : ((Name, Type), (Name, Type), (Name, Type)) -> (Knf, Type)
+) -> (Knf, Type) {
   self.to_let_temp(
     op1,
     fn {
@@ -198,41 +213,52 @@ fn KnfEnv::to_let_triple_temps(
 fn KnfEnv::to_let_temps(
   self : KnfEnv,
   exprs : Array[@types.Syntax],
-  rest : (Array[@types.Name]) -> Knf
-) -> Knf {
-  // TODO: infer the correct type
+  rest : (Array[(Name, Type)]) -> (Knf, Type)
+) -> (Knf, Type) {
   let exprs = exprs.map(
     fn {
       expr => {
-        let typ = Type::Unit
-        let name = self.new_temp(typ)
-        (name, typ, self.visit_expr(expr))
+        let (expr, expr_type) = self.visit_expr(expr)
+        let name = self.new_temp(expr_type)
+        (name, expr_type, expr)
       }
     },
   )
-  let bindings = exprs.map(fn { t => t.0 })
+  let bindings = exprs.map(fn { t => (t.0, t.1) })
   exprs.rev_fold(
-    fn { suffix, (name, typ, expr) => Knf::Let((name, typ), expr, suffix) },
+    fn {
+      suffix, (name, typ, expr) =>
+        (Knf::Let((name, typ), expr, suffix.0), suffix.1)
+    },
     init=rest(bindings),
   )
 }
 
-fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
   match syntax {
     // Literal
-    Unit => Knf::Unit
-    Int(v) => Knf::Int(v)
+    Unit => (Knf::Unit, Type::Unit)
+    Int(v) => (Knf::Int(v), Type::Int)
     Bool(v) =>
-      match v {
-        true => Knf::Int(1)
-        false => Knf::Int(0)
-      }
-    Double(v) => Knf::Double(v)
+      (
+        Knf::Var(
+          self
+          .find_name_by_string(
+            match v {
+              true => @shared.one_binding_name
+              false => @shared.zero_binding_name
+            },
+          )
+          .unwrap(),
+        ),
+        Type::Int,
+      )
+    Double(v) => (Knf::Double(v), Type::Double)
 
     // Expr
     Var(name) =>
       match self.find_binding_by_string(name) {
-        Some(name) => Knf::Var(name)
+        Some((name, typ)) => (Knf::Var(name), typ)
         None => @util.die("Can not resolve variable \{name}")
       }
     Tuple(els) =>
@@ -241,16 +267,28 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       ///       let _2 = (expr2) in
       ///         ...
       ///           (_0, _1, _2, ...)
-      self.to_let_temps(els, fn { names => Knf::Tuple(names) })
+      self.to_let_temps(
+        els,
+        fn {
+          names =>
+            (
+              Knf::Tuple(names.map(fn { n => n.0 })),
+              Type::Tuple(names.map(fn { n => n.1 })),
+            )
+        },
+      )
     Not(expr) =>
       /// let _expr = (expr) in Sub(%const_1, _expr)
       self.to_let_temp(
         expr,
         fn {
-          name =>
-            Knf::Sub(
-              self.find_binding_by_string(@shared.one_binding_name).unwrap(),
-              name,
+          (name, _) =>
+            (
+              Knf::Sub(
+                self.find_name_by_string(@shared.one_binding_name).unwrap(),
+                name,
+              ),
+              Int,
             )
         },
       )
@@ -263,10 +301,13 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             self.to_let_temp(
               expr,
               fn {
-                expr =>
-                  Knf::ExternalFunctionApplication(
-                    @shared.make_array_binding_name,
-                    [n, expr],
+                (expr, expr_type) =>
+                  (
+                    Knf::ExternalFunctionApplication(
+                      @shared.make_array_binding_name,
+                      [n.0, expr],
+                    ),
+                    Type::Array(expr_type),
                   )
               },
             )
@@ -275,29 +316,55 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
     Neg(expr, ~kind) =>
       /// let _expr = (expr) in Neg(_expr)
       match kind {
-        Some(Int) => self.to_let_temp(expr, fn { name => Knf::Neg(name) })
-        Some(Double) => self.to_let_temp(expr, fn { name => Knf::FNeg(name) })
+        Some(Int) =>
+          self.to_let_temp(expr, fn { (name, _) => (Knf::Neg(name), Int) })
+        Some(Double) =>
+          self.to_let_temp(expr, fn { (name, _) => (Knf::FNeg(name), Double) })
         None => @util.die("miss typing information : Neg(expr, None)")
       }
     /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...)) 
     App(sig, args) => {
       let external = match sig {
         Var(name) =>
-          self.externals.find(name).map(fn { _ => @shared.ffi_prefix + name })
+          self.externals
+          .find(name)
+          .map(fn { external_typ => (@shared.ffi_prefix + name, external_typ) })
         _ => None
       }
       match external {
-        Some(name) =>
+        Some((name, external_typ)) =>
           self.to_let_temps(
             args,
-            fn { args => ExternalFunctionApplication(name, args) },
+            fn {
+              args =>
+                (
+                  ExternalFunctionApplication(name, args.map(fn { a => a.0 })),
+                  match extract_return_type(external_typ) {
+                    Some(t) => t
+                    None => @util.die("Type mismatch: should be function type")
+                  },
+                )
+            },
           )
         None =>
           self.to_let_temp(
             sig,
             fn {
-              sig =>
-                self.to_let_temps(args, fn { args => Knf::Apply(sig, args) })
+              (sig, sig_type) =>
+                self.to_let_temps(
+                  args,
+                  fn {
+                    args =>
+                      (
+                        Knf::Apply(sig, args.map(fn { a => a.0 })),
+                        match extract_return_type(sig_type) {
+                          Some(t) => t
+                          None =>
+                            @util.die("Type mismatch: should be array type")
+                        },
+                      )
+                  },
+                )
             },
           )
       }
@@ -306,7 +373,23 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       /// let _recv = (recv) in let _idx = (idx) in Get(_recv, _idx)
       self.to_let_temp(
         recv,
-        fn { recv => self.to_let_temp(idx, fn { idx => Knf::Get(recv, idx) }) },
+        fn {
+          (recv, recv_type) =>
+            self.to_let_temp(
+              idx,
+              // TODO: typing
+              fn {
+                (idx, _) =>
+                  (
+                    Knf::Get(recv, idx),
+                    match extract_array_type(recv_type) {
+                      Some(t) => t
+                      None => @util.die("Type mismatch: should be array type")
+                    },
+                  )
+              },
+            )
+        },
       )
     If(cond, true_branch, false_branch) =>
       /// let _lhs = (lhs) in let _rhs = (rhs) in IfEq / IfLe (lhs, rhs, true_branch, false_branch)
@@ -316,13 +399,11 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             lhs,
             rhs,
             fn {
-              lhs, rhs =>
-                Knf::IfEq(
-                  lhs,
-                  rhs,
-                  self.visit_stmt(true_branch),
-                  self.visit_stmt(false_branch),
-                )
+              (lhs, _), (rhs, _) => {
+                let (true_branch, true_type) = self.visit_stmt(true_branch)
+                let (false_branch, _) = self.visit_stmt(false_branch)
+                (Knf::IfEq(lhs, rhs, true_branch, false_branch), true_type)
+              }
             },
           )
         LE(lhs, rhs) =>
@@ -330,26 +411,30 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             lhs,
             rhs,
             fn {
-              lhs, rhs =>
-                Knf::IfLe(
-                  lhs,
-                  rhs,
-                  self.visit_stmt(true_branch),
-                  self.visit_stmt(false_branch),
-                )
+              (lhs, _), (rhs, _) => {
+                let (true_branch, true_type) = self.visit_stmt(true_branch)
+                let (false_branch, _) = self.visit_stmt(false_branch)
+                (Knf::IfLe(lhs, rhs, true_branch, false_branch), true_type)
+              }
             },
           )
         _ =>
           self.to_let_temp(
             cond,
             fn {
-              cond =>
-                Knf::IfEq(
-                  cond,
-                  self.find_binding_by_string(@shared.one_binding_name).unwrap(),
-                  self.visit_stmt(true_branch),
-                  self.visit_stmt(false_branch),
+              (cond, _) => {
+                let (true_branch, true_type) = self.visit_stmt(true_branch)
+                let (false_branch, _) = self.visit_stmt(false_branch)
+                (
+                  Knf::IfEq(
+                    cond,
+                    self.find_name_by_string(@shared.one_binding_name).unwrap(),
+                    true_branch,
+                    false_branch,
+                  ),
+                  true_type,
                 )
+              }
             },
           )
       }
@@ -361,12 +446,12 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             lhs,
             rhs,
             fn {
-              lhs, rhs =>
+              (lhs, _), (rhs, _) =>
                 match op {
-                  Add => Knf::Add(lhs, rhs)
-                  Sub => Knf::Sub(lhs, rhs)
-                  Mul => Knf::Mul(lhs, rhs)
-                  Div => Knf::Div(lhs, rhs)
+                  Add => (Knf::Add(lhs, rhs), Int)
+                  Sub => (Knf::Sub(lhs, rhs), Int)
+                  Mul => (Knf::Mul(lhs, rhs), Int)
+                  Div => (Knf::Div(lhs, rhs), Int)
                 }
             },
           )
@@ -375,12 +460,12 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             lhs,
             rhs,
             fn {
-              lhs, rhs =>
+              (lhs, _), (rhs, _) =>
                 match op {
-                  Add => Knf::FAdd(lhs, rhs)
-                  Sub => Knf::FSub(lhs, rhs)
-                  Mul => Knf::FMul(lhs, rhs)
-                  Div => Knf::FDiv(lhs, rhs)
+                  Add => (Knf::FAdd(lhs, rhs), Double)
+                  Sub => (Knf::FSub(lhs, rhs), Double)
+                  Mul => (Knf::FMul(lhs, rhs), Double)
+                  Div => (Knf::FDiv(lhs, rhs), Double)
                 }
             },
           )
@@ -391,14 +476,20 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
       self.to_let_binary_temps(
         lhs,
         rhs,
-        fn { lhs, rhs => Knf::IfEq(lhs, rhs, Knf::Int(1), Knf::Int(0)) },
+        fn {
+          (lhs, _), (rhs, _) =>
+            (Knf::IfEq(lhs, rhs, Knf::Int(1), Knf::Int(0)), Int)
+        },
       )
     LE(lhs, rhs) =>
       /// let _lhs = (lhs) in let _rhs = (rhs) in IfLe(_lhs, _rhs, Int(1), Int(0))
       self.to_let_binary_temps(
         lhs,
         rhs,
-        fn { lhs, rhs => Knf::IfLe(lhs, rhs, Knf::Int(1), Knf::Int(0)) },
+        fn {
+          (lhs, _), (rhs, _) =>
+            (Knf::IfLe(lhs, rhs, Knf::Int(1), Knf::Int(0)), Int)
+        },
       )
 
     // Binding
@@ -407,7 +498,10 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> Knf {
         recv,
         idx,
         expr,
-        fn { recv, idx, expr => Knf::Put(recv, idx, expr) },
+        fn {
+          (recv, _), (idx, _), (expr, _) =>
+            (Knf::Put(recv, idx, expr), Type::Unit)
+        },
       )
     Let(_) => self.visit_stmt(syntax)
     LetRec(_) => self.visit_stmt(syntax)
