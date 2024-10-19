@@ -110,15 +110,15 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
     ExternalFunctionApplication(sig, args) => CallDirect(sig, args)
 
     // If
-    IfEq(lhs, rhs, true_branch, false_branch, _) => {
+    IfEq(lhs, rhs, true_branch, false_branch, if_type) => {
       let true_branch = self.visit_stmt(true_branch)
       let false_branch = self.visit_stmt(false_branch)
-      IfEq(lhs, rhs, true_branch, false_branch)
+      IfEq(lhs, rhs, true_branch, false_branch, to_closure_fn_low_type(if_type))
     }
-    IfLe(lhs, rhs, true_branch, false_branch, _) => {
+    IfLe(lhs, rhs, true_branch, false_branch, if_type) => {
       let true_branch = self.visit_stmt(true_branch)
       let false_branch = self.visit_stmt(false_branch)
-      IfLe(lhs, rhs, true_branch, false_branch)
+      IfLe(lhs, rhs, true_branch, false_branch, to_closure_fn_low_type(if_type))
     }
 
     // Array

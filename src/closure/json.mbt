@@ -13,9 +13,9 @@ pub fn Expr::to_json(self : Expr) -> Json {
     Expr::FSub(n1, n2) => ["FSub", n1.to_json(), n2.to_json()]
     Expr::FMul(n1, n2) => ["FMul", n1.to_json(), n2.to_json()]
     Expr::FDiv(n1, n2) => ["FDiv", n1.to_json(), n2.to_json()]
-    Expr::IfEq(n1, n2, e1, e2) =>
+    Expr::IfEq(n1, n2, e1, e2, _) =>
       ["IfEq", n1.to_json(), n2.to_json(), e1.to_json(), e2.to_json()]
-    Expr::IfLe(n1, n2, e1, e2) =>
+    Expr::IfLe(n1, n2, e1, e2, _) =>
       ["IfLe", n1.to_json(), n2.to_json(), e1.to_json(), e2.to_json()]
     Expr::Let((n, t), e1, e2) =>
       ["Let", [n.to_json(), t.to_json()], e1.to_json(), e2.to_json()]
@@ -61,6 +61,7 @@ pub fn Expr::from_json(json : Json) -> Expr! {
         Name::from_json!(n2),
         Expr::from_json!(e1),
         Expr::from_json!(e2),
+        LowType::Unit, // Placeholder
       )
     ["IfLe", n1, n2, e1, e2] =>
       Expr::IfLe(
@@ -68,6 +69,7 @@ pub fn Expr::from_json(json : Json) -> Expr! {
         Name::from_json!(n2),
         Expr::from_json!(e1),
         Expr::from_json!(e2),
+        LowType::Unit, // Placeholder
       )
     ["Let", [n, t], e1, e2] =>
       Expr::Let(

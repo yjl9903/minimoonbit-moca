@@ -124,19 +124,21 @@ fn WorldBuilder::build_top_level(
       expr
 
     // If
-    IfEq(lhs, rhs, true_branch, false_branch) =>
+    IfEq(lhs, rhs, true_branch, false_branch, if_type) =>
       IfEq(
         lhs,
         rhs,
         self.build_top_level(true_branch),
         self.build_top_level(false_branch),
+        if_type,
       )
-    IfLe(lhs, rhs, true_branch, false_branch) =>
+    IfLe(lhs, rhs, true_branch, false_branch, if_type) =>
       IfLe(
         lhs,
         rhs,
         self.build_top_level(true_branch),
         self.build_top_level(false_branch),
+        if_type,
       )
 
     // Call
