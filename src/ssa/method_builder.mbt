@@ -107,6 +107,7 @@ fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
       is_this: true,
       is_param: true,
       is_global: false,
+      const_value: None,
     },
   )
   self.local_vars_counter = self.local_vars_counter + 1
@@ -169,6 +170,7 @@ fn SsaBuilder::add_local_var(
             is_this: false,
             is_param,
             is_global: false,
+            const_value: None,
           }
           self.local_vars_counter = self.local_vars_counter + 1
           self.local_vars.set(name, var)
@@ -187,6 +189,7 @@ fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
     is_this: false,
     is_param: false,
     is_global: false,
+    const_value: None,
   }
   self.local_vars_counter = self.local_vars_counter + 1
   var

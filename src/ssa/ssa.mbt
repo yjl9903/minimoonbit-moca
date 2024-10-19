@@ -20,6 +20,7 @@ pub struct Var {
   is_this : Bool // this
   is_param : Bool // param
   is_global : Bool // from global
+  const_value : RValue? // const
 }
 
 pub fn Var::op_equal(self : Var, other : Var) -> Bool {
