@@ -63,7 +63,9 @@ struct CompileStatus {
   mut knf : @knf.Knf?
   mut opt_knf : @knf.Knf?
   mut closure_ir : @closure.Program?
+  mut ssa : @ssa.World?
   mut asm : Array[@riscv.AssemblyFunction]?
+  mut js : @js.JsResult?
 }
 
 fn CompileStatus::initialize(
@@ -82,7 +84,9 @@ fn CompileStatus::initialize(
     knf: None,
     opt_knf: None,
     closure_ir: None,
+    ssa: None,
     asm: None,
+    js: None,
   }
   match start_stage {
     Parse => v.source_code = Some(file)
@@ -140,8 +144,8 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     Ssa => {
       // Build SSA
       let builder = @ssa.WorldBuilder::new(externals())
-      let _ = builder.build(self.closure_ir.unwrap())
-      ()
+      let world = builder.build(self.closure_ir.unwrap())
+      self.ssa = Some(world)
     }
     Asm =>
       // Backend
@@ -150,7 +154,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
           let real_asm = @riscv.emit(@util.die("TODO"))
           self.asm = Some(real_asm)
         }
-        JS => @util.die("TODO: JS backend")
+        JS => self.js = Some(@js.emit(self.ssa.unwrap()))
         WASM => @util.die("TODO: WASM backend")
       }
     Finished => ()
@@ -169,7 +173,12 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Closure => @json.stringify(self.opt_knf.unwrap().to_json())
       Ssa => @util.die("TODO")
       Asm => @util.die("TODO")
-      Finished => @riscv.print_functions(self.asm.unwrap())
+      Finished =>
+        match self.backend {
+          RSICV => @riscv.print_functions(self.asm.unwrap())
+          JS => @js.print_js(self.js.unwrap())
+          WASM => @util.die("TODO")
+        }
     }
   } else {
     match self.curr_stage {
@@ -180,7 +189,12 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Closure => self.opt_knf.unwrap().to_string()
       Ssa => @util.die("TODO")
       Asm => @util.die("TODO")
-      Finished => @riscv.print_functions(self.asm.unwrap())
+      Finished =>
+        match self.backend {
+          RSICV => @riscv.print_functions(self.asm.unwrap())
+          JS => @js.print_js(self.js.unwrap())
+          WASM => @util.die("TODO")
+        }
     }
   }
 }
