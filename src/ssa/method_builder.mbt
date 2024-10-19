@@ -70,6 +70,7 @@ struct SsaBuilder {
   // Transform name to var
   free_vars : Map[Name, Var]
   local_vars : Map[Name, Var]
+  local_temp_vars : Array[Var]
   mut free_vars_counter : Int
   mut local_vars_counter : Int
 
@@ -91,6 +92,7 @@ fn SsaBuilder::new(
     stmts: [],
     free_vars: Map::new(),
     local_vars: Map::new(),
+    local_temp_vars: [],
     free_vars_counter: 0,
     local_vars_counter: 0,
     world_builder,
@@ -191,6 +193,7 @@ fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
     is_global: false,
     const_value: None,
   }
+  self.local_temp_vars.push(var)
   self.local_vars_counter = self.local_vars_counter + 1
   var
 }
@@ -226,13 +229,15 @@ fn SsaBuilder::emit(self : SsaBuilder, stmt : StmtKind) -> Stmt {
 
 fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
   let _ = self.visit_stmt(expr)
+  let local_vars = self.ssa_builder.local_vars.values().collect()
+  local_vars.push_iter(self.ssa_builder.local_temp_vars.iter())
   {
     name: self.name,
     slot: self.id,
     ty: self.ty,
     this: self.ssa_builder.this,
     params: self.ssa_builder.params,
-    local_vars: self.ssa_builder.local_vars.values().collect(),
+    local_vars,
     body: self.ssa_builder.stmts,
     is_closure: self.is_closure,
     formal_free_vars: self.ssa_builder.formal_free_vars.values().collect(),
