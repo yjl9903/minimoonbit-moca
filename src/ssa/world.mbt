@@ -51,6 +51,17 @@ pub fn Method::print(self : Method) -> Unit {
     )
     println("  }")
   }
-  self.body.each(fn { stmt => println("  [\{stmt.slot}] \{stmt.stmt}") })
+  let pad_len = self.body.fold(
+    fn { len, stmt => @math.maximum(len, stmt.slot.to_string().length()) },
+    init=1,
+  )
+  self.body.each(
+    fn {
+      stmt => {
+        let slot = "[\{stmt.slot}]"
+        println("  \{slot.pad_start(pad_len + 2, ' ')} \{stmt.stmt}")
+      }
+    },
+  )
   println("}")
 }
