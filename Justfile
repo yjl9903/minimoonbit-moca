@@ -245,6 +245,8 @@ test-js:
   moon run src/bin --debug -- --js ./test/test_src/spill.mbt 2>/dev/null -o ./temp/spill.mjs
   moon run src/bin --debug -- --js ./test/test_src/spill2.mbt 2>/dev/null -o ./temp/spill2.mjs
   moon run src/bin --debug -- --js ./test/test_src/spill3.mbt 2>/dev/null -o ./temp/spill3.mjs
+  moon run src/bin --debug -- --js ./test/test_src/sum-tail.mbt 2>/dev/null -o ./temp/sum-tail.mjs
+  moon run src/bin --debug -- --js ./test/test_src/sum.mbt 2>/dev/null -o ./temp/sum.mjs
   echo '' | node ./js_rt/runtime.mjs ./temp/ack.mjs > ./temp/ack.out
   echo '' | node ./js_rt/runtime.mjs ./temp/adder.mjs > ./temp/adder.out
   echo '' | node ./js_rt/runtime.mjs ./temp/adder2.mjs > ./temp/adder2.out
@@ -275,6 +277,8 @@ test-js:
   echo '' | node ./js_rt/runtime.mjs ./temp/spill.mjs > ./temp/spill.out
   echo '' | node ./js_rt/runtime.mjs ./temp/spill2.mjs > ./temp/spill2.out
   echo '' | node ./js_rt/runtime.mjs ./temp/spill3.mjs > ./temp/spill3.out
+  echo '' | node ./js_rt/runtime.mjs ./temp/sum-tail.mjs > ./temp/sum-tail.out
+  echo '' | node ./js_rt/runtime.mjs ./temp/sum.mjs > ./temp/sum.out
   diff -Z test/test_src/adder.ans temp/adder.out
   diff -Z test/test_src/adder2.ans temp/adder2.out
   diff -Z test/test_src/cls-bug.ans temp/cls-bug.out
@@ -304,6 +308,8 @@ test-js:
   diff -Z test/test_src/spill.ans temp/spill.out
   diff -Z test/test_src/spill2.ans temp/spill2.out
   diff -Z test/test_src/spill3.ans temp/spill3.out
+  diff -Z test/test_src/sum-tail.ans temp/sum-tail.out
+  diff -Z test/test_src/sum.ans temp/sum.out
 
 
 submit:
