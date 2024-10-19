@@ -69,7 +69,7 @@ pub fn Knf::from_json(json : Json) -> Knf! {
         Name::from_json!(n2),
         Knf::from_json!(k1),
         Knf::from_json!(k2),
-        Type::Var({ val: None })
+        Type::Var({ val: None }),
       )
     ["IfLe", n1, n2, k1, k2] =>
       IfLe(
@@ -77,7 +77,7 @@ pub fn Knf::from_json(json : Json) -> Knf! {
         Name::from_json!(n2),
         Knf::from_json!(k1),
         Knf::from_json!(k2),
-        Type::Var({ val: None })
+        Type::Var({ val: None }),
       )
     ["Let", [n, t], k1, k2] =>
       Let(
