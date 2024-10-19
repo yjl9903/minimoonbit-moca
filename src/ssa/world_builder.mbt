@@ -56,6 +56,7 @@ fn WorldBuilder::add_global_var(
     is_this: false,
     is_param: false,
     is_global: true,
+    const_value: get_const_value(name),
   }
   self.global_vars_counter = self.global_vars_counter + 1
   self.global_vars.set(name, var)
