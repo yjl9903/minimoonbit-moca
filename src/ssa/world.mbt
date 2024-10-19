@@ -42,7 +42,8 @@ pub fn Method::print(self : Method) -> Unit {
   let params = self.params
     .map(fn { p => "\{p.to_string()} : \{p.ty}" })
     .join(", ")
-  println("fn \{self.name}(\{params}) : \{self.ty} {")
+  let ret_type = @closure.extract_return_type(self.ty)
+  println("fn \{self.name} (\{params}) -> \{ret_type} {")
   if self.formal_free_vars.length() > 0 {
     println("  closure {")
     self.formal_free_vars.each(
