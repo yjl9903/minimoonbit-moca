@@ -61,8 +61,8 @@ pub enum RValue {
   GetTuple(Var, Int) // _.0 / _.1 / _.2 / ...
   GetArray(Var, Var) // _ [ _ ]
   GetClosure(Var, FreeVar) // this->_
-  InvokeVirtual(Var, Array[Var]) // _ (_0, _1, ...)
-  InvokeStatic(String, Array[Var])
+  InvokeClosure(Var, Array[Var]) // _ (_0, _1, ...)
+  InvokeDirect(String, Array[Var])
   Phi(Array[Var]) // phi (_0, _1, ...)
 }
 
@@ -130,13 +130,13 @@ pub fn RValue::to_string(self : RValue) -> String {
     GetTuple(recv, idx) => "\{recv.to_string()}.\{idx.to_string()}"
     GetArray(recv, idx) => "\{recv.to_string()}[\{idx.to_string()}]"
     GetClosure(v, fv) => "get_closure \{v} -> \{fv.to_string()}"
-    InvokeVirtual(callee, args) => {
+    InvokeClosure(callee, args) => {
       let args = args.map(fn { el => el.to_string() }).join(", ")
-      "invoke_virtual \{callee} (\{args})"
+      "invoke_closure \{callee} (\{args})"
     }
-    InvokeStatic(label, args) => {
+    InvokeDirect(label, args) => {
       let args = args.map(fn { el => el.to_string() }).join(", ")
-      "invoke_static \"\{label}\" (\{args})"
+      "invoke_direct \"\{label}\" (\{args})"
     }
     Phi(els) => {
       let els = els.map(fn { el => el.to_string() }).join(", ")
