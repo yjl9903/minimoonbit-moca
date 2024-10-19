@@ -84,7 +84,7 @@ fn extract_array_type(typ : Type) -> Type? {
 
 fn extract_return_type(typ : Type) -> Type? {
   match typ {
-    Fun(_, ret) | Var({ val: Some(Fun(_, ret)) }) => Some(typ)
+    Fun(_, ret) | Var({ val: Some(Fun(_, ret)) }) => Some(ret)
     _ => None
   }
 }
