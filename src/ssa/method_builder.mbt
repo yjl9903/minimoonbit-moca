@@ -170,7 +170,7 @@ fn SsaBuilder::add_local_var(
             is_this: false,
             is_param,
             is_global: false,
-            const_value: None,
+            const_value: get_const_value(name),
           }
           self.local_vars_counter = self.local_vars_counter + 1
           self.local_vars.set(name, var)
