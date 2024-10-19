@@ -21,6 +21,27 @@ moon update
 moon install
 ```
 
+## Run
+
+Run with RSIC-V backend.
+
+```bash
+moon run src/bin/main.mbt -- <input> -o <output>
+zig build-exe -target riscv64-linux -femit-bin=<exe_file> \
+  <output> /runtime/riscv_rt/zig-out/lib/libmincaml.a \
+  -O Debug -fno-strip -mcpu=baseline_rv64
+rvlinux -n <exe_file>
+```
+
+Run with JS backend, output should have `.mjs` ext.
+
+```bash
+moon run src/bin/main.mbt -- --js <input> -o <output>
+node ./js_rt/runtime.mjs <output>
+```
+
+Run with WASM backend: TODO.
+
 ## Test
 
 Install [Just](https://github.com/casey/just?tab=readme-ov-file#packages).
