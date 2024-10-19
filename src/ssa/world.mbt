@@ -42,9 +42,7 @@ pub fn Method::print(self : Method) -> Unit {
   let params = self.params
     .map(fn { p => "\{p.to_string()} : \{p.ty}" })
     .join(", ")
-  // TODO: typing error
-  // let ret = self.ty
-  println("fn \{self.name}(\{params}) -> ? {")
+  println("fn \{self.name}(\{params}) : \{self.ty} {")
   if self.formal_free_vars.length() > 0 {
     println("  closure {")
     self.formal_free_vars.each(

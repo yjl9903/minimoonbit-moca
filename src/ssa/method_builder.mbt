@@ -17,15 +17,16 @@ struct MethodBuilder {
 fn MethodBuilder::new_main(world_builder : WorldBuilder) -> MethodBuilder {
   let name = "$main"
   let old_name = Name::name_only(name)
+  let ty = @closure.LowType::DirectFn([], Unit)
   {
     id: 0,
     name,
     old_name,
-    ty: DirectFn([], Unit),
+    ty,
     args: [],
     is_closure: false,
     formal_free_vars: [],
-    ssa_builder: SsaBuilder::new(world_builder, old_name),
+    ssa_builder: SsaBuilder::new(world_builder, old_name, ty),
   }
 }
 
@@ -46,7 +47,7 @@ fn MethodBuilder::new(
     args: def.args,
     is_closure: def.is_closure,
     formal_free_vars: free_vars,
-    ssa_builder: SsaBuilder::new(world_builder, def.old_name),
+    ssa_builder: SsaBuilder::new(world_builder, def.old_name, def.ty),
   }
   // Build this and free vars
   builder.ssa_builder.add_this()
@@ -60,6 +61,7 @@ fn MethodBuilder::new(
 
 struct SsaBuilder {
   old_name : Name
+  ty : Type
   mut this : Var?
   formal_free_vars : Map[Name, FreeVar]
   params : Array[Var]
@@ -75,9 +77,14 @@ struct SsaBuilder {
   world_builder : WorldBuilder
 }
 
-fn SsaBuilder::new(world_builder : WorldBuilder, old_name : Name) -> SsaBuilder {
+fn SsaBuilder::new(
+  world_builder : WorldBuilder,
+  old_name : Name,
+  ty : Type
+) -> SsaBuilder {
   {
     old_name,
+    ty,
     this: None,
     formal_free_vars: Map::new(),
     params: [],
@@ -96,8 +103,7 @@ fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
       id: self.local_vars_counter,
       name: Some("%this"),
       slot: self.local_vars_counter,
-      // TODO: define the correct closure type
-      ty: @closure.LowType::ClosureFn([], Unit),
+      ty: self.ty,
       is_this: true,
       is_param: true,
       is_global: false,
@@ -306,10 +312,8 @@ fn MethodBuilder::visit_stmt(
               match rvalue {
                 Var(var) => self.ssa_builder.emit(Return(var))
                 _ => {
-                  // TODO: typing use function type?
-                  let local_var = self.ssa_builder.add_local_temp_var(
-                    Type::Unit,
-                  )
+                  let ret_type = @closure.extract_return_type(self.ty)
+                  let local_var = self.ssa_builder.add_local_temp_var(ret_type)
                   let _ = self.ssa_builder.emit(
                     Definition(Some(local_var), rvalue),
                   )
