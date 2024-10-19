@@ -434,8 +434,8 @@ fn MethodBuilder::visit_expr(
       cont(Tuple(els.map(fn { el => self.ssa_builder.get_var(el) })))
 
     // If
-    IfEq(lhs, rhs, true_branch, false_branch)
-    | IfLe(lhs, rhs, true_branch, false_branch) => {
+    IfEq(lhs, rhs, true_branch, false_branch, if_type)
+    | IfLe(lhs, rhs, true_branch, false_branch, if_type) => {
       let lhs = self.ssa_builder.get_var(lhs)
       let rhs = self.ssa_builder.get_var(rhs)
       let condition = match expr {
@@ -451,8 +451,7 @@ fn MethodBuilder::visit_expr(
         true_branch,
         fn {
           rvalue => {
-            // TODO: get type
-            let local_var = self.ssa_builder.add_local_temp_var(Type::Unit)
+            let local_var = self.ssa_builder.add_local_temp_var(if_type)
             true_var = Some(local_var)
             let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
             self.ssa_builder.emit(Goto(-1))
@@ -466,16 +465,14 @@ fn MethodBuilder::visit_expr(
         false_branch,
         fn {
           rvalue => {
-            // TODO: get type
-            let local_var = self.ssa_builder.add_local_temp_var(Type::Unit)
+            let local_var = self.ssa_builder.add_local_temp_var(if_type)
             false_var = Some(local_var)
             let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
             self.ssa_builder.emit(Goto(-1))
           }
         },
       )
-      // TODO: get type
-      let phi_var = self.ssa_builder.add_local_temp_var(Type::Unit)
+      let phi_var = self.ssa_builder.add_local_temp_var(if_type)
       let phi_stmt = self.ssa_builder.emit(
         Definition(Some(phi_var), Phi([true_var.unwrap(), false_var.unwrap()])),
       )

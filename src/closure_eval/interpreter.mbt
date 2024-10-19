@@ -145,7 +145,7 @@ pub fn ClosureInterpreter::eval(
         _ => fail!("type mismatch, fdiv expects Double")
       }
     }
-    IfEq(x, y, e1, e2) => {
+    IfEq(x, y, e1, e2, _) => {
       let x = find!(env, x)
       let y = find!(env, y)
       match (x, y) {
@@ -164,7 +164,7 @@ pub fn ClosureInterpreter::eval(
         _ => fail!("type mismatch, ifeq expects Int or Double")
       }
     }
-    IfLe(x, y, e1, e2) => {
+    IfLe(x, y, e1, e2, _) => {
       let x = find!(env, x)
       let y = find!(env, y)
       match (x, y) {
