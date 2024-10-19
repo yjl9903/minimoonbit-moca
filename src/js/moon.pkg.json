@@ -6,6 +6,7 @@
     },
     "moonbitlang/minimbt/util",
     "moonbitlang/minimbt/shared",
+    "moonbitlang/minimbt/closure",
     "moonbitlang/minimbt/ssa"
   ]
 }
