@@ -13,7 +13,7 @@ pub fn knf_max_counter(knf : Knf) -> Int {
     FSub(x, y) => @math.maximum(x.slot, y.slot)
     FMul(x, y) => @math.maximum(x.slot, y.slot)
     FDiv(x, y) => @math.maximum(x.slot, y.slot)
-    IfEq(x, y, e1, e2) =>
+    IfEq(x, y, e1, e2, _) =>
       @math.maximum(
         x.slot,
         @math.maximum(
@@ -21,7 +21,7 @@ pub fn knf_max_counter(knf : Knf) -> Int {
           @math.maximum(knf_max_counter(e1), knf_max_counter(e2)),
         ),
       )
-    IfLe(x, y, e1, e2) =>
+    IfLe(x, y, e1, e2, _) =>
       @math.maximum(
         x.slot,
         @math.maximum(

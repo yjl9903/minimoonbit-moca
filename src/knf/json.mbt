@@ -13,9 +13,9 @@ pub fn Knf::to_json(self : Knf) -> Json {
     FSub(n1, n2) => ["FSub", n1.to_json(), n2.to_json()]
     FMul(n1, n2) => ["FMul", n1.to_json(), n2.to_json()]
     FDiv(n1, n2) => ["FDiv", n1.to_json(), n2.to_json()]
-    IfEq(n1, n2, k1, k2) =>
+    IfEq(n1, n2, k1, k2, _) =>
       ["IfEq", n1.to_json(), n2.to_json(), k1.to_json(), k2.to_json()]
-    IfLe(n1, n2, k1, k2) =>
+    IfLe(n1, n2, k1, k2, _) =>
       ["IfLe", n1.to_json(), n2.to_json(), k1.to_json(), k2.to_json()]
     Let((n, t), k1, k2) =>
       ["Let", [n.to_json(), t.to_json()], k1.to_json(), k2.to_json()]
@@ -69,6 +69,7 @@ pub fn Knf::from_json(json : Json) -> Knf! {
         Name::from_json!(n2),
         Knf::from_json!(k1),
         Knf::from_json!(k2),
+        Type::Var({ val: None })
       )
     ["IfLe", n1, n2, k1, k2] =>
       IfLe(
@@ -76,6 +77,7 @@ pub fn Knf::from_json(json : Json) -> Knf! {
         Name::from_json!(n2),
         Knf::from_json!(k1),
         Knf::from_json!(k2),
+        Type::Var({ val: None })
       )
     ["Let", [n, t], k1, k2] =>
       Let(
