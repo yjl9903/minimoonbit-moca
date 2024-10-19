@@ -496,14 +496,14 @@ fn MethodBuilder::visit_expr(
     // Call
     CallDirect(label, args) =>
       cont(
-        InvokeStatic(
+        InvokeDirect(
           label._,
           args.map(fn { el => self.ssa_builder.get_var(el) }),
         ),
       )
     CallClosure(callee, args) =>
       cont(
-        InvokeVirtual(
+        InvokeClosure(
           self.ssa_builder.get_var(callee),
           args.map(fn { el => self.ssa_builder.get_var(el) }),
         ),
