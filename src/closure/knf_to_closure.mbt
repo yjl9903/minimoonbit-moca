@@ -179,7 +179,7 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
         name: mutdef.to_label(),
         old_name: name,
         is_closure,
-        ty: ret_type,
+        ty: func_type,
         args: def.args.mapi(fn { i, a => (a.0, args_type[i]) }),
         formal_free_vars: mutdef.free_vars
         .iter()
