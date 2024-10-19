@@ -36,7 +36,7 @@ fn MutFuncDef::to_string(self : MutFuncDef) -> String {
 }
 
 fn MutFuncDef::to_label(self : MutFuncDef) -> String {
-  self.name + "." + self.slot().to_string()
+  self.name + "/" + self.slot().to_string()
 }
 
 struct KnfWorld {
