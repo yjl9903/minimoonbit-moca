@@ -501,6 +501,10 @@ fn MethodBuilder::visit_expr(
       cont(Var(phi_var))
     }
 
+    // Loop
+    Loop(_) => abort("todo")
+    Continue(_) => abort("todo")
+
     // Call
     CallDirect(label, args) =>
       cont(

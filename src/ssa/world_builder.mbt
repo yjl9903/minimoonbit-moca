@@ -142,6 +142,10 @@ fn WorldBuilder::build_top_level(
         if_type,
       )
 
+    // Loop
+    Loop(_) => abort("todo")
+    Continue(_) => abort("todo")
+
     // Call
     CallDirect(_) => expr
     CallClosure(name, args) =>

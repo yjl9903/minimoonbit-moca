@@ -15,6 +15,7 @@ pub enum Value {
   Array(Array[Value])
   ExternFn(String)
   Closure(@closure.FuncDef, Array[Value])
+  Loop(Array[Name], @closure.Expr)
 } derive(Show)
 
 pub fn Value::op_equal(self : Value, other : Value) -> Bool {
@@ -183,6 +184,28 @@ pub fn ClosureInterpreter::eval(
         _ => fail!("type mismatch, ifle expects Int or Double")
       }
     }
+    // Interperter for loop
+    Loop(label, args, body) => {
+      let new_env = env.add(label, Loop(args.map(fn { a => a.0 }), body))
+      self.eval!(new_env, body)
+    }
+    Continue(label, args) => {
+      let tail_loop = find!(env, label)
+      match tail_loop {
+        Loop(params, body) => {
+          if params.length() != args.length() {
+            fail!("type mismatch, different args length")
+          }
+          let mut new_env = env
+          for i = 0; i < params.length(); i = i + 1 {
+            new_env = new_env.add(params[i], find!(env, args[i]))
+          }
+          self.eval!(new_env, body)
+        }
+        _ => fail!("type mismatch, continue expects Loop")
+      }
+    }
+    // --------------------
     Let((x, _), e1, e2) => {
       let v = self.eval!(env, e1)
       let new_env = env.add(x, v)

@@ -133,6 +133,10 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       IfLe(lhs, rhs, true_branch, false_branch, typ)
     }
 
+    // Loop
+    Loop(_) => abort("todo")
+    Continue(_) => abort("todo")
+
     // Binding
     Var(name) => {
       self.collect_free_var(name)
