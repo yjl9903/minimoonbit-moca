@@ -134,8 +134,14 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
     }
 
     // Loop
-    Loop(_) => abort("todo")
-    Continue(_) => abort("todo")
+    Loop(label, args, body) => {
+      self.collect_free_vars(args.map(fn { a => a.0 }).iter())
+      Loop(label, args, self.visit_stmt(body))
+    }
+    Continue(label, args) => {
+      self.collect_free_vars(args.iter())
+      Continue(label, args)
+    }
 
     // Binding
     Var(name) => {

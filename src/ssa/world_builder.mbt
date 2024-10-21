@@ -143,8 +143,8 @@ fn WorldBuilder::build_top_level(
       )
 
     // Loop
-    Loop(_) => abort("todo")
-    Continue(_) => abort("todo")
+    Loop(label, args, body) => Loop(label, args, self.build_top_level(body))
+    Continue(label, args) => Continue(label, args)
 
     // Call
     CallDirect(_) => expr
