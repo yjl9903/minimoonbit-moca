@@ -54,6 +54,9 @@ fn PrettyKnf::print_one_level(
       logger.outdent()
       logger.write_string("\n}")
     }
+    // TODO: print loop
+    Loop(_) => ()
+    Continue(_) => ()
     Let((name, ty), e1, e2) => {
       logger.write_string("let \{name}: \{ty} = ")
       match e1 {
