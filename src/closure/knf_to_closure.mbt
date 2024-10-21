@@ -122,8 +122,12 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
     }
 
     // Loop
-    Loop(_) => abort("todo")
-    Continue(_) => abort("todo")
+    Loop(label, args, body) => {
+      let args = args.map(fn { a => (a.0, to_closure_fn_low_type(a.1)) })
+      let body = self.visit_stmt(body)
+      Loop(label, args, body)
+    }
+    Continue(label, args) => Continue(label, args)
 
     // Array
     Get(recv, idx) => ArrayGet(recv, idx)
