@@ -35,12 +35,10 @@ pub fn Manager::optimize_ast(
   self : Manager,
   ast : @types.Syntax
 ) -> @types.Syntax {
-  @shared.debug("Original AST : \{ast} \n")
   let result = self.ast_passes.fold(
     init=ast,
     fn { ast, pass => pass.optimize(ast) },
   )
-  @shared.debug("Pass AST : \{result}")
   result
 }
 
