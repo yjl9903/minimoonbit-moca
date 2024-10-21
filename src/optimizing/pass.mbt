@@ -34,7 +34,7 @@ pub fn AstOptPass::optimize(
 pub fn KnfOptPass::optimize(self : KnfOptPass, knf : @knf.Knf) -> @knf.Knf {
   match self {
     TailRecursion => @tail.transform_tail_recursion(knf)
-    CopyPropagation => @util.die("unimplmented")
+    CopyPropagation => @copy.transform_copy_propagation(knf)
   }
 }
 
