@@ -58,8 +58,13 @@ fn TailContext::new(def : @knf.FuncDef) -> TailContext {
 fn TailContext::transform(self : TailContext) -> @knf.FuncDef {
   let has_recursion = self.collect_recursion(self.def.body)
   if has_recursion && self.valid {
-    // TODO: transform
-    self.def
+    @shared.debug("Transform tail recursion: \{self.def.name}")
+    let loop_body = Knf::Loop(
+      self.def.name,
+      self.def.args,
+      self.transform_stmt(self.def.body),
+    )
+    { ..self.def, body: loop_body }
   } else {
     self.def
   }
@@ -182,6 +187,63 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
     }
     LetTuple(_, _, rest) => self.collect_recursion(rest)
     LetRec(_, rest) => self.collect_recursion(rest)
+
+    // unused
+    ExternalArray(_) => @util.die("unreachable")
+  }
+}
+
+fn TailContext::transform_stmt(self : TailContext, knf : Knf) -> Knf {
+  match knf {
+    // Literal
+    Unit
+    | Int(_)
+    | Double(_)
+    | Neg(_)
+    | FNeg(_)
+    | Add(_) | Sub(_) | Mul(_) | Div(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
+      knf
+
+    // Vars
+    Var(_) | Tuple(_) | Get(_) | Put(_) => knf
+
+    // If
+    IfEq(lhs, rhs, true_branch, false_branch, ty) =>
+      IfEq(
+        lhs,
+        rhs,
+        self.transform_stmt(true_branch),
+        self.transform_stmt(false_branch),
+        ty,
+      )
+    IfLe(lhs, rhs, true_branch, false_branch, ty) =>
+      IfLe(
+        lhs,
+        rhs,
+        self.transform_stmt(true_branch),
+        self.transform_stmt(false_branch),
+        ty,
+      )
+
+    // Loop
+    Loop(label, args, body) => Loop(label, args, self.transform_stmt(body))
+    Continue(_) => knf
+
+    // Apply
+    Apply(callee, args) =>
+      if callee == self.def.name {
+        Continue(self.def.name, args)
+      } else {
+        knf
+      }
+    ExternalFunctionApplication(_) => knf
+
+    // Let
+    Let(binding, expr, rest) =>
+      Let(binding, self.transform_stmt(expr), self.transform_stmt(rest))
+    LetTuple(binding, expr, rest) =>
+      LetTuple(binding, expr, self.transform_stmt(rest))
+    LetRec(def, rest) => LetRec(def, self.transform_stmt(rest))
 
     // unused
     ExternalArray(_) => @util.die("unreachable")

@@ -502,8 +502,8 @@ fn MethodBuilder::visit_expr(
     }
 
     // Loop
-    Loop(_) => abort("todo")
-    Continue(_) => abort("todo")
+    Loop(_) => @util.die("todo")
+    Continue(_) => @util.die("todo")
 
     // Call
     CallDirect(label, args) =>

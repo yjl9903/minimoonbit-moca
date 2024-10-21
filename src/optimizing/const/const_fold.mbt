@@ -33,7 +33,6 @@ pub fn const_fold_dfs(
       let lhs = const_fold_dfs(exp, mp)
       let rhs = const_fold_dfs(block, mp)
       let next_stmt = const_fold_dfs(else_stmt, mp)
-      @shared.debug("Ihs : \{lhs}\n rhs : \{rhs}\n next:\{next_stmt}")
       If(lhs, rhs, next_stmt)
     }
     _ => ast
