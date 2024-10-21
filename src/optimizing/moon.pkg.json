@@ -9,6 +9,8 @@
     "moonbitlang/minimbt/util",
     "moonbitlang/minimbt/shared",
     "moonbitlang/minimbt/optimizing/const",
-    "moonbitlang/minimbt/optimizing/liveness"
+    "moonbitlang/minimbt/optimizing/copy",
+    "moonbitlang/minimbt/optimizing/liveness",
+    "moonbitlang/minimbt/optimizing/tail"
   ]
 }
