@@ -121,6 +121,10 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
       IfLe(lhs, rhs, true_branch, false_branch, to_closure_fn_low_type(if_type))
     }
 
+    // Loop
+    Loop(_) => abort("todo")
+    Continue(_) => abort("todo")
+
     // Array
     Get(recv, idx) => ArrayGet(recv, idx)
     Put(recv, idx, expr) => ArrayPut(recv, idx, expr)

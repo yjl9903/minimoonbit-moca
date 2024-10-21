@@ -15,6 +15,7 @@ pub enum Value {
   Array(Array[Value])
   ExternFn(String)
   Closure(@knf.FuncDef, Ref[InterpreterLocalVars])
+  Loop(Array[Name], @knf.Knf)
 } derive(Show)
 
 pub fn Value::op_equal(self : Value, other : Value) -> Bool {
@@ -142,6 +143,28 @@ pub fn KnfInterpreter::eval(
         _ => fail!("type mismatch, fdiv expects Double")
       }
     }
+    // Interperter for loop
+    Loop(label, args, body) => {
+      let new_env = env.add(label, Loop(args.map(fn { a => a.0 }), body))
+      self.eval!(new_env, body)
+    }
+    Continue(label, args) => {
+      let tail_loop = find!(env, label)
+      match tail_loop {
+        Loop(params, body) => {
+          if params.length() != args.length() {
+            fail!("type mismatch, different args length")
+          }
+          let mut new_env = env
+          for i = 0; i < params.length(); i = i + 1 {
+            new_env = new_env.add(params[i], find!(env, args[i]))
+          }
+          self.eval!(new_env, body)
+        }
+        _ => fail!("type mismatch, continue expects Loop")
+      }
+    }
+    // --------------------
     IfEq(x, y, e1, e2, _) => {
       let x = find!(env, x)
       let y = find!(env, y)

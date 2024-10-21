@@ -16,6 +16,8 @@ pub enum Knf {
   FSub(Name, Name)
   FMul(Name, Name)
   FDiv(Name, Name)
+  Loop(Name, Array[(Name, Type)], Knf)
+  Continue(Name, Array[Name])
   IfEq(Name, Name, Knf, Knf, Type)
   IfLe(Name, Name, Knf, Knf, Type)
   Let((Name, Type), Knf, Knf)
