@@ -29,6 +29,15 @@ pub fn knf_max_counter(knf : Knf) -> Int {
           @math.maximum(knf_max_counter(e1), knf_max_counter(e2)),
         ),
       )
+    Loop(_, args, body) =>
+      @math.maximum(
+        args
+        .map(fn(x) { x.0.slot })
+        .fold(init=0, fn(a, b) { @math.maximum(a, b) }),
+        knf_max_counter(body),
+      )
+    Continue(_, args) =>
+      args.map(fn(x) { x.slot }).fold(init=0, fn(a, b) { @math.maximum(a, b) })
     Let((n, _), e1, e2) =>
       @math.maximum(
         n.slot,
@@ -75,14 +84,14 @@ fn concat_knf(lhs : Knf, rhs : Knf) -> Knf {
   }
 }
 
-fn extract_array_type(typ : Type) -> Type? {
+pub fn extract_array_type(typ : Type) -> Type? {
   match typ {
     Array(typ) | Var({ val: Some(Array(typ)) }) => Some(typ)
     _ => None
   }
 }
 
-fn extract_return_type(typ : Type) -> Type? {
+pub fn extract_return_type(typ : Type) -> Type? {
   match typ {
     Fun(_, ret) | Var({ val: Some(Fun(_, ret)) }) => Some(ret)
     _ => None

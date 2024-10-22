@@ -122,10 +122,10 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
     }
 
     // Loop
-    Loop(label, args, body) => {
+    Loop((label, ty), args, body) => {
       let args = args.map(fn { a => (a.0, to_closure_fn_low_type(a.1)) })
       let body = self.visit_stmt(body)
-      Loop(label, args, body)
+      Loop((label, to_closure_fn_low_type(ty)), args, body)
     }
     Continue(label, args) => Continue(label, args)
 

@@ -60,7 +60,7 @@ fn TailContext::transform(self : TailContext) -> @knf.FuncDef {
   if has_recursion && self.valid {
     @shared.debug("Transform tail recursion: \{self.def.name}")
     let loop_body = Knf::Loop(
-      self.def.name,
+      (self.def.name, @knf.extract_return_type(self.def.ty).unwrap()),
       self.def.args,
       self.transform_stmt(self.def.body),
     )
@@ -113,7 +113,7 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
     }
 
     // Loop
-    Loop(label, args, body) =>
+    Loop((label, _), args, body) =>
       // can not optimize a method twice
       if label == self.def.name {
         self.valid = false
