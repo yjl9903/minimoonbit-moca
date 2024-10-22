@@ -144,7 +144,7 @@ pub fn KnfInterpreter::eval(
       }
     }
     // Interperter for loop
-    Loop(label, args, body) => {
+    Loop((label, _), args, body) => {
       let new_env = env.add(label, Loop(args.map(fn { a => a.0 }), body))
       self.eval!(new_env, body)
     }

@@ -18,7 +18,12 @@ pub fn Expr::to_json(self : Expr) -> Json {
     Expr::IfLe(n1, n2, e1, e2, _) =>
       ["IfLe", n1.to_json(), n2.to_json(), e1.to_json(), e2.to_json()]
     Expr::Loop(label, args, body) =>
-      ["Loop", label.to_json(), args.to_json(), body.to_json()]
+      [
+        "Loop",
+        [label.0.to_json(), label.1.to_json()],
+        args.to_json(),
+        body.to_json(),
+      ]
     Expr::Continue(label, args) => ["Continue", label.to_json(), args.to_json()]
     Expr::Let((n, t), e1, e2) =>
       ["Let", [n.to_json(), t.to_json()], e1.to_json(), e2.to_json()]
