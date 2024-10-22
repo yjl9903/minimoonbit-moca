@@ -537,7 +537,9 @@ fn MethodBuilder::visit_expr(
       // 4. Back write label
       match if_stmt.stmt {
         IfGoto(_) =>
-          if_stmt.update(IfGoto(condition, Some(true_block.label), Some(false_block.label)))
+          if_stmt.update(
+            IfGoto(condition, Some(true_block.label), Some(false_block.label)),
+          )
         _ => @util.die("should be if goto stmt")
       }
       match true_stmt.stmt {
