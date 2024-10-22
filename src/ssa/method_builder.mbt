@@ -79,7 +79,13 @@ struct SsaBuilder {
   mut local_vars_counter : Int
 
   // Builder
+  loops : Map[Name, LoopBuilder]
   world_builder : WorldBuilder
+}
+
+struct LoopBuilder {
+  label : Int
+  args : Array[@hashset.T[Name]]
 }
 
 fn SsaBuilder::new(
@@ -102,6 +108,7 @@ fn SsaBuilder::new(
     local_temp_vars: [],
     free_vars_counter: 0,
     local_vars_counter: 0,
+    loops: Map::new(),
     world_builder,
   }
 }
@@ -116,6 +123,7 @@ fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
       is_this: true,
       is_param: true,
       is_global: false,
+      is_mut: false,
       const_value: None,
     },
   )
@@ -179,6 +187,7 @@ fn SsaBuilder::add_local_var(
             is_this: false,
             is_param,
             is_global: false,
+            is_mut: false,
             const_value: get_const_value(name),
           }
           self.local_vars_counter = self.local_vars_counter + 1
@@ -198,6 +207,7 @@ fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
     is_this: false,
     is_param: false,
     is_global: false,
+    is_mut: false,
     const_value: None,
   }
   self.local_temp_vars.push(var)
@@ -554,8 +564,96 @@ fn MethodBuilder::visit_expr(
     }
 
     // Loop
-    Loop(_) => @util.die("todo")
-    Continue(_) => @util.die("todo")
+    Loop((label, loop_type), raw_args, body) => {
+      // 1. Create a loop block
+      let loop_block = self.ssa_builder.append_new_block()
+
+      // 2. Append placeholder stmts for args phi stmt
+      let args = raw_args.map(
+        fn {
+          (a, _) => (self.ssa_builder.get_var(a), self.ssa_builder.emit(Nop))
+        },
+      )
+
+      // 3. Build loop body
+      let builder = LoopBuilder::{
+        label: loop_block.label,
+        args: Array::make(args.length(), @hashset.new()),
+      }
+      match self.ssa_builder.loops.get(label) {
+        Some(_) => @util.die("duplicated loop")
+        None => self.ssa_builder.loops.set(label, builder)
+      }
+      let break_names = [] // Break return variables
+      let break_goto = [] // Break out of loop
+      let _loop_body = self.visit_expr(
+        body,
+        fn {
+          rvalue => {
+            let local_var = self.ssa_builder.add_local_temp_var(loop_type)
+            break_names.push(local_var)
+            let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+            let goto_stmt = self.ssa_builder.emit(Goto(-1))
+            break_goto.push(goto_stmt)
+            goto_stmt
+          }
+        },
+      )
+
+      // 4. Back write the phi var
+      args.eachi(
+        fn {
+          i, (arg, stmt) => {
+            let raw_name = raw_args[i].0
+            let next_names = builder.args[i].iter().collect()
+            match next_names {
+              [] => @util.die("should have at least one continue args")
+              [next_name] =>
+                // Ignore no updation to arg
+                if raw_name != next_name {
+                  arg.is_mut = true
+                  let next_var = self.ssa_builder.get_var(next_name)
+                  stmt.update(Definition(Some(arg), Phi([arg, next_var])))
+                }
+              _ => {
+                arg.is_mut = true
+                let next_vars = [arg]
+                next_vars.push_iter(
+                  next_names.map(fn { n => self.ssa_builder.get_var(n) }).iter(),
+                )
+                stmt.update(Definition(Some(arg), Phi(next_vars)))
+              }
+            }
+          }
+        },
+      )
+
+      // 5. Build the final result
+      let return_block = self.ssa_builder.create_new_block()
+      break_goto.each(fn { stmt => stmt.update(Goto(return_block.label)) })
+      loop_block.succ.push(loop_block)
+      loop_block.succ.push(return_block)
+      self.ssa_builder.current_block = return_block
+      match break_names {
+        [] => cont(Unit)
+        [return_name] => cont(Var(return_name))
+        _ => {
+          let phi_var = self.ssa_builder.add_local_temp_var(loop_type)
+          let _phi_stmt = self.ssa_builder.emit(
+            Definition(Some(phi_var), Phi(break_names)),
+          )
+          cont(Var(phi_var))
+        }
+      }
+    }
+    Continue(label, args) =>
+      match self.ssa_builder.loops.get(label) {
+        Some(builder) => {
+          args.eachi(fn { i, arg => builder.args[i].insert(arg) })
+          self.ssa_builder.emit(Goto(builder.label))
+        }
+        None => @util.die("should have loop \{label}")
+      }
 
     // Call
     CallDirect(label, args) =>

@@ -20,6 +20,7 @@ pub struct Var {
   is_this : Bool // this
   is_param : Bool // param
   is_global : Bool // from global
+  mut is_mut : Bool // is mutable, may be updated from loop
   const_value : RValue? // const
 }
 
