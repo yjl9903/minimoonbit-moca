@@ -22,7 +22,7 @@ pub enum Expr {
   FSub(Name, Name)
   FMul(Name, Name)
   FDiv(Name, Name)
-  Loop(Name, Array[(Name, LowType)], Expr)
+  Loop((Name, LowType), Array[(Name, LowType)], Expr)
   Continue(Name, Array[Name])
   IfEq(Name, Name, Expr, Expr, LowType)
   IfLe(Name, Name, Expr, Expr, LowType)

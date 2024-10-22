@@ -14,7 +14,12 @@ pub fn Knf::to_json(self : Knf) -> Json {
     FMul(n1, n2) => ["FMul", n1.to_json(), n2.to_json()]
     FDiv(n1, n2) => ["FDiv", n1.to_json(), n2.to_json()]
     Loop(label, params, body) =>
-      ["Loop", label.to_json(), params.to_json(), body.to_json()]
+      [
+        "Loop",
+        [label.0.to_json(), label.1.to_json()],
+        params.to_json(),
+        body.to_json(),
+      ]
     Continue(label, args) => ["Continue", label.to_json(), args.to_json()]
     IfEq(n1, n2, k1, k2, _) =>
       ["IfEq", n1.to_json(), n2.to_json(), k1.to_json(), k2.to_json()]
