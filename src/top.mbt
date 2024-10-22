@@ -23,14 +23,14 @@ pub enum Syntax {
 pub enum Kind {
   Int
   Double
-} derive(Show, Eq)
+} derive(Show, Eq, Hash)
 
 pub enum Op {
   Add
   Sub
   Mul
   Div
-} derive(Show, Eq)
+} derive(Show, Eq, Hash)
 
 pub struct Fundef {
   name : (String, Type)
