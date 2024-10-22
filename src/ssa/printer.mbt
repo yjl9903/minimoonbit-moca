@@ -79,7 +79,7 @@ fn Method::print_stmt(self : Method, stmt : StmtKind) -> String {
         fn() { "" },
         fn { b => "B" + b.to_string() },
       )
-      "if \{cond} then B\{true_block} else B\{false_block}"
+      "if \{cond} then \{true_block} else \{false_block}"
     }
     Goto(t) => "goto B\{t};"
     Nop => ""
