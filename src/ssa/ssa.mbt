@@ -10,7 +10,14 @@ pub enum PrimOp {
   Div
 } derive(Eq)
 
-typealias Type = @closure.LowType
+pub fn PrimOp::to_string(self : PrimOp) -> String {
+  match self {
+    Add => "+"
+    Sub => "-"
+    Mul => "*"
+    Div => "/"
+  }
+}
 
 pub struct Var {
   id : Int
@@ -141,60 +148,6 @@ fn Block::new(label : Int) -> Block {
   { label, stmts: [], succ: [] }
 }
 
-pub fn PrimOp::to_string(self : PrimOp) -> String {
-  match self {
-    Add => "+"
-    Sub => "-"
-    Mul => "*"
-    Div => "/"
-  }
-}
-
-pub fn RValue::to_string(self : RValue) -> String {
-  match self {
-    Unit => "Unit"
-    Int(v) => "(Int) \{v}"
-    Double(v) => "(Double) \{v}"
-    Neg(v, kind) => "(\{kind}) -\{v.to_string()}"
-    Prim(lhs, rhs, op, kind) => "(\{kind}) \{lhs} \{op} \{rhs}"
-    Var(v) => v.to_string()
-    Tuple(els) => {
-      let els = els.map(fn { el => el.to_string() }).join(", ")
-      "(\{els})"
-    }
-    Closure(label, free_vars) => {
-      let bindings = free_vars
-        .map(fn { (fv, var) => "\{fv.to_string()} = \{var.to_string()}" })
-        .join(", ")
-      "make_closure \"\{label}\" { \{bindings} } "
-    }
-    GetTuple(recv, idx) => "\{recv.to_string()}.\{idx.to_string()}"
-    GetArray(recv, idx) => "\{recv.to_string()}[\{idx.to_string()}]"
-    GetClosure(v, fv) => "get_closure \{v} -> \{fv.to_string()}"
-    InvokeClosure(callee, args) => {
-      let args = args.map(fn { el => el.to_string() }).join(", ")
-      "invoke_closure \{callee} (\{args})"
-    }
-    InvokeDirect(label, args) => {
-      let args = args.map(fn { el => el.to_string() }).join(", ")
-      "invoke_direct \"\{label}\" (\{args})"
-    }
-    Phi(els) => {
-      let els = els.map(fn { el => el.to_string() }).join(", ")
-      "phi (\{els})"
-    }
-  }
-}
-
-pub fn StmtKind::to_string(self : StmtKind) -> String {
-  match self {
-    Definition(Some(lhs), rvalue) =>
-      "\{lhs.to_string()} : \{lhs.ty.to_string()} = \{rvalue.to_string()}"
-    Definition(None, rvalue) => rvalue.to_string()
-    PutArray(_, _, _) => ""
-    IfGoto(_, _, _) => ""
-    Goto(t) => "goto \{t};"
-    Nop => "nop;"
-    Return(rvalue) => "return \{rvalue.to_string()}"
-  }
+pub fn IR::labels(self : IR) -> Map[Int, Block] {
+  Map::from_array(self.blocks.map(fn { b => (b.stmts[0].slot, b) }))
 }

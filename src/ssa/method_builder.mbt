@@ -134,7 +134,7 @@ fn SsaBuilder::add_free_vars(
   self : SsaBuilder,
   free_vars : Array[(Name, @closure.LowType)]
 ) -> Unit {
-  let this = self.this.unwrap()
+  let this = self.this.or_else(fn() { @util.die("should have this var") })
   free_vars.each(
     fn {
       fv => {
@@ -222,7 +222,7 @@ fn SsaBuilder::get_var(self : SsaBuilder, name : Name) -> Var {
     None =>
       // 2. Recursion
       if name == self.old_name {
-        self.this.unwrap()
+        self.this.or_else(fn() { @util.die("should have this var") })
       } else {
         match self.free_vars.get(name) {
           // 3. Find in the closure env
@@ -265,6 +265,7 @@ fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
   let _ = self.visit_stmt(expr)
   let local_vars = self.ssa_builder.local_vars.values().collect()
   local_vars.push_iter(self.ssa_builder.local_temp_vars.iter())
+  self.validate()
   {
     name: self.name,
     slot: self.id,
@@ -272,10 +273,19 @@ fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
     this: self.ssa_builder.this,
     params: self.ssa_builder.params,
     local_vars,
-    body: { stmts: self.ssa_builder.stmts, blocks: [] },
+    body: { stmts: self.ssa_builder.stmts, blocks: self.ssa_builder.blocks },
     is_closure: self.is_closure,
     formal_free_vars: self.ssa_builder.formal_free_vars.values().collect(),
     local_free_vars: self.ssa_builder.free_vars.values().collect(),
+  }
+}
+
+fn MethodBuilder::validate(self : MethodBuilder) -> Unit {
+  for i = 0; i < self.ssa_builder.blocks.length(); i = i + 1 {
+    let block = self.ssa_builder.blocks[i]
+    if block.stmts.length() == 0 {
+      @util.die("should not have empty basic block in \{self.name}")
+    }
   }
 }
 
@@ -284,23 +294,27 @@ fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
 fn MethodBuilder::visit_stmt(
   self : MethodBuilder,
   expr : @closure.Expr,
-  ~cont : ((RValue) -> Stmt)? = None
-) -> Stmt {
+  ~cont : ((RValue) -> Unit)? = None,
+  ~visiting_loop : Bool = false
+) -> Unit {
   match expr {
     Let((name, typ), expr, rest) => {
       let _ = self.visit_expr(
         expr,
         fn {
-          rvalue =>
-            self.ssa_builder.emit(
+          rvalue => {
+            let _ = self.ssa_builder.emit(
               Definition(
                 Some(self.ssa_builder.add_local_var(name, typ)),
                 rvalue,
               ),
             )
+            ()
+          }
         },
+        visiting_loop=false,
       )
-      self.visit_stmt(rest, ~cont)
+      self.visit_stmt(rest, ~cont, ~visiting_loop)
     }
     LetTuple(els, expr, rest) => {
       let rvalue = self.ssa_builder.get_var(expr)
@@ -315,7 +329,7 @@ fn MethodBuilder::visit_stmt(
           }
         },
       )
-      self.visit_stmt(rest, ~cont)
+      self.visit_stmt(rest, ~cont, ~visiting_loop)
     }
     MakeClosure((name, typ), closure, rest) => {
       // Connect actual free vars and formal free vars
@@ -334,7 +348,12 @@ fn MethodBuilder::visit_stmt(
       let free_vars = actual_free_vars.map(
         fn {
           fv =>
-            (formal_free_vars.get(fv).unwrap(), self.ssa_builder.get_var(fv))
+            (
+              formal_free_vars
+              .get(fv)
+              .or_else(fn() { @util.die("should have free var \{fv}") }),
+              self.ssa_builder.get_var(fv),
+            )
         },
       )
       // Make a new closure
@@ -342,16 +361,16 @@ fn MethodBuilder::visit_stmt(
       let _ = self.ssa_builder.emit(
         Definition(Some(local_var), Closure(closure.name._, free_vars)),
       )
-      self.visit_stmt(rest, ~cont)
+      self.visit_stmt(rest, ~cont, ~visiting_loop)
     }
     _ =>
       match cont {
-        Some(cont) => self.visit_expr(expr, cont)
+        Some(cont) => self.visit_expr(expr, cont, ~visiting_loop)
         _ =>
           self.visit_expr(
             expr,
             fn(rvalue) {
-              match rvalue {
+              let _ = match rvalue {
                 Var(var) => self.ssa_builder.emit(Return(var))
                 _ => {
                   let ret_type = @closure.extract_return_type(self.ty)
@@ -362,7 +381,9 @@ fn MethodBuilder::visit_stmt(
                   self.ssa_builder.emit(Return(local_var))
                 }
               }
+              ()
             },
+            ~visiting_loop,
           )
       }
   }
@@ -373,8 +394,9 @@ fn MethodBuilder::visit_stmt(
 fn MethodBuilder::visit_expr(
   self : MethodBuilder,
   expr : @closure.Expr,
-  cont : (RValue) -> Stmt
-) -> Stmt {
+  cont : (RValue) -> Unit,
+  ~visiting_loop : Bool = false
+) -> Unit {
   match expr {
     Unit => cont(Unit)
     Int(v) => cont(Int(v))
@@ -491,60 +513,56 @@ fn MethodBuilder::visit_expr(
       let if_stmt = self.ssa_builder.emit(IfGoto(condition, None, None))
 
       // 1.1. Create true branch block
+      let _ = self.ssa_builder.emit(Nop)
       let true_block = self.ssa_builder.create_new_block()
       if_block.succ.push(true_block)
       self.ssa_builder.current_block = true_block
 
       // 1.2. Visit true branch
       let mut true_var : Var? = None
-      let true_stmt = self.visit_expr(
+      let mut true_stmt : Stmt? = None
+      self.visit_expr(
         true_branch,
         fn {
-          rvalue => {
-            let local_var = self.ssa_builder.add_local_temp_var(if_type)
-            true_var = Some(local_var)
-            let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
-            self.ssa_builder.emit(Goto(-1))
-          }
+          rvalue =>
+            if visiting_loop {
+              cont(rvalue)
+            } else {
+              let local_var = self.ssa_builder.add_local_temp_var(if_type)
+              true_var = Some(local_var)
+              let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+              true_stmt = Some(self.ssa_builder.emit(Goto(-1)))
+            }
         },
+        ~visiting_loop,
       )
-      if true_block.stmts.length() == 0 {
-        return @util.die("if true block should not be empty")
-      }
 
       // 2.1. Create true branch block
+      let _ = self.ssa_builder.emit(Nop)
       let false_block = self.ssa_builder.create_new_block()
       if_block.succ.push(false_block)
       self.ssa_builder.current_block = false_block
 
       // 2.2. Visit false branch
       let mut false_var : Var? = None
-      let false_stmt = self.visit_expr(
+      let mut false_stmt : Stmt? = None
+      self.visit_expr(
         false_branch,
         fn {
-          rvalue => {
-            let local_var = self.ssa_builder.add_local_temp_var(if_type)
-            false_var = Some(local_var)
-            let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
-            self.ssa_builder.emit(Goto(-1))
-          }
+          rvalue =>
+            if visiting_loop {
+              cont(rvalue)
+            } else {
+              let local_var = self.ssa_builder.add_local_temp_var(if_type)
+              false_var = Some(local_var)
+              let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+              false_stmt = Some(self.ssa_builder.emit(Goto(-1)))
+            }
         },
-      )
-      if false_block.stmts.length() == 0 {
-        return @util.die("if false block should not be empty")
-      }
-
-      // 3. Merge block and add phi var
-      let merge_block = self.ssa_builder.create_new_block()
-      true_block.succ.push(merge_block)
-      false_block.succ.push(merge_block)
-      self.ssa_builder.current_block = merge_block
-      let phi_var = self.ssa_builder.add_local_temp_var(if_type)
-      let _phi_stmt = self.ssa_builder.emit(
-        Definition(Some(phi_var), Phi([true_var.unwrap(), false_var.unwrap()])),
+        ~visiting_loop,
       )
 
-      // 4. Back write label
+      // 3. Back write if goto true and false label
       match if_stmt.stmt {
         IfGoto(_) =>
           if_stmt.update(
@@ -552,21 +570,55 @@ fn MethodBuilder::visit_expr(
           )
         _ => @util.die("should be if goto stmt")
       }
-      match true_stmt.stmt {
-        Goto(_) => true_stmt.update(Goto(merge_block.label))
-        _ => @util.die("should be goto stmt")
+
+      // 4. Merge block and add phi var
+      if not(visiting_loop) {
+        let _ = self.ssa_builder.emit(Nop)
+        let merge_block = self.ssa_builder.create_new_block()
+        true_block.succ.push(merge_block)
+        false_block.succ.push(merge_block)
+        self.ssa_builder.current_block = merge_block
+        let phi_var = self.ssa_builder.add_local_temp_var(if_type)
+        let _phi_stmt = self.ssa_builder.emit(
+          Definition(
+            Some(phi_var),
+            Phi(
+              [
+                true_var.or_else(
+                  fn() { @util.die("should have true branch result var") },
+                ),
+                false_var.or_else(
+                  fn() { @util.die("should have false branch result var") },
+                ),
+              ],
+            ),
+          ),
+        )
+
+        // 5. Back write jump out labal
+        match true_stmt {
+          Some({ stmt: Goto(_), .. } as true_stmt) =>
+            true_stmt.update(Goto(merge_block.label))
+          _ => @util.die("should be goto stmt")
+        }
+        match false_stmt {
+          Some({ stmt: Goto(_), .. } as false_stmt) =>
+            false_stmt.update(Goto(merge_block.label))
+          _ => @util.die("should be goto stmt")
+        }
+        cont(Var(phi_var))
       }
-      match false_stmt.stmt {
-        Goto(_) => false_stmt.update(Goto(merge_block.label))
-        _ => @util.die("should be goto stmt")
-      }
-      cont(Var(phi_var))
     }
 
     // Loop
     Loop((label, loop_type), raw_args, body) => {
       // 1. Create a loop block
-      let loop_block = self.ssa_builder.append_new_block()
+      let loop_block = if self.ssa_builder.current_block.stmts.length() == 0 {
+        self.ssa_builder.current_block
+      } else {
+        let _ = self.ssa_builder.emit(Nop)
+        self.ssa_builder.append_new_block()
+      }
 
       // 2. Append placeholder stmts for args phi stmt
       let args = raw_args.map(
@@ -578,7 +630,7 @@ fn MethodBuilder::visit_expr(
       // 3. Build loop body
       let builder = LoopBuilder::{
         label: loop_block.label,
-        args: Array::make(args.length(), @hashset.new()),
+        args: args.map(fn { _ => @hashset.new() }),
       }
       match self.ssa_builder.loops.get(label) {
         Some(_) => @util.die("duplicated loop")
@@ -593,11 +645,10 @@ fn MethodBuilder::visit_expr(
             let local_var = self.ssa_builder.add_local_temp_var(loop_type)
             break_names.push(local_var)
             let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
-            let goto_stmt = self.ssa_builder.emit(Goto(-1))
-            break_goto.push(goto_stmt)
-            goto_stmt
+            break_goto.push(self.ssa_builder.emit(Goto(-1)))
           }
         },
+        visiting_loop=true,
       )
 
       // 4. Back write the phi var
@@ -629,13 +680,17 @@ fn MethodBuilder::visit_expr(
       )
 
       // 5. Build the final result
+      let _ = self.ssa_builder.emit(Nop)
       let return_block = self.ssa_builder.create_new_block()
       break_goto.each(fn { stmt => stmt.update(Goto(return_block.label)) })
       loop_block.succ.push(loop_block)
       loop_block.succ.push(return_block)
       self.ssa_builder.current_block = return_block
       match break_names {
-        [] => cont(Unit)
+        [] => {
+          let _ = self.ssa_builder.emit(Nop)
+          cont(Unit)
+        }
         [return_name] => cont(Var(return_name))
         _ => {
           let phi_var = self.ssa_builder.add_local_temp_var(loop_type)
@@ -650,7 +705,8 @@ fn MethodBuilder::visit_expr(
       match self.ssa_builder.loops.get(label) {
         Some(builder) => {
           args.eachi(fn { i, arg => builder.args[i].insert(arg) })
-          self.ssa_builder.emit(Goto(builder.label))
+          let _ = self.ssa_builder.emit(Goto(builder.label))
+          ()
         }
         None => @util.die("should have loop \{label}")
       }
@@ -672,9 +728,9 @@ fn MethodBuilder::visit_expr(
       )
 
     // Stmt
-    Let(_) => self.visit_stmt(expr, cont=Some(cont))
-    LetTuple(_) => self.visit_stmt(expr, cont=Some(cont))
-    MakeClosure(_) => self.visit_stmt(expr, cont=Some(cont))
+    Let(_) => self.visit_stmt(expr, cont=Some(cont), ~visiting_loop)
+    LetTuple(_) => self.visit_stmt(expr, cont=Some(cont), ~visiting_loop)
+    MakeClosure(_) => self.visit_stmt(expr, cont=Some(cont), ~visiting_loop)
 
     // Unused
     ExternalArray(_) => @util.die("unreachable")
