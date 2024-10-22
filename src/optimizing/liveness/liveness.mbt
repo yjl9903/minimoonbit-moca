@@ -20,9 +20,9 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       // dfs expr_stmt
       let (expr, expr_live_set) = liveness_dfs(expr)
       let live_set = live_set.union(expr_live_set) // union use
-      @shared.debug(
-        "id: \{id}; expr: \{expr} live_set: \{live_set}; next_set :\{next_live_set}",
-      )
+      // @shared.debug(
+      //   "id: \{id}; expr: \{expr} live_set: \{live_set}; next_set :\{next_live_set}",
+      // )
       if next_live_set.contains(id) || live_set.contains("FUNC!") || id == "_" {
         if live_set.contains("FUNC!") {
           live_set.remove("FUNC!")
@@ -59,9 +59,9 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
       let live_set = live_set.union(lhs_set)
       let (rhs, rhs_set) = liveness_dfs(rhs)
       let live_set = live_set.union(rhs_set)
-      @shared.debug(
-        " Array -> lhs : \{lhs} ; rhs : \{rhs}; live_set : \{live_set}",
-      )
+      // @shared.debug(
+      //   " Array -> lhs : \{lhs} ; rhs : \{rhs}; live_set : \{live_set}",
+      // )
       (Array(lhs, rhs), live_set)
     }
     If(condition, block, else_stmt) => {
