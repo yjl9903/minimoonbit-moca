@@ -65,8 +65,8 @@ fn emit_method(
   }
 
   // 2. Analyze phi and label
-  for i = 0; i < method.body.length(); i = i + 1 {
-    let stmt = method.body[i]
+  for i = 0; i < method.body.stmts.length(); i = i + 1 {
+    let stmt = method.body.stmts[i]
     match stmt.stmt {
       Definition(Some(var), Phi(merged)) =>
         merged.each(fn { m => emitter.merged.set(m.id, var) })
@@ -86,8 +86,8 @@ fn emit_method(
   }
 
   // 3. Print stmts
-  for i = 0; i < method.body.length(); i = i + 1 {
-    let stmt = method.body[i]
+  for i = 0; i < method.body.stmts.length(); i = i + 1 {
+    let stmt = method.body.stmts[i]
     let stmt = emitter.emit_method_stmt(stmt)
     let label = emitter.labels.get(i)
     match label {

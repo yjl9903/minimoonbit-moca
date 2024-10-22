@@ -75,7 +75,9 @@ pub enum Condition {
 pub enum StmtKind {
   Definition(Var?, RValue) // _ = _
   PutArray(Var, Var, Var) // _[_] = _
+  // Condition, true branch block label, false branch block label
   IfGoto(Condition, Int?, Int?) // if _ { _ } else { _ }
+  // Go to label
   Goto(Int) // goto _
   Nop // nop
   Return(Var) // return _
@@ -84,8 +86,8 @@ pub enum StmtKind {
 pub struct Stmt {
   slot : Int
   mut stmt : StmtKind
-  mut def: Var?
-  mut uses: Array[Var]
+  mut def : Var?
+  mut uses : Array[Var]
 }
 
 pub fn Stmt::new(slot : Int, stmt : StmtKind) -> Stmt {
@@ -115,12 +117,27 @@ pub struct Method {
   this : Var?
   params : Array[Var]
   local_vars : Array[Var]
-  body : Array[Stmt]
+  body : IR
 
   // closure
   is_closure : Bool
   local_free_vars : Array[Var]
   formal_free_vars : Array[FreeVar]
+}
+
+pub struct IR {
+  stmts : Array[Stmt]
+  blocks : Array[Block]
+}
+
+pub struct Block {
+  label : Int
+  stmts : Array[Stmt]
+  succ : Array[Block]
+}
+
+fn Block::new(label : Int) -> Block {
+  { label, stmts: [], succ: [] }
 }
 
 pub fn PrimOp::to_string(self : PrimOp) -> String {
