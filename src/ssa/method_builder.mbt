@@ -65,7 +65,11 @@ struct SsaBuilder {
   mut this : Var?
   formal_free_vars : Map[Name, FreeVar]
   params : Array[Var]
+
+  // Stmts
   stmts : Array[Stmt]
+  blocks : Array[Block]
+  mut current_block : Block
 
   // Transform name to var
   free_vars : Map[Name, Var]
@@ -83,6 +87,7 @@ fn SsaBuilder::new(
   old_name : Name,
   ty : Type
 ) -> SsaBuilder {
+  let current_block = Block::new(0)
   {
     old_name,
     ty,
@@ -90,6 +95,8 @@ fn SsaBuilder::new(
     formal_free_vars: Map::new(),
     params: [],
     stmts: [],
+    blocks: [current_block],
+    current_block,
     free_vars: Map::new(),
     local_vars: Map::new(),
     local_temp_vars: [],
@@ -224,8 +231,25 @@ fn SsaBuilder::get_var(self : SsaBuilder, name : Name) -> Var {
 fn SsaBuilder::emit(self : SsaBuilder, stmt : StmtKind) -> Stmt {
   let stmt = Stmt::new(self.stmts.length(), stmt)
   self.stmts.push(stmt)
+  self.current_block.stmts.push(stmt)
   stmt
 }
+
+fn SsaBuilder::append_new_block(self : SsaBuilder) -> Block {
+  let block = Block::new(self.blocks.length())
+  self.blocks.push(block)
+  self.current_block.succ.push(block)
+  self.current_block = block
+  block
+}
+
+fn SsaBuilder::create_new_block(self : SsaBuilder) -> Block {
+  let block = Block::new(self.blocks.length())
+  self.blocks.push(block)
+  block
+}
+
+// --- Build ---
 
 fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
   let _ = self.visit_stmt(expr)
@@ -238,7 +262,7 @@ fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
     this: self.ssa_builder.this,
     params: self.ssa_builder.params,
     local_vars,
-    body: self.ssa_builder.stmts,
+    body: { stmts: self.ssa_builder.stmts, blocks: [] },
     is_closure: self.is_closure,
     formal_free_vars: self.ssa_builder.formal_free_vars.values().collect(),
     local_free_vars: self.ssa_builder.free_vars.values().collect(),
@@ -451,9 +475,17 @@ fn MethodBuilder::visit_expr(
         IfLe(_) => Condition::Le(lhs, rhs)
         _ => @util.die("unreachable")
       }
+
+      // 0. Store current block
+      let if_block = self.ssa_builder.current_block
       let if_stmt = self.ssa_builder.emit(IfGoto(condition, None, None))
-      // Visit true branch
-      let true_start = self.ssa_builder.stmts.length()
+
+      // 1.1. Create true branch block
+      let true_block = self.ssa_builder.create_new_block()
+      if_block.succ.push(true_block)
+      self.ssa_builder.current_block = true_block
+
+      // 1.2. Visit true branch
       let mut true_var : Var? = None
       let true_stmt = self.visit_expr(
         true_branch,
@@ -466,8 +498,16 @@ fn MethodBuilder::visit_expr(
           }
         },
       )
-      // Visit false branch
-      let false_start = self.ssa_builder.stmts.length()
+      if true_block.stmts.length() == 0 {
+        return @util.die("if true block should not be empty")
+      }
+
+      // 2.1. Create true branch block
+      let false_block = self.ssa_builder.create_new_block()
+      if_block.succ.push(false_block)
+      self.ssa_builder.current_block = false_block
+
+      // 2.2. Visit false branch
       let mut false_var : Var? = None
       let false_stmt = self.visit_expr(
         false_branch,
@@ -480,22 +520,32 @@ fn MethodBuilder::visit_expr(
           }
         },
       )
+      if false_block.stmts.length() == 0 {
+        return @util.die("if false block should not be empty")
+      }
+
+      // 3. Merge block and add phi var
+      let merge_block = self.ssa_builder.create_new_block()
+      true_block.succ.push(merge_block)
+      false_block.succ.push(merge_block)
+      self.ssa_builder.current_block = merge_block
       let phi_var = self.ssa_builder.add_local_temp_var(if_type)
-      let phi_stmt = self.ssa_builder.emit(
+      let _phi_stmt = self.ssa_builder.emit(
         Definition(Some(phi_var), Phi([true_var.unwrap(), false_var.unwrap()])),
       )
-      // Back write label
+
+      // 4. Back write label
       match if_stmt.stmt {
         IfGoto(_) =>
-          if_stmt.update(IfGoto(condition, Some(true_start), Some(false_start)))
+          if_stmt.update(IfGoto(condition, Some(true_block.label), Some(false_block.label)))
         _ => @util.die("should be if goto stmt")
       }
       match true_stmt.stmt {
-        Goto(_) => true_stmt.stmt = Goto(phi_stmt.slot)
+        Goto(_) => true_stmt.update(Goto(merge_block.label))
         _ => @util.die("should be goto stmt")
       }
       match false_stmt.stmt {
-        Goto(_) => false_stmt.stmt = Goto(phi_stmt.slot)
+        Goto(_) => false_stmt.update(Goto(merge_block.label))
         _ => @util.die("should be goto stmt")
       }
       cont(Var(phi_var))

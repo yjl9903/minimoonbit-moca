@@ -51,11 +51,11 @@ pub fn Method::print(self : Method) -> Unit {
     )
     println("  }")
   }
-  let pad_len = self.body.fold(
+  let pad_len = self.body.stmts.fold(
     fn { len, stmt => @math.maximum(len, stmt.slot.to_string().length()) },
     init=1,
   )
-  self.body.each(
+  self.body.stmts.each(
     fn {
       stmt => {
         let slot = "[\{stmt.slot}]"
