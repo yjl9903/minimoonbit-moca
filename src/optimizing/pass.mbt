@@ -6,6 +6,7 @@ pub enum AstOptPass {
 
 pub enum KnfOptPass {
   TailRecursion
+  MayTailRecursion
   CopyPropagation
 }
 
@@ -34,6 +35,7 @@ pub fn AstOptPass::optimize(
 pub fn KnfOptPass::optimize(self : KnfOptPass, knf : @knf.Knf) -> @knf.Knf {
   match self {
     TailRecursion => @tail.transform_tail_recursion(knf)
+    MayTailRecursion => @tail.transform_may_tail_recursion(knf)
     CopyPropagation => @copy.transform_copy_propagation(knf)
   }
 }

@@ -12,5 +12,6 @@ let optimizing_manager : @optimizing.Manager = @optimizing.new().add_opt_passes(
     Pass::Ast(Liveness),
     Pass::Knf(CopyPropagation),
     Pass::Knf(TailRecursion),
+    Pass::Knf(MayTailRecursion),
   ],
 )

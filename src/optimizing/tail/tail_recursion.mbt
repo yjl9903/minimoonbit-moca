@@ -1,8 +1,8 @@
 pub fn transform_tail_recursion(knf : Knf) -> Knf {
-  visit_knf(knf)
+  visit_knf_tail(knf)
 }
 
-fn visit_knf(knf : Knf) -> Knf {
+fn visit_knf_tail(knf : Knf) -> Knf {
   match knf {
     Unit
     | Int(_)
@@ -19,25 +19,38 @@ fn visit_knf(knf : Knf) -> Knf {
       knf
 
     // Loop
-    Loop(label, args, body) => Loop(label, args, visit_knf(body))
+    Loop(label, args, body) => Loop(label, args, visit_knf_tail(body))
     Continue(_) => knf
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch, ty) =>
-      IfEq(lhs, rhs, visit_knf(true_branch), visit_knf(false_branch), ty)
+      IfEq(
+        lhs,
+        rhs,
+        visit_knf_tail(true_branch),
+        visit_knf_tail(false_branch),
+        ty,
+      )
     IfLe(lhs, rhs, true_branch, false_branch, ty) =>
-      IfLe(lhs, rhs, visit_knf(true_branch), visit_knf(false_branch), ty)
+      IfLe(
+        lhs,
+        rhs,
+        visit_knf_tail(true_branch),
+        visit_knf_tail(false_branch),
+        ty,
+      )
 
     // Let
-    Let(binding, expr, rest) => Let(binding, expr, visit_knf(rest))
-    LetTuple(binding, expr, rest) => LetTuple(binding, expr, visit_knf(rest))
+    Let(binding, expr, rest) => Let(binding, expr, visit_knf_tail(rest))
+    LetTuple(binding, expr, rest) =>
+      LetTuple(binding, expr, visit_knf_tail(rest))
     LetRec(def, rest) => {
       // Transform the recursion in the method body
-      let def = { ..def, body: visit_knf(def.body) }
+      let def = { ..def, body: visit_knf_tail(def.body) }
       // Transform this method
       let ctx = TailContext::new(def)
       let def = ctx.transform()
-      LetRec(def, visit_knf(rest))
+      LetRec(def, visit_knf_tail(rest))
     }
 
     // unused
