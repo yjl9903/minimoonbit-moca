@@ -14,4 +14,3 @@ pub struct World {
   methods : Map[Int, Method]
   main_method : Method
 }
-
