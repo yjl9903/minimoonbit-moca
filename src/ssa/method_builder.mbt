@@ -222,7 +222,7 @@ fn SsaBuilder::get_var(self : SsaBuilder, name : Name) -> Var {
 }
 
 fn SsaBuilder::emit(self : SsaBuilder, stmt : StmtKind) -> Stmt {
-  let stmt = { slot: self.stmts.length(), stmt }
+  let stmt = Stmt::new(self.stmts.length(), stmt)
   self.stmts.push(stmt)
   stmt
 }
@@ -487,7 +487,7 @@ fn MethodBuilder::visit_expr(
       // Back write label
       match if_stmt.stmt {
         IfGoto(_) =>
-          if_stmt.stmt = IfGoto(condition, Some(true_start), Some(false_start))
+          if_stmt.update(IfGoto(condition, Some(true_start), Some(false_start)))
         _ => @util.die("should be if goto stmt")
       }
       match true_stmt.stmt {
