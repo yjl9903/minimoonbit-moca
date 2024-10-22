@@ -84,6 +84,28 @@ pub enum StmtKind {
 pub struct Stmt {
   slot : Int
   mut stmt : StmtKind
+  mut def: Var?
+  mut uses: Array[Var]
+}
+
+pub fn Stmt::new(slot : Int, stmt : StmtKind) -> Stmt {
+  let (def, uses) = get_def_uses(stmt)
+  { slot, stmt, def, uses }
+}
+
+pub fn Stmt::update(self : Stmt, stmt : StmtKind) -> Unit {
+  let (def, uses) = get_def_uses(stmt)
+  self.def = def
+  self.uses = uses
+  self.stmt = stmt
+}
+
+fn Stmt::get_def_uses(stmt : StmtKind) -> (Var?, Array[Var]) {
+  // TODO: get def use
+  match stmt {
+    Definition(lhs, _rvalue) => (lhs, [])
+    _ => (None, [])
+  }
 }
 
 pub struct Method {
