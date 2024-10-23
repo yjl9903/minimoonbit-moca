@@ -70,14 +70,14 @@ pub fn knf_program_to_closure(
 }
 
 fn Context::visit_global_defs(self : Context, knf : Knf) -> Program {
-  let body = self.visit_stmt(knf)
+  let body = self.visit_stmt(knf, true)
   Program::{
     fundefs: self.func_defs.iter().map(fn { (_, d) => d }).collect(),
     body,
   }
 }
 
-fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
+fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
   match knf {
     // Literal
     Unit => Unit
@@ -111,20 +111,20 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch, if_type) => {
-      let true_branch = self.visit_stmt(true_branch)
-      let false_branch = self.visit_stmt(false_branch)
+      let true_branch = self.visit_stmt(true_branch, is_top_level)
+      let false_branch = self.visit_stmt(false_branch, is_top_level)
       IfEq(lhs, rhs, true_branch, false_branch, to_closure_fn_low_type(if_type))
     }
     IfLe(lhs, rhs, true_branch, false_branch, if_type) => {
-      let true_branch = self.visit_stmt(true_branch)
-      let false_branch = self.visit_stmt(false_branch)
+      let true_branch = self.visit_stmt(true_branch, is_top_level)
+      let false_branch = self.visit_stmt(false_branch, is_top_level)
       IfLe(lhs, rhs, true_branch, false_branch, to_closure_fn_low_type(if_type))
     }
 
     // Loop
     Loop((label, ty), args, body) => {
       let args = args.map(fn { a => (a.0, to_closure_fn_low_type(a.1)) })
-      let body = self.visit_stmt(body)
+      let body = self.visit_stmt(body, is_top_level)
       Loop((label, to_closure_fn_low_type(ty)), args, body)
     }
     Continue(label, args) => Continue(label, args)
@@ -139,10 +139,10 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
 
     // Let
     Let((name, typ), expr, rest) => {
-      let expr = self.visit_stmt(expr)
+      let expr = self.visit_stmt(expr, false)
       let low_type = to_closure_fn_low_type(typ)
       self.add_local_var(name, low_type)
-      let rest = self.visit_stmt(rest)
+      let rest = self.visit_stmt(rest, is_top_level)
       Let((name, low_type), expr, rest)
     }
     LetTuple(els, expr, rest) =>
@@ -157,7 +157,7 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
           },
         ),
         expr,
-        self.visit_stmt(rest),
+        self.visit_stmt(rest, is_top_level),
       )
     LetRec(def, rest) => {
       // 1. Check whether it should be closure
@@ -180,7 +180,7 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
       def.args.eachi(
         fn { i, (name, _) => new_env.add_local_var(name, args_type[i]) },
       )
-      let body = new_env.visit_stmt(def.body)
+      let body = new_env.visit_stmt(def.body, false)
       // 3. Func def
       let func : FuncDef = {
         id: def.id,
@@ -197,16 +197,20 @@ fn Context::visit_stmt(self : Context, knf : Knf) -> Expr {
       }
       self.func_defs.set(def.id, func)
       self.local_closures.set(name, func)
-      // 3. Continue
-      let rest = self.visit_stmt(rest)
-      MakeClosure(
-        (name, func_type),
-        Closure::{
-          name: mutdef.to_label(),
-          actual_free_vars: mutdef.free_vars.iter().collect(),
-        },
-        rest,
-      )
+      // 4. Build rest stmts
+      let rest = self.visit_stmt(rest, is_top_level)
+      if is_top_level {
+        rest
+      } else {
+        MakeClosure(
+          (name, func_type),
+          Closure::{
+            name: mutdef.to_label(),
+            actual_free_vars: mutdef.free_vars.iter().collect(),
+          },
+          rest,
+        )
+      }
     }
 
     // Unused
