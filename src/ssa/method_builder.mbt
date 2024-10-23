@@ -85,7 +85,7 @@ struct SsaBuilder {
 
 struct LoopBuilder {
   label : Int
-  args : Array[@hashset.T[Name]]
+  args : Array[(Var, Array[Var])]
 }
 
 fn SsaBuilder::new(
@@ -651,7 +651,7 @@ fn MethodBuilder::visit_expr(
       // 3. Build loop body
       let builder = LoopBuilder::{
         label: loop_block.label,
-        args: args.map(fn { _ => @hashset.new() }),
+        args: args.map(fn { a => (a.0, []) }),
       }
       match self.ssa_builder.loops.get(label) {
         Some(_) => @util.die("duplicated loop")
@@ -678,23 +678,13 @@ fn MethodBuilder::visit_expr(
       args.eachi(
         fn {
           i, (arg, stmt) => {
-            let raw_name = raw_args[i].0
-            let next_names = builder.args[i].iter().collect()
-            match next_names {
-              [] => @util.die("should have at least one continue args")
-              [next_name] =>
-                // Ignore no updation to arg
-                if raw_name != next_name {
-                  arg.is_mut = true
-                  let next_var = self.ssa_builder.get_var(next_name)
-                  stmt.update(Definition(Some(arg), Phi([arg, next_var])))
-                }
+            let next_args = builder.args[i].1
+            match next_args {
+              [] => ()
               _ => {
                 arg.is_mut = true
                 let next_vars = [arg]
-                next_vars.push_iter(
-                  next_names.map(fn { n => self.ssa_builder.get_var(n) }).iter(),
-                )
+                next_vars.push_iter(next_args.iter())
                 stmt.update(Definition(Some(arg), Phi(next_vars)))
               }
             }
@@ -729,7 +719,22 @@ fn MethodBuilder::visit_expr(
     Continue(label, args) =>
       match self.ssa_builder.loops.get(label) {
         Some(builder) => {
-          args.eachi(fn { i, arg => builder.args[i].insert(arg) })
+          args.eachi(
+            fn {
+              i, arg => {
+                let arg_builder = builder.args[i]
+                let src_arg = arg_builder.0
+                let cur_arg = self.ssa_builder.get_var(arg)
+                if src_arg != cur_arg {
+                  let new_temp = self.ssa_builder.add_local_temp_var(src_arg.ty)
+                  let _ = self.ssa_builder.emit(
+                    Definition(Some(new_temp), Var(cur_arg)),
+                  )
+                  arg_builder.1.push(new_temp)
+                }
+              }
+            },
+          )
           let _ = self.ssa_builder.emit(Continue(builder.label))
           ()
         }
