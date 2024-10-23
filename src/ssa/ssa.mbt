@@ -83,10 +83,12 @@ pub enum Condition {
 pub enum StmtKind {
   Definition(Var?, RValue) // _ = _
   PutArray(Var, Var, Var) // _[_] = _
-  // Condition, true branch block label, false branch block label
-  IfGoto(Condition, Int?, Int?) // if _ { _ } else { _ }
+  // Condition, true branch block label, false branch block label, next block label
+  IfGoto(Condition, Int?, Int?, Int?) // if _ { _ } else { _ }
   // Go to label
   Goto(Int) // goto _
+  Break(Int, Int) // break _, then goto _
+  Continue(Int) // continue _
   Nop // nop
   Return(Var) // return _
 }
@@ -149,11 +151,20 @@ pub fn IR::first_slot_of_block(self : IR, block : Int) -> Int {
 pub struct Block {
   label : Int
   stmts : Array[Stmt]
-  succ : Array[Block]
+  mut succ : BlockEdge?
+}
+
+pub enum BlockEdge {
+  Next(Block)
+  IfStart(Block, Block, Block?)
+  IfEnd(Block)
+  While(Block, Block)
+  Continue(Block)
+  Break(Block)
 }
 
 fn Block::new(label : Int) -> Block {
-  { label, stmts: [], succ: [] }
+  { label, stmts: [], succ: None }
 }
 
 pub fn Block::first_slot(self : Block) -> Int {
