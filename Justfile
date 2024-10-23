@@ -121,7 +121,7 @@ test-closure:
   mkdir temp
   moon run src/bin --debug -- --closure-interpreter ./test/test_src/adder.mbt 2>/dev/null > ./temp/adder.out
   moon run src/bin --debug -- --closure-interpreter ./test/test_src/adder2.mbt 2>/dev/null > ./temp/adder2.out
-  moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-bug.mbt 2>/dev/null > ./temp/cls-bug.out
+  moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-bug.mbt
   moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-bug2.mbt 2>/dev/null > ./temp/cls-bug2.out
   moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-rec.mbt 2>/dev/null > ./temp/cls-rec.out
   moon run src/bin --debug -- --closure-interpreter ./test/test_src/cls-reg-bug.mbt 2>/dev/null > ./temp/cls-reg-bug.out
