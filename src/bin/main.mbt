@@ -154,7 +154,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
           let real_asm = @riscv.emit(@util.die("TODO"))
           self.asm = Some(real_asm)
         }
-        JS => self.js = Some(@js.emit(self.ssa.unwrap()))
+        JS => self.js = Some(@js.emit_js(self.ssa.unwrap()))
         WASM => @util.die("TODO: WASM backend")
       }
     Finished => ()
