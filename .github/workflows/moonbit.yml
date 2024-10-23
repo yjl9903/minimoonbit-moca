@@ -45,7 +45,7 @@ jobs:
 
       - run: just test-ssa
 
-      # - run: just test-js
+      - run: just test-js
 
   format:
     runs-on: ubuntu-latest
