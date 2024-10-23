@@ -200,7 +200,15 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
       // 4. Build rest stmts
       let rest = self.visit_stmt(rest, is_top_level)
       if is_top_level {
-        rest
+        // TODO: this is not safe
+        MakeClosure(
+          (name, func_type),
+          Closure::{
+            name: mutdef.to_label(),
+            actual_free_vars: mutdef.free_vars.iter().collect(),
+          },
+          rest,
+        )
       } else {
         MakeClosure(
           (name, func_type),
