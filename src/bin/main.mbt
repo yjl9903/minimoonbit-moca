@@ -171,7 +171,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Knf => @json.stringify(self.typechecked.unwrap().to_json())
       KnfOpt => @json.stringify(self.knf.unwrap().to_json())
       Closure => @json.stringify(self.opt_knf.unwrap().to_json())
-      Ssa => @util.die("TODO")
+      Ssa => @json.stringify(self.closure_ir.unwrap().to_json())
       Asm => @util.die("TODO")
       Finished =>
         match self.backend {
@@ -187,7 +187,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Knf => self.typechecked.unwrap().to_string()
       KnfOpt => self.knf.unwrap().to_string()
       Closure => self.opt_knf.unwrap().to_string()
-      Ssa => @util.die("TODO")
+      Ssa => self.closure_ir.unwrap().to_string()
       Asm => @util.die("TODO")
       Finished =>
         match self.backend {
