@@ -521,6 +521,7 @@ fn MethodBuilder::visit_expr(
       // 1.2. Visit true branch
       let mut true_var : Var? = None
       let mut true_stmt : Stmt? = None
+      let mut true_end_block : Block? = None
       self.visit_expr(
         true_branch,
         fn {
@@ -532,6 +533,7 @@ fn MethodBuilder::visit_expr(
               true_var = Some(local_var)
               let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
               true_stmt = Some(self.ssa_builder.emit(Goto(-1)))
+              true_end_block = Some(self.ssa_builder.current_block)
             }
         },
         ~visiting_loop,
@@ -546,6 +548,7 @@ fn MethodBuilder::visit_expr(
       // 2.2. Visit false branch
       let mut false_var : Var? = None
       let mut false_stmt : Stmt? = None
+      let mut false_end_block : Block? = None
       self.visit_expr(
         false_branch,
         fn {
@@ -557,6 +560,7 @@ fn MethodBuilder::visit_expr(
               false_var = Some(local_var)
               let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
               false_stmt = Some(self.ssa_builder.emit(Goto(-1)))
+              false_end_block = Some(self.ssa_builder.current_block)
             }
         },
         ~visiting_loop,
@@ -575,8 +579,8 @@ fn MethodBuilder::visit_expr(
       if not(visiting_loop) {
         let _ = self.ssa_builder.emit(Nop)
         let merge_block = self.ssa_builder.create_new_block()
-        true_block.succ.push(merge_block)
-        false_block.succ.push(merge_block)
+        true_end_block.unwrap().succ.push(merge_block)
+        false_end_block.unwrap().succ.push(merge_block)
         self.ssa_builder.current_block = merge_block
         let phi_var = self.ssa_builder.add_local_temp_var(if_type)
         let _phi_stmt = self.ssa_builder.emit(
@@ -637,7 +641,8 @@ fn MethodBuilder::visit_expr(
         None => self.ssa_builder.loops.set(label, builder)
       }
       let break_names = [] // Break return variables
-      let break_goto = [] // Break out of loop
+      let break_goto = [] // Goto out of loop
+      let break_blocks = [] // Expr block at the end of the loop
       let _loop_body = self.visit_expr(
         body,
         fn {
@@ -646,6 +651,7 @@ fn MethodBuilder::visit_expr(
             break_names.push(local_var)
             let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
             break_goto.push(self.ssa_builder.emit(Goto(-1)))
+            break_blocks.push(self.ssa_builder.current_block)
           }
         },
         visiting_loop=true,
@@ -683,8 +689,14 @@ fn MethodBuilder::visit_expr(
       let _ = self.ssa_builder.emit(Nop)
       let return_block = self.ssa_builder.create_new_block()
       break_goto.each(fn { stmt => stmt.update(Goto(return_block.label)) })
-      loop_block.succ.push(loop_block)
-      loop_block.succ.push(return_block)
+      break_blocks.each(
+        fn {
+          blk => {
+            blk.succ.push(loop_block)
+            blk.succ.push(return_block)
+          }
+        },
+      )
       self.ssa_builder.current_block = return_block
       match break_names {
         [] => {
