@@ -138,6 +138,14 @@ pub struct IR {
   blocks : Array[Block]
 }
 
+pub fn IR::labels(self : IR) -> Map[Int, Block] {
+  Map::from_array(self.blocks.map(fn { b => (b.stmts[0].slot, b) }))
+}
+
+pub fn IR::first_slot_of_block(self : IR, block : Int) -> Int {
+  self.blocks[block].first_slot()
+}
+
 pub struct Block {
   label : Int
   stmts : Array[Stmt]
@@ -148,6 +156,6 @@ fn Block::new(label : Int) -> Block {
   { label, stmts: [], succ: [] }
 }
 
-pub fn IR::labels(self : IR) -> Map[Int, Block] {
-  Map::from_array(self.blocks.map(fn { b => (b.stmts[0].slot, b) }))
+pub fn Block::first_slot(self : Block) -> Int {
+  self.stmts[0].slot
 }
