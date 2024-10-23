@@ -1,0 +1,11 @@
+{
+  "import": [
+    {
+      "path": "moonbitlang/minimbt",
+      "alias": "types"
+    },
+    "moonbitlang/minimbt/ssa",
+    "moonbitlang/minimbt/util",
+    "moonbitlang/minimbt/shared"
+  ]
+}

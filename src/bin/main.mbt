@@ -66,6 +66,7 @@ struct CompileStatus {
   mut ssa : @ssa.World?
   mut asm : Array[@riscv.AssemblyFunction]?
   mut js : @js.JsResult?
+  mut wasm : @wasm.WasmResult?
 }
 
 fn CompileStatus::initialize(
@@ -87,6 +88,7 @@ fn CompileStatus::initialize(
     ssa: None,
     asm: None,
     js: None,
+    wasm: None,
   }
   match start_stage {
     Parse => v.source_code = Some(file)
@@ -150,12 +152,9 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     Asm =>
       // Backend
       match self.backend {
-        RSICV => {
-          let real_asm = @riscv.emit(@util.die("TODO"))
-          self.asm = Some(real_asm)
-        }
+        RSICV => self.asm = Some(@riscv.emit(@util.die("TODO")))
         JS => self.js = Some(@js.emit_js(self.ssa.unwrap()))
-        WASM => @util.die("TODO: WASM backend")
+        WASM => self.wasm = Some(@wasm.emit_wasm(self.ssa.unwrap()))
       }
     Finished => ()
   }
