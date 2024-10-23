@@ -81,26 +81,33 @@ fn MayTailContext::transform(self : MayTailContext) -> @knf.FuncDef {
         self.kind.size() == 1 &&
         self.op.size() == 1 &&
         const_value.is_const(ty) {
-        @shared.debug("Transform may tail recursion: \{self.def.name}")
-        // Transform
+        // Add acc arg
         let args = []
         args.push_iter(self.def.args.iter())
         let acc = new_temp()
         args.push((acc, ty))
-        let loop_body = Knf::Let(
-          (acc, ty),
-          match const_value {
-            Int(x) => Int(x)
-            Double(x) => Double(x)
-            _ => @util.die("unreachable")
-          },
-          Knf::Loop(
-            (self.def.name, ty),
-            args,
-            self.transform_stmt(self.def.body, (acc, ty), true),
-          ),
+        // Build loop body
+        let loop_body = Knf::Loop(
+          (self.def.name, ty),
+          args,
+          self.transform_stmt(self.def.body, (acc, ty), true),
         )
-        { ..self.def, body: loop_body }
+        if validate(self.def, loop_body) {
+          @shared.debug("Transform may tail recursion: \{self.def.name}")
+          let func_body = Knf::Let(
+            (acc, ty),
+            match const_value {
+              Int(x) => Int(x)
+              Double(x) => Double(x)
+              _ => @util.die("unreachable")
+            },
+            loop_body,
+          )
+          { ..self.def, body: func_body }
+        } else {
+          @shared.debug("Transform may tail recursion failed: \{self.def.name}")
+          self.def
+        }
       } else {
         self.def
       }
