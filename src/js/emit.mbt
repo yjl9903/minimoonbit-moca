@@ -1,4 +1,4 @@
-pub fn emit(world : @ssa.World) -> JsResult {
+pub fn emit_js(world : @ssa.World) -> JsResult {
   let result = { definitions: [], main_method: "" }
   result.definitions.push_iter(emit_global(world).iter())
   world.methods.each(
@@ -16,18 +16,55 @@ fn emit_global(world : @ssa.World) -> Array[String] {
 
 struct JsEmitter {
   method : @ssa.Method
+  local_vars : Array[@ssa.Var]
   stmts : Array[String]
-  labels : Map[Int, String]
   merged : Map[Int, @ssa.Var]
+}
+
+fn JsEmitter::new(method : @ssa.Method) -> JsEmitter {
+  let emitter = JsEmitter::{
+    method,
+    local_vars: [],
+    stmts: [],
+    merged: Map::new(),
+  }
+  // 1. Build merged vars
+  for i = 0; i < method.body.stmts.length(); i = i + 1 {
+    let stmt = method.body.stmts[i]
+    match stmt.stmt {
+      Definition(Some(var), Phi(merged)) => {
+        let var = match emitter.merged.get(var.id) {
+          Some(v) => v
+          _ => var
+        }
+        merged.each(fn { m => emitter.merged.set(m.id, var) })
+      }
+      _ => ()
+    }
+  }
+  // 2. Build local vars
+  let local_vars = method.local_vars
+    .filter(
+      fn {
+        v =>
+          if not(v.is_param) && v.const_value.is_empty() {
+            match emitter.merged.get(v.id) {
+              Some(m) => m.id == v.id
+              None => true
+            }
+          } else {
+            false
+          }
+      },
+    )
+    .iter()
+  emitter.local_vars.push_iter(local_vars.iter())
+  emitter
 }
 
 fn JsEmitter::push(self : JsEmitter, stmt : String) -> Unit {
   if stmt.length() != 0 {
-    if stmt.ends_with("}") || stmt.ends_with("{") {
-      self.stmts.push("  " + stmt)
-    } else {
-      self.stmts.push("  " + stmt + ";")
-    }
+    self.stmts.push("  " + stmt)
   }
 }
 
@@ -40,12 +77,7 @@ fn emit_method(
   method : @ssa.Method,
   ~is_main : Bool = false
 ) -> String {
-  let emitter = JsEmitter::{
-    method,
-    stmts: [],
-    labels: Map::new(),
-    merged: Map::new(),
-  }
+  let emitter = JsEmitter::new(method)
   let params = method.params.map(fn { a => emitter.emit_var(a) }).join(", ")
   let def_start = if is_main {
     "export default function () {\n"
@@ -55,50 +87,93 @@ fn emit_method(
   let def_end = "\n}"
 
   // 1. Def local vars
-  let def_vars = method.local_vars.filter(
-    fn { v => not(v.is_param) && v.const_value.is_empty() },
-  )
-  if def_vars.length() > 0 {
+  if emitter.local_vars.length() > 0 {
     emitter.push(
-      "let " + def_vars.map(fn { v => emitter.emit_var(v) }).join(", "),
+      "let " +
+      emitter.local_vars.map(fn { v => emitter.emit_var(v) }).join(", ") +
+      ";",
     )
   }
 
-  // 2. Analyze phi and label
-  for i = 0; i < method.body.stmts.length(); i = i + 1 {
-    let stmt = method.body.stmts[i]
-    match stmt.stmt {
-      Definition(Some(var), Phi(merged)) =>
-        merged.each(fn { m => emitter.merged.set(m.id, var) })
-      // IfGoto(_, true_target, false_target) => {
-      //   match true_target {
-      //     Some(t) => emitter.labels.set(t, "L\{t}")
-      //     None => ()
-      //   }
-      //   match false_target {
-      //     Some(t) => emitter.labels.set(t, "L\{t}")
-      //     None => ()
-      //   }
-      // }
-      // Goto(t) => emitter.labels.set(t, "L\{t}")
-      _ => ()
-    }
-  }
-
-  // 3. Print stmts
-  for i = 0; i < method.body.stmts.length(); i = i + 1 {
-    let stmt = method.body.stmts[i]
-    let stmt = emitter.emit_method_stmt(stmt)
-    let label = emitter.labels.get(i)
-    match label {
-      Some(label) => emitter.push(label)
-      None => ()
-    }
-    emitter.push(stmt)
-  }
+  // 2. Print stmts
+  emitter.emit_block(method.body.blocks[0])
 
   // 3. Concat stmts
   def_start + emitter.to_string() + def_end
+}
+
+fn JsEmitter::emit_block(self : JsEmitter, block : @ssa.Block) -> Unit {
+  // Last stmt
+  // let stmt = block.stmts[block.stmts.length() - 1]
+  for i = 0; i < block.stmts.length(); i = i + 1 {
+    let stmt = block.stmts[i]
+    match stmt.stmt {
+      IfGoto(cond, true_target, false_target, merge_target) => {
+        let cond = match cond {
+          Eq(lhs, rhs) => "\{self.emit_var(lhs)} === \{self.emit_var(rhs)}"
+          Le(lhs, rhs) => "\{self.emit_var(lhs)} <= \{self.emit_var(rhs)}"
+        }
+        self.push("if (\{cond}) {")
+        match true_target {
+          Some(t) => self.emit_block(self.method.body.blocks[t])
+          _ => ()
+        }
+        self.push("} else {")
+        match false_target {
+          Some(t) => self.emit_block(self.method.body.blocks[t])
+          _ => ()
+        }
+        self.push("}")
+        match merge_target {
+          Some(t) => self.emit_block(self.method.body.blocks[t])
+          _ => ()
+        }
+        break
+      }
+      Goto(_) => break // if () { ... } else { ... }
+      Break(loop_label, _) => {
+        // break B_;
+        self.push("break B\{loop_label};")
+        break
+      }
+      Continue(loop_label) => {
+        // continue B_;
+        self.push("continue B\{loop_label};")
+        break
+      }
+      Return(var) => {
+        // return _;
+        self.push("return \{self.emit_var(var)};")
+        break
+      }
+      _ => {
+        // Not a control flow ir
+        self.push(self.emit_method_stmt(stmt))
+        if i + 1 == block.stmts.length() {
+          match block.succ {
+            Some(edge) =>
+              match edge {
+                Next(block) => self.emit_block(block)
+                While(loop_block, return_block) => {
+                  // Start a while loop
+                  let label = loop_block.label
+                  self.push("B\{label}: while (true) {")
+                  self.emit_block(loop_block)
+                  self.push("}")
+                  self.emit_block(return_block)
+                }
+                // The end of a if branch, stop building following
+                IfEnd(_) => ()
+                Break(_) => @util.die("unexpected break")
+                Continue(_) => @util.die("unexpected continue")
+                IfStart(_) => @util.die("unexpected if branch")
+              }
+            None => ()
+          }
+        }
+      }
+    }
+  }
 }
 
 fn JsEmitter::emit_method_stmt(self : JsEmitter, stmt : @ssa.Stmt) -> String {
@@ -106,24 +181,19 @@ fn JsEmitter::emit_method_stmt(self : JsEmitter, stmt : @ssa.Stmt) -> String {
     Definition(_, Phi(_)) => ""
     Definition(Some(var), rvalue) =>
       if var.const_value.is_empty() {
-        "\{self.emit_var(var)} = \{self.emit_method_rvalue(rvalue)}"
+        "\{self.emit_var(var)} = \{self.emit_method_rvalue(rvalue)};"
       } else {
         ""
       }
     Definition(None, rvalue) => self.emit_method_rvalue(rvalue)
     PutArray(recv, idx, expr) =>
-      "\{self.emit_var(recv)}[\{self.emit_var(idx)}] = \{self.emit_var(expr)}"
-    Goto(_) => "}"
-    IfGoto(cond, _, false_target) => {
-      self.labels.set(false_target.unwrap(), "else {")
-      let cond = match cond {
-        Eq(lhs, rhs) => "\{self.emit_var(lhs)} === \{self.emit_var(rhs)}"
-        Le(lhs, rhs) => "\{self.emit_var(lhs)} <= \{self.emit_var(rhs)}"
-      }
-      "if (\{cond}) {"
-    }
+      "\{self.emit_var(recv)}[\{self.emit_var(idx)}] = \{self.emit_var(expr)};"
     Nop => ""
-    Return(var) => "return \{self.emit_var(var)}"
+    Goto(_) => @util.die("unexpected")
+    Break(_) => @util.die("unexpected")
+    Continue(_) => @util.die("unexpected")
+    IfGoto(_) => @util.die("unexpected")
+    Return(_) => @util.die("unexpected")
   }
 }
 

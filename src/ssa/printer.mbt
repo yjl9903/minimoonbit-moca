@@ -66,7 +66,7 @@ fn Method::print_stmt(self : Method, stmt : StmtKind) -> String {
       "\{lhs.to_string()} : \{lhs.ty.to_string()} = \{self.print_rvalue(rvalue)}"
     Definition(None, rvalue) => self.print_rvalue(rvalue)
     PutArray(recv, idx, expr) => "\{recv}[\{idx}] = \{expr}"
-    IfGoto(cond, true_block, false_block) => {
+    IfGoto(cond, true_block, false_block, _) => {
       let cond = match cond {
         Eq(lhs, rhs) => "\{lhs} == \{rhs}"
         Le(lhs, rhs) => "\{lhs} <= \{rhs}"
@@ -82,6 +82,8 @@ fn Method::print_stmt(self : Method, stmt : StmtKind) -> String {
       "if \{cond} then \{true_block} else \{false_block}"
     }
     Goto(t) => "goto B\{t};"
+    Break(t, _) => "break B\{t};"
+    Continue(t) => "continue B\{t};"
     Nop => ""
     Return(rvalue) => "return \{rvalue.to_string()}"
   }

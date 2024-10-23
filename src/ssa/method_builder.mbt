@@ -245,14 +245,6 @@ fn SsaBuilder::emit(self : SsaBuilder, stmt : StmtKind) -> Stmt {
   stmt
 }
 
-fn SsaBuilder::append_new_block(self : SsaBuilder) -> Block {
-  let block = Block::new(self.blocks.length())
-  self.blocks.push(block)
-  self.current_block.succ.push(block)
-  self.current_block = block
-  block
-}
-
 fn SsaBuilder::create_new_block(self : SsaBuilder) -> Block {
   let block = Block::new(self.blocks.length())
   self.blocks.push(block)
@@ -510,12 +502,11 @@ fn MethodBuilder::visit_expr(
 
       // 0. Store current block
       let if_block = self.ssa_builder.current_block
-      let if_stmt = self.ssa_builder.emit(IfGoto(condition, None, None))
+      let if_stmt = self.ssa_builder.emit(IfGoto(condition, None, None, None))
 
       // 1.1. Create true branch block
       let _ = self.ssa_builder.emit(Nop)
       let true_block = self.ssa_builder.create_new_block()
-      if_block.succ.push(true_block)
       self.ssa_builder.current_block = true_block
 
       // 1.2. Visit true branch
@@ -542,7 +533,6 @@ fn MethodBuilder::visit_expr(
       // 2.1. Create true branch block
       let _ = self.ssa_builder.emit(Nop)
       let false_block = self.ssa_builder.create_new_block()
-      if_block.succ.push(false_block)
       self.ssa_builder.current_block = false_block
 
       // 2.2. Visit false branch
@@ -565,22 +555,30 @@ fn MethodBuilder::visit_expr(
         },
         ~visiting_loop,
       )
-
-      // 3. Back write if goto true and false label
-      match if_stmt.stmt {
-        IfGoto(_) =>
-          if_stmt.update(
-            IfGoto(condition, Some(true_block.label), Some(false_block.label)),
-          )
-        _ => @util.die("should be if goto stmt")
-      }
-
-      // 4. Merge block and add phi var
-      if not(visiting_loop) {
+      if visiting_loop {
+        // 3. Back write if goto true and false label
+        if_block.succ = Some(IfStart(true_block, false_block, None))
+        match if_stmt.stmt {
+          IfGoto(_) =>
+            if_stmt.update(
+              IfGoto(
+                condition,
+                Some(true_block.label),
+                Some(false_block.label),
+                None,
+              ),
+            )
+          _ => @util.die("should be if goto stmt")
+        }
+      } else {
+        // 4. Merge block and add phi var
         let _ = self.ssa_builder.emit(Nop)
         let merge_block = self.ssa_builder.create_new_block()
-        true_end_block.unwrap().succ.push(merge_block)
-        false_end_block.unwrap().succ.push(merge_block)
+        if_block.succ = Some(
+          IfStart(true_block, false_block, Some(merge_block)),
+        )
+        true_end_block.unwrap().succ = Some(IfEnd(merge_block))
+        false_end_block.unwrap().succ = Some(IfEnd(merge_block))
         self.ssa_builder.current_block = merge_block
         let phi_var = self.ssa_builder.add_local_temp_var(if_type)
         let _phi_stmt = self.ssa_builder.emit(
@@ -598,6 +596,20 @@ fn MethodBuilder::visit_expr(
             ),
           ),
         )
+
+        // 3. Back write if goto true and false label
+        match if_stmt.stmt {
+          IfGoto(_) =>
+            if_stmt.update(
+              IfGoto(
+                condition,
+                Some(true_block.label),
+                Some(false_block.label),
+                Some(merge_block.label),
+              ),
+            )
+          _ => @util.die("should be if goto stmt")
+        }
 
         // 5. Back write jump out labal
         match true_stmt {
@@ -617,11 +629,16 @@ fn MethodBuilder::visit_expr(
     // Loop
     Loop((label, loop_type), raw_args, body) => {
       // 1. Create a loop block
-      let loop_block = if self.ssa_builder.current_block.stmts.length() == 0 {
-        self.ssa_builder.current_block
-      } else {
+      if self.ssa_builder.current_block.stmts.length() == 0 {
         let _ = self.ssa_builder.emit(Nop)
-        self.ssa_builder.append_new_block()
+        ()
+      }
+      let prev_block = self.ssa_builder.current_block
+      let loop_block = {
+        let _ = self.ssa_builder.emit(Nop)
+        let block = self.ssa_builder.create_new_block()
+        self.ssa_builder.current_block = block
+        block
       }
 
       // 2. Append placeholder stmts for args phi stmt
@@ -650,7 +667,7 @@ fn MethodBuilder::visit_expr(
             let local_var = self.ssa_builder.add_local_temp_var(loop_type)
             break_names.push(local_var)
             let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
-            break_goto.push(self.ssa_builder.emit(Goto(-1)))
+            break_goto.push(self.ssa_builder.emit(Break(-1, -1)))
             break_blocks.push(self.ssa_builder.current_block)
           }
         },
@@ -688,15 +705,11 @@ fn MethodBuilder::visit_expr(
       // 5. Build the final result
       let _ = self.ssa_builder.emit(Nop)
       let return_block = self.ssa_builder.create_new_block()
-      break_goto.each(fn { stmt => stmt.update(Goto(return_block.label)) })
-      break_blocks.each(
-        fn {
-          blk => {
-            blk.succ.push(loop_block)
-            blk.succ.push(return_block)
-          }
-        },
+      prev_block.succ = Some(While(loop_block, return_block))
+      break_goto.each(
+        fn { stmt => stmt.update(Break(loop_block.label, return_block.label)) },
       )
+      break_blocks.each(fn { blk => blk.succ = Some(Break(return_block)) })
       self.ssa_builder.current_block = return_block
       match break_names {
         [] => {
@@ -717,7 +730,7 @@ fn MethodBuilder::visit_expr(
       match self.ssa_builder.loops.get(label) {
         Some(builder) => {
           args.eachi(fn { i, arg => builder.args[i].insert(arg) })
-          let _ = self.ssa_builder.emit(Goto(builder.label))
+          let _ = self.ssa_builder.emit(Continue(builder.label))
           ()
         }
         None => @util.die("should have loop \{label}")
