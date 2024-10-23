@@ -103,7 +103,8 @@ fn MayTailContext::transform(self : MayTailContext) -> @knf.FuncDef {
             },
             loop_body,
           )
-          { ..self.def, body: func_body }
+          let (new_args, func_body) = transform_args(self.def.args, func_body)
+          { ..self.def, args: new_args, body: func_body }
         } else {
           @shared.debug("Transform may tail recursion failed: \{self.def.name}")
           self.def
@@ -293,14 +294,6 @@ fn ConstValue::is_const(self : ConstValue, ty : @types.Type) -> Bool {
     (Double(_), Double) => true
     _ => false
   }
-}
-
-let knf_counter : Ref[Int] = Ref::new(0)
-
-fn MayTailContext::new_temp() -> Name {
-  let name = Name::slot_only(knf_counter.val)
-  knf_counter.val = knf_counter.val + 1
-  name
 }
 
 fn MayTailContext::transform_stmt(

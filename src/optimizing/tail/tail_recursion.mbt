@@ -1,4 +1,6 @@
 pub fn transform_tail_recursion(knf : Knf) -> Knf {
+  let max_counter = @knf.knf_max_counter(knf)
+  knf_counter.val = max_counter + 1
   visit_knf_tail(knf)
 }
 
@@ -72,12 +74,14 @@ fn TailContext::transform(self : TailContext) -> @knf.FuncDef {
   let has_recursion = self.collect_recursion(self.def.body)
   if has_recursion && self.valid {
     @shared.debug("Transform tail recursion: \{self.def.name}")
-    let loop_body = Knf::Loop(
+    let loop_body = self.transform_stmt(self.def.body)
+    let func_body = Knf::Loop(
       (self.def.name, @knf.extract_return_type(self.def.ty).unwrap()),
       self.def.args,
-      self.transform_stmt(self.def.body),
+      loop_body,
     )
-    { ..self.def, body: loop_body }
+    let (new_args, func_body) = transform_args(self.def.args, func_body)
+    { ..self.def, args: new_args, body: func_body }
   } else {
     self.def
   }
