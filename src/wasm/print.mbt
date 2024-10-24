@@ -30,8 +30,17 @@ pub fn print_wasm(result : WasmResult) -> String {
   // 1. Memory section
   {
     let memory = result.memory
-    logger.push(
-      "(memory (import \"\{memory.import_module}\" \"\{memory.import_name}\") \{memory.limit})",
+    memory.each(
+      fn {
+        memory =>
+          match memory.import_info {
+            Some((import_module, import_name)) =>
+              logger.push(
+                "(memory (import \"\{import_module}\" \"\{import_name}\") \{memory.limit})",
+              )
+            None => logger.push("(memory \{memory.limit})")
+          }
+      },
     )
     logger.push("")
   }
