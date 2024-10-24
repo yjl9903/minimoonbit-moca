@@ -18,6 +18,13 @@ enum Instruction {
   Call(WasmFunc)
   CallIndirect(WasmType)
 
+  // Memory
+  Malloc
+  ILoad(IWidth, Int?)
+  IStore(IWidth, Int?)
+  FLoad(FWidth, Int?)
+  FStore(FWidth, Int?)
+
   // Control flow
   If // (if
   IfThen // (then

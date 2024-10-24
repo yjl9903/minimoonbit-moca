@@ -175,6 +175,27 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
             GlobalSet(v) => "(global.set \{v.identifier})"
             Call(func) => "(call \{func.identifier})"
             CallIndirect(ty) => "(call_indirect (type \{ty.identifier}))"
+            Malloc => "(call $__builtin_malloc__)" // TODO: impl this
+            ILoad(_, offset) =>
+              match offset {
+                Some(offset) => "(i32.load offset=\{offset})"
+                None => "(i32.load)"
+              }
+            IStore(_, offset) =>
+              match offset {
+                Some(offset) => "(i32.store offset=\{offset})"
+                None => "(i32.store)"
+              }
+            FLoad(_, offset) =>
+              match offset {
+                Some(offset) => "(f64.load offset=\{offset})"
+                None => "(f64.load)"
+              }
+            FStore(_, offset) =>
+              match offset {
+                Some(offset) => "(f64.store offset=\{offset})"
+                None => "(f64.store)"
+              }
             If => "(if"
             IfThen => "(then"
             IfElse => "(else"
