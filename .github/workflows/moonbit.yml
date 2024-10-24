@@ -1,4 +1,4 @@
-name: moonbit-check
+name: minimoonbit
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  build-js:
+  build-basic:
     runs-on: ubuntu-latest
 
     steps:
@@ -45,7 +45,30 @@ jobs:
 
       - run: just test-ssa
 
-      - run: just test-js
+  build-js:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: extractions/setup-just@v1
+
+      - name: install moonbit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s minimoonbit
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: moon version
+        run: |
+          moon version --all
+          moonrun --version
+
+      - run: |
+          moon update
+          moon check
+
+      - name: test js
+        run: just test-js
 
   build-wasm:
     runs-on: ubuntu-latest
@@ -74,7 +97,6 @@ jobs:
       - run: |
           moon update
           moon check
-          moon test
 
       - name: test wasm
         run: |
