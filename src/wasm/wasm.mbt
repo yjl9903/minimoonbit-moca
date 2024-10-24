@@ -38,38 +38,18 @@ pub struct WasmType {
 pub struct WasmFunc {
   identifier : String
   table_index : Int
-  method : @ssa.Method
+  locals : Map[Int, Var]
+  stmts : Array[Instruction]
 }
 
-fn WasmResult::new(world : @ssa.World) -> WasmResult {
-  let imports = Map::from_iter(
-    world.externals
-    .iter()
-    .map(
-      fn {
-        (name, ty) =>
-          (
-            name,
-            (
-              {
-                identifier: "$__" + name + "_d_",
-                import_module: minimoonbit_import_module,
-                import_name: name,
-                ty,
-              },
-              None,
-            ),
-          )
-      },
-    ),
-  )
+fn WasmResult::new() -> WasmResult {
   {
     memory: WasmMemory::{
       import_module: minimoonbit_import_module,
       import_name: "memory",
       limit: 10,
     },
-    imports,
+    imports: Map::new(),
     types: Map::new(),
     funcs: Map::new(),
     table: { identifier: minimoonbit_table_identifier },
