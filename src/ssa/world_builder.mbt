@@ -95,6 +95,11 @@ pub fn WorldBuilder::build(
   )
   // 4. Create the world
   let world : World = {
+    externals: Map::from_iter(
+      self.externals
+      .iter()
+      .map(fn { (name, ty) => (name, @closure.to_direct_fn_low_type(ty)) }),
+    ),
     global: self.global_vars.values().collect(),
     methods: Map::from_array(methods),
     main_method,

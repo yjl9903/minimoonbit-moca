@@ -9,7 +9,7 @@ pub fn World::get_world() -> World {
 }
 
 pub struct World {
-  // TODO: external
+  externals : Map[String, Type]
   global : Array[Var]
   methods : Map[Int, Method]
   main_method : Method
