@@ -40,7 +40,13 @@ moon run src/bin/main.mbt -- --js <input> -o <output>
 node ./js_rt/runtime.mjs <output>
 ```
 
-Run with WASM backend: TODO.
+Run with WASM backend:
+
+```bash
+moon run src/bin/main.mbt -- --wasm <input> -o <output>.wat
+wasm-tools parse <output>.wat -o <output>.wasm
+node ./wasm_rt/runtime.mjs <output>.wasm
+```
 
 ## Test
 
