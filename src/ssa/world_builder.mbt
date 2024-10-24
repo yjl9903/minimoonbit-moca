@@ -98,7 +98,12 @@ pub fn WorldBuilder::build(
     externals: Map::from_iter(
       self.externals
       .iter()
-      .map(fn { (name, ty) => (name, @closure.to_direct_fn_low_type(ty)) }),
+      .map(
+        fn {
+          (name, ty) =>
+            (@shared.ffi_prefix + name, @closure.to_direct_fn_low_type(ty))
+        },
+      ),
     ),
     global: self.global_vars.values().collect(),
     methods: Map::from_array(methods),
