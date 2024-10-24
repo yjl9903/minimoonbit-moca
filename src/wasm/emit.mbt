@@ -304,13 +304,18 @@ fn WasmFunc::emit_rvalue(self : WasmFunc, rvalue : @ssa.RValue) -> Unit {
         (_, Double) => self.stmts.push(FPrim(F64, op))
       }
     }
-    Neg(expr, kind) => {
-      self.emit_var(expr)
+    Neg(expr, kind) =>
       match kind {
-        Int => self.stmts.push(INeg)
-        Double => self.stmts.push(FNeg)
+        Int => {
+          self.stmts.push(IConst(I32, 0))
+          self.emit_var(expr)
+          self.stmts.push(IPrim(I32, Sub))
+        }
+        Double => {
+          self.emit_var(expr)
+          self.stmts.push(FNeg(F64))
+        }
       }
-    }
     Var(var) => self.emit_var(var)
     Tuple(els) =>
       // let els = els.map(fn { e => self.emit_var(e) }).join(", ")
