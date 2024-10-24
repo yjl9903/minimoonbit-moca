@@ -2,8 +2,7 @@ enum Instruction {
   // Numeric
   IConst(IWidth, Int)
   FConst(FWidth, Double)
-  INeg
-  FNeg
+  FNeg(FWidth)
   IPrim(IWidth, @ssa.PrimOp)
   FPrim(FWidth, @ssa.PrimOp)
   ICmp(IWidth, ICmp)
@@ -17,7 +16,7 @@ enum Instruction {
 
   // Call
   Call(WasmFunc)
-  CallIndirect(Int, WasmType)
+  CallIndirect(WasmType)
 
   // Control flow
   If // (if

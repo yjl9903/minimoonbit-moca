@@ -149,6 +149,46 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
     .each(fn { l => logger.push(l) })
   }
   // 3. Instructions
+  func.stmts.each(
+    fn {
+      stmt =>
+        logger.push(
+          match stmt {
+            IConst(_, x) => "(i32.const \{x})"
+            FConst(_, x) => "(f64.const \{x})"
+            FNeg(_) => "(f64.neg)"
+            IPrim(_, Add) => "(i32.add)"
+            IPrim(_, Sub) => "(i32.sub)"
+            IPrim(_, Mul) => "(i32.mul)"
+            IPrim(_, Div) => "(i32.div_s)"
+            FPrim(_, Add) => "(f64.add)"
+            FPrim(_, Sub) => "(f64.sub)"
+            FPrim(_, Mul) => "(f64.mul)"
+            FPrim(_, Div) => "(f64.div)"
+            ICmp(_, Eq) => "(i32.eq)"
+            ICmp(_, Le_s) => "(i32.le_s)"
+            FCmp(_, Eq) => "(f64.eq)"
+            FCmp(_, Le) => "(f64.le)"
+            LocalGet(v) => "(local.get \{v.identifier})"
+            LocalSet(v) => "(local.set \{v.identifier})"
+            GlobalGet(v) => "(global.get \{v.identifier})"
+            GlobalSet(v) => "(global.set \{v.identifier})"
+            Call(func) => "(call \{func.identifier})"
+            CallIndirect(ty) => "(call_indirect (type \{ty.identifier}))"
+            If => "(if"
+            IfThen => "(then"
+            IfElse => "(else"
+            IfEnd => ")"
+            Loop(label) => "(loop $B\{label} (block $B\{label}_inner"
+            LoopEnd => "))"
+            Continue(label) => "(br $B\{label})"
+            Break(label) => "(br $B\{label}_inner)"
+            Nop => "(nop)"
+            Return => "(return)"
+          },
+        )
+    },
+  )
   logger.dedent()
   logger.push(")")
 }
