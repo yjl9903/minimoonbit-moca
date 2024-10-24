@@ -68,20 +68,50 @@ pub fn print_wasm(result : WasmResult) -> String {
     let table = result.table
     let elems = result.funcs
       .values()
-      .map(fn { f => "\{f.identifier}" })
+      .filter(fn { f => not(f.1.is_empty()) })
+      .map(fn { f => "\{f.1.unwrap().identifier}" })
       .collect()
       .join(" ")
-    logger.push("(table \{table.identifier} \{result.funcs.size()} funcref)")
+    logger.push("(table \{table.identifier} \{result.table.size} funcref)")
     logger.push("(elem (i32.const 0) \{elems})")
     logger.push("")
   }
-  // 5. Func section
+  // 5. Global section
+  {
+    let globals = result.globals.values()
+    globals.each(
+      fn {
+        g => {
+          let value = g.value.or_else(
+            fn() {
+              match g.ty {
+                Double => FConst(F64, 0.0)
+                _ => IConst(I32, 0)
+              }
+            },
+          )
+          let value = match value {
+            IConst(_, x) => "(i32.const \{x})"
+            FConst(_, x) => "(f64.const \{x})"
+            _ => @util.die("unexpected global value")
+          }
+          logger.push("(global \{g.identifier} \{print_type(g.ty)} \{value})")
+        }
+      },
+    )
+    logger.push("")
+  }
+  // 6. Func section
   {
     let funcs = result.funcs.values()
     funcs.each(
       fn {
         func => {
-          print_func(logger, result, func)
+          print_func(logger, result, func.0)
+          match func.1 {
+            Some(func) => print_func(logger, result, func)
+            _ => ()
+          }
           logger.push("")
         }
       },
@@ -94,8 +124,24 @@ pub fn print_wasm(result : WasmResult) -> String {
   logger.output()
 }
 
-fn print_func(logger : Logger, result : WasmResult, func : WasmFunc) -> Unit {
-
+fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
+  // 1. Signature
+  let params = func.params
+    .map(fn { p => "(param \{p.0.identifier} \{print_type(p.1)})" })
+    .join(" ")
+  let result = "(result \{print_type(@closure.extract_return_type(func.ty))})"
+  logger.push("(func \{func.identifier} \{params} \{result}")
+  logger.indent()
+  // 2. Local vars
+  if func.locals.size() > 0 {
+    func.locals
+    .values()
+    .map(fn { l => "(local \{l.identifier} \{print_type(l.ty)})" })
+    .each(fn { l => logger.push(l) })
+  }
+  // 3. Instructions
+  logger.dedent()
+  logger.push(")")
 }
 
 fn print_import_function_type(ty : Type) -> String {

@@ -26,4 +26,16 @@ enum FWidth {
   F64
 }
 
-struct Var {}
+struct Var {
+  identifier : String
+  var : @ssa.Var?
+  ty : Type
+}
+
+fn Var::from_ssa(var : @ssa.Var) -> Var {
+  { identifier: "$_\{var.id}", var: Some(var), ty: var.ty }
+}
+
+fn Var::temp_this() -> Var {
+  { identifier: "$_this", var: None, ty: Type::Ptr }
+}

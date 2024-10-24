@@ -8,7 +8,8 @@ pub struct WasmResult {
   memory : WasmMemory
   imports : Map[String, (WasmImportFunc, WasmFunc?)]
   types : Map[String, WasmType]
-  funcs : Map[String, WasmFunc]
+  globals : Map[Int, WasmGlobal]
+  funcs : Map[String, (WasmFunc, WasmFunc?)]
   table : WasmTable
   start : String
 }
@@ -28,18 +29,31 @@ pub struct WasmImportFunc {
 
 pub struct WasmTable {
   identifier : String
+  mut size : Int
 }
 
 pub struct WasmType {
   identifier : String
-  ty : @closure.LowType
+  ty : Type
+}
+
+pub struct WasmGlobal {
+  identifier : String
+  ty : Type
+  value : Instruction?
 }
 
 pub struct WasmFunc {
   identifier : String
-  table_index : Int
+  params : Array[(Var, Type)]
+  ty : Type
+  is_closure : Bool
+  table_index : Int?
   locals : Map[Int, Var]
   stmts : Array[Instruction]
+
+  // Used for building
+  merged : Map[Int, @ssa.Var]
 }
 
 fn WasmResult::new() -> WasmResult {
@@ -51,8 +65,9 @@ fn WasmResult::new() -> WasmResult {
     },
     imports: Map::new(),
     types: Map::new(),
+    globals: Map::new(),
     funcs: Map::new(),
-    table: { identifier: minimoonbit_table_identifier },
+    table: { identifier: minimoonbit_table_identifier, size: 0 },
     start: minimoonbit_start_identifier,
   }
 }
