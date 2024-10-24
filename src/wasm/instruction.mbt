@@ -6,6 +6,8 @@ enum Instruction {
   FNeg
   IPrim(IWidth, @ssa.PrimOp)
   FPrim(FWidth, @ssa.PrimOp)
+  ICmp(IWidth, ICmp)
+  FCmp(FWidth, FCmp)
 
   // Variables
   LocalGet(Var)
@@ -18,11 +20,13 @@ enum Instruction {
   CallIndirect(Int, WasmType)
 
   // Control flow
-  If
-  Then
-  Else
-  IfEnd
+  If // (if
+  IfThen // (then
+  IfElse // (else
+  IfEnd // )
   Loop(Int)
+  LoopEnd
+  Continue(Int)
   Break(Int)
   Nop
   Return
@@ -32,9 +36,19 @@ enum IWidth {
   I32
 }
 
+enum ICmp {
+  Eq
+  Le_s
+} derive(Show, Eq)
+
 enum FWidth {
   F64
-}
+} derive(Show, Eq)
+
+enum FCmp {
+  Eq
+  Le
+} derive(Show, Eq)
 
 struct Var {
   identifier : String

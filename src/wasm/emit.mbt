@@ -178,65 +178,191 @@ fn emit_func_block(
   for i = 0; i < block.stmts.length(); i = i + 1 {
     let stmt = block.stmts[i]
     match stmt.stmt {
-      IfGoto(cond, true_target, false_target, merge_target) =>
-        // let cond = match cond {
-        //   Eq(lhs, rhs) => "\{self.emit_var(lhs)} === \{self.emit_var(rhs)}"
-        //   Le(lhs, rhs) => "\{self.emit_var(lhs)} <= \{self.emit_var(rhs)}"
-        // }
-        // self.push("if (\{cond}) {")
-        // match true_target {
-        //   Some(t) => self.emit_block(self.method.body.blocks[t])
-        //   _ => ()
-        // }
-        // self.push("} else {")
-        // match false_target {
-        //   Some(t) => self.emit_block(self.method.body.blocks[t])
-        //   _ => ()
-        // }
-        // self.push("}")
-        // match merge_target {
-        //   Some(t) => self.emit_block(self.method.body.blocks[t])
-        //   _ => ()
-        // }
-        break
-      Goto(_) => break // if () { ... } else { ... }
-      Break(loop_label, _) =>
-        // break B_;
-        // func.stmts.push(Break(loop_label))
-        break
-      Continue(loop_label) =>
-        // continue B_;
-        // self.push("continue B\{loop_label};")
-        break
-      Return(var) =>
-        // return _;
-        // self.push("return \{self.emit_var(var)};")
-        break
-      _ =>
-        // Not a control flow ir
-        // self.push(self.emit_method_stmt(stmt))
-        if i + 1 == block.stmts.length() {
-          // match block.succ {
-          //   Some(edge) =>
-          //     match edge {
-          //       Next(block) => self.emit_block(block)
-          //       While(loop_block, return_block) => {
-          //         // Start a while loop
-          //         let label = loop_block.label
-          //         self.push("B\{label}: while (true) {")
-          //         self.emit_block(loop_block)
-          //         self.push("}")
-          //         self.emit_block(return_block)
-          //       }
-          //       // The end of a if branch, stop building following
-          //       IfEnd(_) => ()
-          //       Break(_) => @util.die("unexpected break")
-          //       Continue(_) => @util.die("unexpected continue")
-          //       IfStart(_) => @util.die("unexpected if branch")
-          //     }
-          //   None => ()
-          // }
+      IfGoto(cond, true_target, false_target, merge_target) => {
+        let ty = match cond {
+          Eq(lhs, rhs) | Le(lhs, rhs) => {
+            func.emit_var(lhs)
+            func.emit_var(rhs)
+            lhs.ty
+          }
         }
+        func.stmts.push(
+          match (ty, cond) {
+            (Int, Eq(_)) => ICmp(I32, Eq)
+            (Int, Le(_)) => ICmp(I32, Le_s)
+            (Double, Eq(_)) => FCmp(F64, Eq)
+            (Double, Le(_)) => FCmp(F64, Le)
+            _ => @util.die("unreachable")
+          },
+        )
+        func.stmts.push(If)
+        func.stmts.push(IfThen)
+        match true_target {
+          Some(t) => emit_func_block(method, func, method.body.blocks[t])
+          _ => ()
+        }
+        func.stmts.push(IfEnd)
+        match false_target {
+          Some(t) => {
+            func.stmts.push(IfElse)
+            emit_func_block(method, func, method.body.blocks[t])
+            func.stmts.push(IfEnd)
+          }
+          _ => ()
+        }
+        func.stmts.push(IfEnd)
+        match merge_target {
+          Some(t) => emit_func_block(method, func, method.body.blocks[t])
+          _ => ()
+        }
+        break
+      }
+      Goto(_) => break // if () { ... } else { ... }
+      Break(loop_label, _) => {
+        // break B_;
+        func.stmts.push(Break(loop_label))
+        break
+      }
+      Continue(loop_label) => {
+        // continue B_;
+        func.stmts.push(Continue(loop_label))
+        break
+      }
+      Return(var) => {
+        // return _;
+        func.emit_var(var)
+        func.stmts.push(Return)
+        break
+      }
+      _ => {
+        // Not a control flow ir
+        func.emit_stmt(stmt)
+        if i + 1 == block.stmts.length() {
+          match block.succ {
+            Some(edge) =>
+              match edge {
+                Next(block) => emit_func_block(method, func, block)
+                While(loop_block, return_block) => {
+                  // Start a while loop
+                  let label = loop_block.label
+                  func.stmts.push(Loop(label))
+                  emit_func_block(method, func, loop_block)
+                  func.stmts.push(LoopEnd)
+                  emit_func_block(method, func, return_block)
+                }
+                // The end of a if branch, stop building following
+                IfEnd(_) => ()
+                Break(_) => @util.die("unexpected break")
+                Continue(_) => @util.die("unexpected continue")
+                IfStart(_) => @util.die("unexpected if branch")
+              }
+            None => ()
+          }
+        }
+      }
+    }
+  }
+}
+
+fn WasmFunc::emit_stmt(self : WasmFunc, stmt : @ssa.Stmt) -> Unit {
+  match stmt.stmt {
+    Definition(_, Phi(_)) => ()
+    Definition(Some(var), rvalue) =>
+      if var.const_value.is_empty() {
+        self.emit_rvalue(rvalue)
+        if var.is_global {
+          self.stmts.push(GlobalSet(Var::from_ssa(var)))
+        } else {
+          self.stmts.push(LocalSet(Var::from_ssa(var)))
+        }
+      } else {
+        ()
+      }
+    Definition(None, rvalue) => self.emit_rvalue(rvalue)
+    PutArray(recv, idx, expr) =>
+      // "\{self.emit_var(recv)}[\{self.emit_var(idx)}] = \{self.emit_var(expr)};"
+      @util.die("todo")
+    Nop => ()
+    Goto(_) => @util.die("unexpected")
+    Break(_) => @util.die("unexpected")
+    Continue(_) => @util.die("unexpected")
+    IfGoto(_) => @util.die("unexpected")
+    Return(_) => @util.die("unexpected")
+  }
+}
+
+fn WasmFunc::emit_rvalue(self : WasmFunc, rvalue : @ssa.RValue) -> Unit {
+  match rvalue {
+    Unit => self.stmts.push(IConst(I32, 0))
+    Int(x) => self.stmts.push(IConst(I32, x))
+    Double(x) => self.stmts.push(FConst(F64, x))
+    Prim(lhs, rhs, op, kind) => {
+      self.emit_var(lhs)
+      self.emit_var(rhs)
+      match (op, kind) {
+        (_, Int) => self.stmts.push(IPrim(I32, op))
+        (_, Double) => self.stmts.push(FPrim(F64, op))
+      }
+    }
+    Neg(expr, kind) => {
+      self.emit_var(expr)
+      match kind {
+        Int => self.stmts.push(INeg)
+        Double => self.stmts.push(FNeg)
+      }
+    }
+    Var(var) => self.emit_var(var)
+    Tuple(els) =>
+      // let els = els.map(fn { e => self.emit_var(e) }).join(", ")
+      // "[\{els}]"
+      @util.die("todo")
+    Closure(label, bindings) =>
+      // let name = get_method_name(label)
+      // let bindings = bindings
+      //   .map(fn { (fv, var) => "\"\{fv.to_string()}\": \{self.emit_var(var)}" })
+      //   .join(", ")
+      @util.die("todo")
+
+    // Get from structure
+    GetTuple(var, idx) => @util.die("todo")
+    GetArray(recv, idx) => @util.die("todo")
+    GetClosure(closure, fv) =>
+      if closure.is_this {
+        // "this[\"\{fv.to_string()}\"]"
+        @util.die("todo")
+      } else {
+        @util.die("")
+      }
+
+    // Invoke
+    InvokeClosure(callee, args) =>
+      // let args = args.map(fn { a => self.emit_var(a) }).join(", ")
+      // "\{self.emit_var(callee)}(\{args})"
+      @util.die("todo")
+    InvokeDirect(label, args) =>
+      // let args = args.map(fn { a => self.emit_var(a) }).join(", ")
+      // "\{get_method_name(label)}(\{args})"
+      @util.die("todo")
+
+    // Phi
+    Phi(_) => ()
+  }
+}
+
+fn WasmFunc::emit_var(self : WasmFunc, var : @ssa.Var) -> Unit {
+  match var.const_value {
+    Some(Int(x)) => self.stmts.push(IConst(I32, x))
+    Some(Double(x)) => self.stmts.push(FConst(F64, x))
+    _ => {
+      let merged = self.merged.get(var.id)
+      let var = merged.or(var)
+      if var.is_this {
+        @util.die("TODO")
+      } else if var.is_global {
+        self.stmts.push(GlobalGet(Var::from_ssa(var)))
+      } else {
+        self.stmts.push(LocalGet(Var::from_ssa(var)))
+      }
     }
   }
 }
