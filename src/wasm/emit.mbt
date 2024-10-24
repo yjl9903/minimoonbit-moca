@@ -1,3 +1,4 @@
-pub fn emit_wasm(_world : @ssa.World) -> WasmResult {
-  @util.die("todo")
+pub fn emit_wasm(world : @ssa.World) -> WasmResult {
+  let result = WasmResult::new(world)
+  result
 }
