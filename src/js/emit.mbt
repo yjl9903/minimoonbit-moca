@@ -103,8 +103,6 @@ fn emit_method(
 }
 
 fn JsEmitter::emit_block(self : JsEmitter, block : @ssa.Block) -> Unit {
-  // Last stmt
-  // let stmt = block.stmts[block.stmts.length() - 1]
   for i = 0; i < block.stmts.length(); i = i + 1 {
     let stmt = block.stmts[i]
     match stmt.stmt {

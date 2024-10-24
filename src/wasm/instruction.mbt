@@ -16,6 +16,16 @@ enum Instruction {
   // Call
   Call(WasmFunc)
   CallIndirect(Int, WasmType)
+
+  // Control flow
+  If
+  Then
+  Else
+  IfEnd
+  Loop(Int)
+  Break(Int)
+  Nop
+  Return
 }
 
 enum IWidth {

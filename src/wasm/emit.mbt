@@ -167,4 +167,76 @@ fn build_func(method : @ssa.Method, result : WasmResult) -> Unit {
     .iter()
   local_vars.each(fn { lv => emitter.locals.set(lv.id, Var::from_ssa(lv)) })
   // 3. Build stmts
+  emit_func_block(method, emitter, method.body.blocks[0])
+}
+
+fn emit_func_block(
+  method : @ssa.Method,
+  func : WasmFunc,
+  block : @ssa.Block
+) -> Unit {
+  for i = 0; i < block.stmts.length(); i = i + 1 {
+    let stmt = block.stmts[i]
+    match stmt.stmt {
+      IfGoto(cond, true_target, false_target, merge_target) =>
+        // let cond = match cond {
+        //   Eq(lhs, rhs) => "\{self.emit_var(lhs)} === \{self.emit_var(rhs)}"
+        //   Le(lhs, rhs) => "\{self.emit_var(lhs)} <= \{self.emit_var(rhs)}"
+        // }
+        // self.push("if (\{cond}) {")
+        // match true_target {
+        //   Some(t) => self.emit_block(self.method.body.blocks[t])
+        //   _ => ()
+        // }
+        // self.push("} else {")
+        // match false_target {
+        //   Some(t) => self.emit_block(self.method.body.blocks[t])
+        //   _ => ()
+        // }
+        // self.push("}")
+        // match merge_target {
+        //   Some(t) => self.emit_block(self.method.body.blocks[t])
+        //   _ => ()
+        // }
+        break
+      Goto(_) => break // if () { ... } else { ... }
+      Break(loop_label, _) =>
+        // break B_;
+        // func.stmts.push(Break(loop_label))
+        break
+      Continue(loop_label) =>
+        // continue B_;
+        // self.push("continue B\{loop_label};")
+        break
+      Return(var) =>
+        // return _;
+        // self.push("return \{self.emit_var(var)};")
+        break
+      _ =>
+        // Not a control flow ir
+        // self.push(self.emit_method_stmt(stmt))
+        if i + 1 == block.stmts.length() {
+          // match block.succ {
+          //   Some(edge) =>
+          //     match edge {
+          //       Next(block) => self.emit_block(block)
+          //       While(loop_block, return_block) => {
+          //         // Start a while loop
+          //         let label = loop_block.label
+          //         self.push("B\{label}: while (true) {")
+          //         self.emit_block(loop_block)
+          //         self.push("}")
+          //         self.emit_block(return_block)
+          //       }
+          //       // The end of a if branch, stop building following
+          //       IfEnd(_) => ()
+          //       Break(_) => @util.die("unexpected break")
+          //       Continue(_) => @util.die("unexpected continue")
+          //       IfStart(_) => @util.die("unexpected if branch")
+          //     }
+          //   None => ()
+          // }
+        }
+    }
+  }
 }
