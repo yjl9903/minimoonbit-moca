@@ -1,0 +1,1 @@
+typealias Type = @closure.LowType
