@@ -176,7 +176,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
         match self.backend {
           RSICV => @riscv.print_functions(self.asm.unwrap())
           JS => @js.print_js(self.js.unwrap())
-          WASM => @util.die("TODO")
+          WASM => @wasm.print_wasm(self.wasm.unwrap())
         }
     }
   } else {
@@ -192,7 +192,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
         match self.backend {
           RSICV => @riscv.print_functions(self.asm.unwrap())
           JS => @js.print_js(self.js.unwrap())
-          WASM => @util.die("TODO")
+          WASM => @wasm.print_wasm(self.wasm.unwrap())
         }
     }
   }
