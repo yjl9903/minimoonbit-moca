@@ -70,7 +70,7 @@ pub fn extract_return_type(typ : LowType) -> LowType {
   }
 }
 
-fn to_closure_fn_low_type(typ : Type) -> LowType {
+pub fn to_closure_fn_low_type(typ : Type) -> LowType {
   match typ {
     Unit => Unit
     Bool => Bool
@@ -89,7 +89,7 @@ fn to_closure_fn_low_type(typ : Type) -> LowType {
   }
 }
 
-fn to_direct_fn_low_type(typ : Type) -> LowType {
+pub fn to_direct_fn_low_type(typ : Type) -> LowType {
   match typ {
     Unit => Unit
     Bool => Bool
