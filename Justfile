@@ -312,5 +312,10 @@ test-js:
   diff -Z test/test_src/sum.ans temp/sum.out
 
 
+test-wasm:
+  rm -rf temp
+  mkdir temp
+
+
 submit:
   git archive -o submit.zip HEAD

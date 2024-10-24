@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-js:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,7 +15,7 @@ jobs:
 
       - uses: extractions/setup-just@v1
 
-      - name: install
+      - name: install moonbit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s minimoonbit
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
@@ -46,6 +46,38 @@ jobs:
       - run: just test-ssa
 
       - run: just test-js
+
+  build-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: extractions/setup-just@v1
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: install moonbit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s minimoonbit
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: moon version
+        run: |
+          moon version --all
+          moonrun --version
+
+      - run: |
+          moon update
+          moon check
+          moon test
+
+      - name: test wasm
+        run: |
+          cargo install --locked wasm-tools
+          just test-wasm
 
   format:
     runs-on: ubuntu-latest
