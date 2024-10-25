@@ -306,6 +306,13 @@ fn MethodBuilder::visit_stmt(
             } else {
               // Should not define Unit
               let _ = self.ssa_builder.emit(Definition(None, rvalue))
+              // Leave this for its usages
+              let _ = self.ssa_builder.emit(
+                Definition(
+                  Some(self.ssa_builder.add_local_var(name, typ)),
+                  Unit,
+                ),
+              )
               ()
             }
         },
