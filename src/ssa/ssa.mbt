@@ -19,6 +19,10 @@ pub fn PrimOp::to_string(self : PrimOp) -> String {
   }
 }
 
+pub fn PrimOp::output(self : PrimOp, logger : Logger) -> Unit {
+  logger.write_string(self.to_string())
+}
+
 pub struct Var {
   id : Int
   name : String?
@@ -43,6 +47,10 @@ pub fn Var::to_string(self : Var) -> String {
   }
 }
 
+pub fn Var::output(self : Var, logger : Logger) -> Unit {
+  logger.write_string(self.to_string())
+}
+
 pub struct FreeVar {
   id : Int
   name : String?
@@ -56,6 +64,10 @@ pub fn FreeVar::op_equal(self : FreeVar, other : FreeVar) -> Bool {
 
 pub fn FreeVar::to_string(self : FreeVar) -> String {
   self.name.or("") + "_" + self.id.to_string()
+}
+
+pub fn FreeVar::output(self : FreeVar, logger : Logger) -> Unit {
+  logger.write_string(self.to_string())
 }
 
 pub enum RValue {
@@ -73,12 +85,12 @@ pub enum RValue {
   InvokeClosure(Var, Array[Var]) // _ (_0, _1, ...)
   InvokeDirect(String, Array[Var])
   Phi(Array[Var]) // phi (_0, _1, ...)
-}
+} derive (Show)
 
 pub enum Condition {
   Eq(Var, Var)
   Le(Var, Var)
-}
+} derive(Show)
 
 pub enum StmtKind {
   Definition(Var?, RValue) // _ = _
