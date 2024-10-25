@@ -20,6 +20,7 @@ enum Instruction {
 
   // Memory
   Malloc
+  MemoryGrow
   ILoad(IWidth, Int?)
   IStore(IWidth, Int?)
   FLoad(FWidth, Int?)
@@ -44,6 +45,9 @@ enum IWidth {
 
 enum ICmp {
   Eq
+  Gt_s
+  Lt_s
+  Ge_s
   Le_s
 } derive(Show, Eq)
 
