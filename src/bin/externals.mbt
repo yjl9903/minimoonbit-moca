@@ -197,6 +197,7 @@ fn externals() -> @immut/hashmap.T[String, @types.Type] {
     @types.Fun([Int, Double], @types.Type::Array(Double)),
   )
   .add("create_ptr_array", @types.Fun([Int, Ptr], @types.Type::Array(Ptr)))
+  .add("malloc", @types.Fun([Int], @types.Type::Ptr))
   .add("truncate", @types.Fun([Double], Int))
   .add("sin", @types.Fun([Double], Double))
   .add("cos", @types.Fun([Double], Double))
