@@ -13,6 +13,17 @@ fn add_method_this_type(method : @ssa.Method) -> Type {
   }
 }
 
+fn add_func_type_this_type(ty : Type) -> Type {
+  match ty {
+    ClosureFn(args, ret) | DirectFn(args, ret) => {
+      let new_args = [Type::Ptr]
+      new_args.push_iter(args.iter())
+      Type::ClosureFn(new_args, ret)
+    }
+    _ => @util.die("should be function type")
+  }
+}
+
 fn get_type_size(ty : Type) -> Int {
   match ty {
     Double => 2
@@ -32,6 +43,23 @@ fn get_types_type_size(vars : Array[Type], ~slice : Int? = None) -> Int {
     Some(slice) => vars.iter().take(slice)
     None => vars.iter()
   }).fold(fn { acc, var => acc + get_type_size(var) }, init=0)
+}
+
+fn get_closure_size(
+  fvs : Array[@ssa.FreeVar],
+  ~target : @ssa.FreeVar? = None
+) -> Int {
+  match target {
+    Some(target) =>
+      fvs.fold(
+        fn {
+          acc, fv =>
+            acc + (if fv.slot < target.slot { get_type_size(fv.ty) } else { 0 })
+        },
+        init=1,
+      )
+    None => fvs.fold(fn { acc, fv => acc + get_type_size(fv.ty) }, init=1)
+  }
 }
 
 fn extract_tuple_type(ty : Type) -> Array[Type] {

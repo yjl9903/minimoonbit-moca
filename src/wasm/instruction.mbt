@@ -11,6 +11,7 @@ enum Instruction {
   // Variables
   LocalGet(Var)
   LocalSet(Var)
+  LocalTee(Var)
   GlobalGet(Var)
   GlobalSet(Var)
 
@@ -76,4 +77,8 @@ fn Var::from_ssa(var : @ssa.Var) -> Var {
 
 fn Var::temp_this() -> Var {
   { identifier: "$_this", var: None, ty: Type::Ptr }
+}
+
+fn Var::temp_with_type(i : Int, ty : Type) -> Var {
+  { identifier: "$__param_\{i}__", var: None, ty }
 }

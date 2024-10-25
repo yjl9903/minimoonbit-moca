@@ -55,82 +55,151 @@ fn add_globals(world : @ssa.World, result : WasmResult) -> Unit {
 fn add_func(
   method : @ssa.Method,
   result : WasmResult,
-  ~to_closure : Bool = false,
   ~is_main : Bool = false
 ) -> Unit {
-  if not(to_closure) {
-    // Identifier
-    let identifier = if is_main {
-      minimoonbit_start_identifier
+  // Identifier
+  let identifier = if is_main {
+    minimoonbit_start_identifier
+  } else {
+    "$\{get_method_name(method.name)}_"
+  }
+  // Index
+  let table_index = if method.is_closure {
+    let sz = result.table.size
+    result.table.size = result.table.size + 1
+    Some(sz)
+  } else {
+    None
+  }
+  // Args
+  let args = []
+  if method.is_closure {
+    args.push((Var::from_ssa(method.this.unwrap()), Type::Ptr))
+  }
+  args.push_iter(method.params.iter().map(fn { p => (Var::from_ssa(p), p.ty) }))
+  // Func
+  let func = {
+    identifier,
+    params: args,
+    ty: if method.is_closure {
+      add_method_this_type(method)
     } else {
-      "$\{get_method_name(method.name)}_"
-    }
-    // Index
-    let table_index = if method.is_closure {
-      let sz = result.table.size
-      result.table.size = result.table.size + 1
-      Some(sz)
+      method.ty
+    },
+    is_closure: method.is_closure,
+    table_index,
+    locals: Map::new(),
+    free_vars: method.formal_free_vars,
+    stmts: [],
+    this_var: if method.is_closure {
+      Some(args[0].0)
     } else {
       None
-    }
-    // Args
-    let args = []
-    if method.is_closure {
-      args.push((Var::from_ssa(method.this.unwrap()), Type::Ptr))
-    }
-    args.push_iter(
-      method.params.iter().map(fn { p => (Var::from_ssa(p), p.ty) }),
-    )
-    // Func
-    let func = {
-      identifier,
-      params: args,
-      ty: if method.is_closure {
-        add_method_this_type(method)
-      } else {
-        method.ty
-      },
-      is_closure: method.is_closure,
-      table_index,
-      locals: Map::new(),
-      stmts: [],
-      merged: Map::new(),
-    }
-    result.funcs.set(
-      method.name,
-      (func, if method.is_closure { Some(func) } else { None }),
-    )
-  } else {
-    match result.funcs.get(method.name) {
-      Some((func, None)) => {
-        let identifier = "$\{get_method_name(method.name)}_c_"
-        let table_index = Some(result.table.size)
-        result.table.size = result.table.size + 1
-        let args = []
-        args.push((Var::temp_this(), Type::Ptr))
-        args.push_iter(
-          method.params.iter().map(fn { p => (Var::from_ssa(p), p.ty) }),
-        )
-        // Push all the args
-        let stmts = method.params.map(
-          fn { p => Instruction::LocalGet(Var::from_ssa(p)) },
-        )
-        // Call wrapped function
-        stmts.push(Call(func))
-        // Func
-        let c_func = {
-          identifier,
-          params: args,
-          ty: add_method_this_type(method),
-          is_closure: true,
-          table_index,
-          locals: Map::new(),
-          stmts,
-          merged: Map::new(),
-        }
-        result.funcs.set(method.name, (func, Some(c_func)))
+    },
+    merged: Map::new(),
+  }
+  result.funcs.set(
+    method.name,
+    (func, if method.is_closure { Some(func) } else { None }),
+  )
+}
+
+fn add_closure_func(result : WasmResult, label : String) -> WasmFunc {
+  match result.funcs.get(label) {
+    Some((_, Some(c_func))) => c_func
+    Some((func, None)) => {
+      let identifier = "$\{get_method_name(label)}_c_"
+      let table_index = Some(result.table.size)
+      result.table.size = result.table.size + 1
+      let args = []
+      args.push((Var::temp_this(), Type::Ptr))
+      args.push_iter(func.params.iter().map(fn { (p, ty) => (p, ty) }))
+      // Push all the args
+      let stmts = func.params.map(fn { p => Instruction::LocalGet(p.0) })
+      // Call wrapped function
+      stmts.push(Call(func))
+      // Func
+      let c_func = {
+        identifier,
+        params: args,
+        ty: add_func_type_this_type(func.ty),
+        is_closure: true,
+        table_index,
+        locals: Map::new(),
+        free_vars: [],
+        stmts,
+        this_var: Some(args[0].0),
+        merged: Map::new(),
       }
-      _ => ()
+      result.funcs.set(label, (func, Some(c_func)))
+      let _ = add_table_func_type(result, c_func.ty)
+      c_func
+    }
+    None =>
+      // Create wrapper for import method
+      match result.imports.get(label) {
+        Some((func, None)) => {
+          let identifier = "$__" + label + "_c_"
+          let table_index = Some(result.table.size)
+          result.table.size = result.table.size + 1
+          // Args
+          let args_type = match func.ty {
+            ClosureFn(args, _) | DirectFn(args, _) => args
+            _ => @util.die("unreachable")
+          }
+          let args = []
+          args.push((Var::temp_this(), Type::Ptr))
+          args.push_iter(
+            args_type.mapi(fn { i, ty => (temp_with_type(i, ty), ty) }).iter(),
+          )
+          // Push all the args
+          let stmts = args_type.mapi(
+            fn { i, ty => Instruction::LocalGet(temp_with_type(i, ty)) },
+          )
+          // Call wrapped function
+          stmts.push(CallImport(func))
+          // Func
+          let c_func = {
+            identifier,
+            params: args,
+            ty: add_func_type_this_type(func.ty),
+            is_closure: true,
+            table_index,
+            locals: Map::new(),
+            free_vars: [],
+            stmts,
+            this_var: Some(args[0].0),
+            merged: Map::new(),
+          }
+          result.imports.set(label, (func, Some(c_func)))
+          let _ = add_table_func_type(result, c_func.ty)
+          c_func
+        }
+        Some((_, Some(c_func))) => c_func
+        None => @util.die("unknown method \{label}")
+      }
+  }
+}
+
+fn add_local_var(func : WasmFunc) -> Var {
+  let id = func.locals
+    .keys()
+    .fold(fn { acc, cur => @math.maximum(acc, cur) }, init=0)
+  let id = id + 1
+  let var = temp_with_type(id, Ptr)
+  func.locals.set(id, var)
+  var
+}
+
+fn add_table_func_type(result : WasmResult, ty : Type) -> WasmType {
+  let text = print_function_type(ty)
+  match result.types.get(text) {
+    Some(t) => t
+    None => {
+      let sz = result.types.size()
+      let wasm_type = { identifier: "$__minimbt_types_\{sz}__", ty }
+      result.types.set(text, wasm_type)
+      wasm_type
     }
   }
 }
@@ -356,11 +425,14 @@ fn WasmFunc::emit_rvalue(
       }
     Var(var) => self.emit_get_var(var)
     Tuple(els) => {
+      let local_var = add_local_var(self)
       self.stmts.push(IConst(I32, get_vars_type_size(els)))
       self.stmts.push(Malloc)
+      self.stmts.push(LocalTee(local_var))
       let mut offset = 0
       for i = 0; i < els.length(); i = i + 1 {
         let el = els[i]
+        self.stmts.push(LocalGet(local_var))
         self.emit_get_var(el)
         match el.ty {
           Double => {
@@ -373,13 +445,37 @@ fn WasmFunc::emit_rvalue(
           }
         }
       }
+      self.stmts.push(LocalGet(local_var))
     }
-    Closure(label, bindings) => { // let name = get_method_name(label)
-      // let bindings = bindings
-      //   .map(fn { (fv, var) => "\"\{fv.to_string()}\": \{self.emit_var(var)}" })
-      //   .join(", ")
-      self.stmts.push(IConst(I32, 1))
+    Closure(label, bindings) => {
+      let local_var = add_local_var(self)
+      let closure_func = add_closure_func(result, label)
+      let closure_size = get_closure_size(closure_func.free_vars)
+      self.stmts.push(IConst(I32, closure_size))
       self.stmts.push(Malloc)
+      self.stmts.push(LocalTee(local_var))
+      // Store table index
+      self.stmts.push(IConst(I32, closure_func.table_index.unwrap()))
+      self.stmts.push(IStore(I32, None))
+      // Store free vars
+      bindings.sort_by_key(fn { b => b.0.slot })
+      let mut offset = 1
+      for i = 0; i < bindings.length(); i = i + 1 {
+        let el = bindings[i]
+        self.stmts.push(LocalGet(local_var))
+        self.emit_get_var(el.1)
+        match el.0.ty {
+          Double => {
+            self.stmts.push(FStore(F64, Some(offset)))
+            offset = offset + 2
+          }
+          _ => {
+            self.stmts.push(IStore(I32, Some(offset)))
+            offset = offset + 1
+          }
+        }
+      }
+      self.stmts.push(LocalGet(local_var))
     }
 
     // Get from structure
@@ -408,19 +504,28 @@ fn WasmFunc::emit_rvalue(
         }
       }
     }
-    GetClosure(closure, fv) =>
+    GetClosure(closure, fv, all_fv) =>
       if closure.is_this {
-        // "this[\"\{fv.to_string()}\"]"
-        @util.die("todo")
+        let this_var = self.this_var.unwrap()
+        let offset = get_closure_size(all_fv, target=Some(fv))
+        self.stmts.push(LocalGet(this_var))
+        match fv.ty {
+          Double => self.stmts.push(FLoad(F64, Some(offset)))
+          _ => self.stmts.push(ILoad(I32, Some(offset)))
+        }
       } else {
         @util.die("unreachable")
       }
 
     // Invoke
-    InvokeClosure(callee, args) =>
-      // let args = args.map(fn { a => self.emit_var(a) }).join(", ")
-      // "\{self.emit_var(callee)}(\{args})"
-      @util.die("todo")
+    InvokeClosure(callee, args) => {
+      self.emit_get_var(callee)
+      self.stmts.push(ILoad(I32, None)) // table index
+      self.emit_get_var(callee) // this_var
+      args.each(fn { arg => self.emit_get_var(arg) }) // args
+      let wasm_type = add_table_func_type(result, callee.ty)
+      self.stmts.push(CallIndirect(wasm_type))
+    }
     InvokeDirect(label, args) => {
       args.each(fn { a => self.emit_get_var(a) })
       match result.funcs.get(label) {
@@ -446,7 +551,10 @@ fn WasmFunc::emit_get_var(self : WasmFunc, var : @ssa.Var) -> Unit {
       let merged = self.merged.get(var.id)
       let var = merged.or(var)
       if var.is_this {
-        @util.die("TODO")
+        let var = self.this_var.or_else(
+          fn() { @util.die("should have this var") },
+        )
+        self.stmts.push(LocalSet(var))
       } else if var.is_global {
         self.stmts.push(GlobalGet(Var::from_ssa(var)))
       } else {
@@ -458,13 +566,13 @@ fn WasmFunc::emit_get_var(self : WasmFunc, var : @ssa.Var) -> Unit {
 
 fn WasmFunc::emit_set_var(self : WasmFunc, var : @ssa.Var) -> Unit {
   match var.const_value {
-    Some(Int(x)) => ()
-    Some(Double(x)) => ()
+    Some(Int(_)) => ()
+    Some(Double(_)) => ()
     _ => {
       let merged = self.merged.get(var.id)
       let var = merged.or(var)
       if var.is_this {
-        @util.die("TODO")
+        @util.die("this var should not be updated")
       } else if var.is_global {
         self.stmts.push(GlobalSet(Var::from_ssa(var)))
       } else {
