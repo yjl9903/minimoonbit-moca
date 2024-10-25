@@ -199,6 +199,7 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
             FCmp(_, Le) => "(f64.le)"
             LocalGet(v) => "(local.get \{v.identifier})"
             LocalSet(v) => "(local.set \{v.identifier})"
+            LocalTee(v) => "(local.tee \{v.identifier})"
             GlobalGet(v) => "(global.get \{v.identifier})"
             GlobalSet(v) => "(global.set \{v.identifier})"
             Call(func) => "(call \{func.identifier})"
@@ -207,7 +208,7 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
             Drop => "(drop)"
             // Memory
             MemoryGrow => "(memory.grow)"
-            Malloc => "(call \{builtin_malloc_identifier})" // TODO: impl this
+            Malloc => "(call \{external_malloc_identifier})"
             ILoad(_, offset) =>
               match offset {
                 Some(offset) => "(i32.load offset=\{offset})"

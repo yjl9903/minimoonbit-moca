@@ -52,9 +52,11 @@ pub struct WasmFunc {
   is_closure : Bool
   table_index : Int?
   locals : Map[Int, Var]
+  free_vars : Array[@ssa.FreeVar]
   stmts : Array[Instruction]
 
   // Used for building
+  this_var : Var?
   merged : Map[Int, @ssa.Var]
 }
 
@@ -73,10 +75,12 @@ fn WasmResult::new() -> WasmResult {
     imports: Map::new(),
     types: Map::new(),
     globals: Map::from_array(
-      [(-10, builtin_malloc_cursor), (-11, builtin_malloc_size)],
+      [],
+      // [(-10, builtin_malloc_cursor), (-11, builtin_malloc_size)],
     ),
     funcs: Map::from_array(
-      [(builtin_malloc_identifier, (builtin_malloc, None))],
+      [],
+      // [(builtin_malloc_identifier, (builtin_malloc, None))],
     ),
     table: { identifier: minimoonbit_table_identifier, size: 0 },
     start: minimoonbit_start_identifier,

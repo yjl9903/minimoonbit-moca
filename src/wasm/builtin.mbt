@@ -4,6 +4,8 @@ pub let page_size : Int = 64 * 1024
 
 pub let builtin_malloc_identifier = "$__minimbt_builtin_malloc__"
 
+pub let external_malloc_identifier = "$__minimbt_malloc_d_"
+
 let builtin_malloc_cursor : WasmGlobal = {
   identifier: "$__minimbt_builtin_malloc_cursor__",
   mutable: true,
@@ -43,6 +45,7 @@ let builtin_malloc : WasmFunc = {
   is_closure: false,
   table_index: None,
   locals: Map::new(),
+  free_vars: [],
   stmts: [
     LocalGet(builtin_malloc_param),
     GlobalGet(builtin_malloc_cursor_var),
@@ -70,5 +73,6 @@ let builtin_malloc : WasmFunc = {
     // Return
     Return,
   ],
+  this_var: None,
   merged: Map::new(),
 }
