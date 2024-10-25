@@ -554,7 +554,16 @@ fn MethodBuilder::visit_expr(
             } else {
               let local_var = self.ssa_builder.add_local_temp_var(if_type)
               true_var = Some(local_var)
-              let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+              if local_var.ty != Unit {
+                let _ = self.ssa_builder.emit(
+                  Definition(Some(local_var), rvalue),
+                )
+
+              } else {
+                let _ = self.ssa_builder.emit(Definition(None, rvalue))
+                let _ = self.ssa_builder.emit(Definition(Some(local_var), Unit))
+
+              }
               true_stmt = Some(self.ssa_builder.emit(Goto(-1)))
               true_end_block = Some(self.ssa_builder.current_block)
             }
@@ -580,7 +589,16 @@ fn MethodBuilder::visit_expr(
             } else {
               let local_var = self.ssa_builder.add_local_temp_var(if_type)
               false_var = Some(local_var)
-              let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+              if local_var.ty != Unit {
+                let _ = self.ssa_builder.emit(
+                  Definition(Some(local_var), rvalue),
+                )
+                ()
+              } else {
+                let _ = self.ssa_builder.emit(Definition(None, rvalue))
+                let _ = self.ssa_builder.emit(Definition(Some(local_var), Unit))
+                ()
+              }
               false_stmt = Some(self.ssa_builder.emit(Goto(-1)))
               false_end_block = Some(self.ssa_builder.current_block)
             }
@@ -698,7 +716,14 @@ fn MethodBuilder::visit_expr(
           rvalue => {
             let local_var = self.ssa_builder.add_local_temp_var(loop_type)
             break_names.push(local_var)
-            let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+            if local_var.ty != Unit {
+              let _ = self.ssa_builder.emit(Definition(Some(local_var), rvalue))
+              ()
+            } else {
+              let _ = self.ssa_builder.emit(Definition(None, rvalue))
+              let _ = self.ssa_builder.emit(Definition(Some(local_var), Unit))
+              ()
+            }
             break_goto.push(self.ssa_builder.emit(Break(-1, -1)))
             break_blocks.push(self.ssa_builder.current_block)
           }
