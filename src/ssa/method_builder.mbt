@@ -278,15 +278,6 @@ fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
   }
 }
 
-fn MethodBuilder::validate(self : MethodBuilder) -> Unit {
-  for i = 0; i < self.ssa_builder.blocks.length(); i = i + 1 {
-    let block = self.ssa_builder.blocks[i]
-    if block.stmts.length() == 0 {
-      @util.die("should not have empty basic block in \{self.name}")
-    }
-  }
-}
-
 /// Build the stmt
 /// Return the final stmt
 fn MethodBuilder::visit_stmt(
