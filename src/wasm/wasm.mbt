@@ -49,7 +49,7 @@ pub struct WasmFunc {
   identifier : String
   params : Array[(Var, Type)]
   ty : Type
-  wasm_type: WasmType?
+  wasm_type : WasmType?
   is_closure : Bool
   table_index : Int?
   locals : Map[Int, Var]

@@ -537,7 +537,10 @@ fn WasmFunc::emit_rvalue(
       args.each(fn { arg => self.emit_get_var(arg) }) // args
       self.emit_get_var(callee)
       self.stmts.push(ILoad(I32, None)) // table index
-      let wasm_type = add_table_func_type(result, add_func_type_this_type(callee.ty))
+      let wasm_type = add_table_func_type(
+        result,
+        add_func_type_this_type(callee.ty),
+      )
       self.stmts.push(CallIndirect(wasm_type))
     }
     InvokeDirect(label, args) => {
