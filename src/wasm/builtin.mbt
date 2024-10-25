@@ -39,6 +39,7 @@ let builtin_malloc_param : Var = {
 }
 
 let builtin_malloc : WasmFunc = {
+  ssa_name: "__minimbt_malloc__",
   identifier: builtin_malloc_identifier,
   params: [(builtin_malloc_param, Int)],
   ty: Type::DirectFn([Int], Ptr),
