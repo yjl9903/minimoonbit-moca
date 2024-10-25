@@ -62,7 +62,8 @@ fn get_closure_size(
         },
         init=i32_size,
       )
-    None => fvs.fold(fn { acc, fv => acc + get_type_size(fv.ty) }, init=i32_size)
+    None =>
+      fvs.fold(fn { acc, fv => acc + get_type_size(fv.ty) }, init=i32_size)
   }
 }
 
