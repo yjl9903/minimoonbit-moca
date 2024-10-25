@@ -322,10 +322,10 @@ test-wasm:
   ./run_wasm.sh test/test_src/cls-rec.mbt -o
   # ./run_wasm.sh test/test_src/cls-reg-bug.mbt -o
   # ./run_wasm.sh test/test_src/even-odd.mbt -o
-  # ./run_wasm.sh test/test_src/fib.mbt -o
+  ./run_wasm.sh test/test_src/fib.mbt -o
   # ./run_wasm.sh test/test_src/float.mbt -o
   # ./run_wasm.sh test/test_src/funcomp.mbt -o
-  # ./run_wasm.sh test/test_src/gcd.mbt -o
+  ./run_wasm.sh test/test_src/gcd.mbt -o
   # ./run_wasm.sh test/test_src/id.mbt -o
   # ./run_wasm.sh test/test_src/inprod-loop.mbt -o
   # ./run_wasm.sh test/test_src/inprod-rec.mbt -o
@@ -353,10 +353,10 @@ test-wasm:
   diff -Z test/test_src/cls-rec.ans temp/cls-rec.out
   # diff -Z test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
   # diff -Z test/test_src/even-odd.ans temp/even-odd.out
-  # diff -Z test/test_src/fib.ans temp/fib.out
+  diff -Z test/test_src/fib.ans temp/fib.out
   # diff -Z test/test_src/float.ans temp/float.out
   # diff -Z test/test_src/funcomp.ans temp/funcomp.out
-  # diff -Z test/test_src/gcd.ans temp/gcd.out
+  diff -Z test/test_src/gcd.ans temp/gcd.out
   # diff -Z test/test_src/id.ans temp/id.out
   # diff -Z test/test_src/inprod-loop.ans temp/inprod-loop.out
   # diff -Z test/test_src/inprod-rec.ans temp/inprod-rec.out
