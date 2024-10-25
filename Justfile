@@ -317,7 +317,7 @@ test-wasm:
   mkdir temp
   ./run_wasm.sh test/test_src/adder.mbt -o
   ./run_wasm.sh test/test_src/adder2.mbt -o
-  # ./run_wasm.sh test/test_src/cls-bug.mbt -o
+  ./run_wasm.sh test/test_src/cls-bug.mbt -o
   # ./run_wasm.sh test/test_src/cls-bug2.mbt -o
   ./run_wasm.sh test/test_src/cls-rec.mbt -o
   ./run_wasm.sh test/test_src/cls-reg-bug.mbt -o
@@ -348,7 +348,7 @@ test-wasm:
   ./run_wasm.sh test/test_src/sum.mbt -o
   diff -Z test/test_src/adder.ans temp/adder.out
   diff -Z test/test_src/adder2.ans temp/adder2.out
-  # diff -Z test/test_src/cls-bug.ans temp/cls-bug.out
+  diff -Z test/test_src/cls-bug.ans temp/cls-bug.out
   # diff -Z test/test_src/cls-bug2.ans temp/cls-bug2.out
   diff -Z test/test_src/cls-rec.ans temp/cls-rec.out
   diff -Z test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
