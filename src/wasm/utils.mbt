@@ -24,10 +24,14 @@ fn add_func_type_this_type(ty : Type) -> Type {
   }
 }
 
+pub let i32_size : Int = 4
+
+pub let f64_size : Int = 8
+
 fn get_type_size(ty : Type) -> Int {
   match ty {
-    Double => 2
-    _ => 1
+    Double => f64_size
+    _ => i32_size
   }
 }
 
@@ -56,9 +60,9 @@ fn get_closure_size(
           acc, fv =>
             acc + (if fv.slot < target.slot { get_type_size(fv.ty) } else { 0 })
         },
-        init=1,
+        init=i32_size,
       )
-    None => fvs.fold(fn { acc, fv => acc + get_type_size(fv.ty) }, init=1)
+    None => fvs.fold(fn { acc, fv => acc + get_type_size(fv.ty) }, init=i32_size)
   }
 }
 

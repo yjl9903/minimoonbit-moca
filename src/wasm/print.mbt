@@ -131,13 +131,26 @@ pub fn print_wasm(result : WasmResult) -> String {
   }
   // 7. Func section
   {
+    let imports = result.imports.values()
+    imports.each(
+      fn {
+        (_, func) =>
+          match func {
+            Some(c_func) => print_func(logger, result, c_func)
+            None => ()
+          }
+      },
+    )
     let funcs = result.funcs.values()
     funcs.each(
       fn {
         func => {
           print_func(logger, result, func.0)
           match func.1 {
-            Some(func) => print_func(logger, result, func)
+            Some(c_func) =>
+              if func.0.identifier != c_func.identifier {
+                print_func(logger, result, c_func)
+              }
             _ => ()
           }
           logger.push("")
@@ -154,6 +167,10 @@ pub fn print_wasm(result : WasmResult) -> String {
 
 fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
   // 1. Signature
+  let wasm_type = match func.wasm_type {
+    Some(ty) => "(type \{ty.identifier})"
+    None => ""
+  }
   let params = func.params
     .map(fn { p => "(param \{p.0.identifier} \{print_type(p.1)})" })
     .join(" ")
@@ -164,7 +181,7 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
     // Should not return Unit
     ""
   }
-  logger.push("(func \{func.identifier} \{params} \{result}")
+  logger.push("(func \{func.identifier} \{wasm_type} \{params} \{result}")
   logger.indent()
   // 2. Local vars
   if func.locals.size() > 0 {

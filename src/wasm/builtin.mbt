@@ -42,6 +42,7 @@ let builtin_malloc : WasmFunc = {
   identifier: builtin_malloc_identifier,
   params: [(builtin_malloc_param, Int)],
   ty: Type::DirectFn([Int], Ptr),
+  wasm_type: None,
   is_closure: false,
   table_index: None,
   locals: Map::new(),
