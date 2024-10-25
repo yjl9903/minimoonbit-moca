@@ -1,8 +1,9 @@
 priv struct Context {
   world : KnfWorld
+  mut current_func : MutFuncDef?
   func_defs : @hashmap.T[Int, FuncDef]
   global : @immut/hashmap.T[Name, LowType]
-  local_closures : @hashmap.T[Name, FuncDef]
+  local_closures : @hashmap.T[Name, FuncDef?]
   local_vars : @hashmap.T[Name, LowType]
 }
 
@@ -18,6 +19,7 @@ fn Context::new(externals : Map[String, Type], world : KnfWorld) -> Context {
   )
   {
     world,
+    current_func: None,
     func_defs: @hashmap.new(),
     global,
     local_closures: @hashmap.new(),
@@ -30,6 +32,7 @@ fn Context::fork(self : Context) -> Context {
   self.local_vars.each(fn { name, typ => global = global.add(name, typ) })
   {
     world: self.world,
+    current_func: None,
     func_defs: self.func_defs,
     global,
     local_closures: @hashmap.new(),
@@ -98,12 +101,23 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
     Apply(sig, args) =>
       match self.local_closures.get(sig) {
         // It is defined locally
-        Some(func) =>
+        Some(Some(func)) =>
           if not(func.is_closure) {
             CallDirect(func.name, args)
           } else {
             CallClosure(sig, args)
           }
+        Some(None) => {
+          // Self recusrion
+          let def = self.current_func.or_else(
+            fn() { @util.die("should have func def") },
+          )
+          if def.force_closure || def.free_vars.size() > 0 {
+            CallClosure(sig, args)
+          } else {
+            CallDirect(def.to_label(), args)
+          }
+        }
         // It may be passed from outside
         None => CallClosure(sig, args)
       }
@@ -177,6 +191,8 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
       // 2. Fork new env
       self.add_local_var(name, func_type)
       let new_env = self.fork()
+      new_env.current_func = Some(mutdef)
+      new_env.local_closures.set(name, None)
       def.args.eachi(
         fn { i, (name, _) => new_env.add_local_var(name, args_type[i]) },
       )
@@ -196,7 +212,7 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
         body,
       }
       self.func_defs.set(def.id, func)
-      self.local_closures.set(name, func)
+      self.local_closures.set(name, Some(func))
       // 4. Build rest stmts
       let rest = self.visit_stmt(rest, is_top_level)
       if is_top_level {
