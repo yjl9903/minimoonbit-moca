@@ -85,7 +85,7 @@ pub enum RValue {
   InvokeClosure(Var, Array[Var]) // _ (_0, _1, ...)
   InvokeDirect(String, Array[Var])
   Phi(Array[Var]) // phi (_0, _1, ...)
-} derive (Show)
+} derive(Show)
 
 pub enum Condition {
   Eq(Var, Var)
