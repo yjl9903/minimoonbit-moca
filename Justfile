@@ -315,24 +315,24 @@ test-js:
 test-wasm:
   rm -rf temp
   mkdir temp
-  # ./run_wasm.sh test/test_src/adder.mbt -o
-  # ./run_wasm.sh test/test_src/adder2.mbt -o
+  ./run_wasm.sh test/test_src/adder.mbt -o
+  ./run_wasm.sh test/test_src/adder2.mbt -o
   # ./run_wasm.sh test/test_src/cls-bug.mbt -o
   # ./run_wasm.sh test/test_src/cls-bug2.mbt -o
   ./run_wasm.sh test/test_src/cls-rec.mbt -o
-  # ./run_wasm.sh test/test_src/cls-reg-bug.mbt -o
+  ./run_wasm.sh test/test_src/cls-reg-bug.mbt -o
   # ./run_wasm.sh test/test_src/even-odd.mbt -o
   ./run_wasm.sh test/test_src/fib.mbt -o
-  # ./run_wasm.sh test/test_src/float.mbt -o
-  # ./run_wasm.sh test/test_src/funcomp.mbt -o
+  ./run_wasm.sh test/test_src/float.mbt -o
+  ./run_wasm.sh test/test_src/funcomp.mbt -o
   ./run_wasm.sh test/test_src/gcd.mbt -o
-  # ./run_wasm.sh test/test_src/id.mbt -o
-  # ./run_wasm.sh test/test_src/inprod-loop.mbt -o
-  # ./run_wasm.sh test/test_src/inprod-rec.mbt -o
+  ./run_wasm.sh test/test_src/id.mbt -o
+  ./run_wasm.sh test/test_src/inprod-loop.mbt -o
+  ./run_wasm.sh test/test_src/inprod-rec.mbt -o
   # ./run_wasm.sh test/test_src/inprod.mbt -o
-  # ./run_wasm.sh test/test_src/join-reg.mbt -o
+  ./run_wasm.sh test/test_src/join-reg.mbt -o
   # ./run_wasm.sh test/test_src/join-reg2.mbt -o
-  # ./run_wasm.sh test/test_src/join-stack.mbt -o
+  ./run_wasm.sh test/test_src/join-stack.mbt -o
   # ./run_wasm.sh test/test_src/join-stack2.mbt -o
   # ./run_wasm.sh test/test_src/join-stack3.mbt -o
   # ./run_wasm.sh test/test_src/matmul-flat.mbt -o
@@ -346,24 +346,24 @@ test-wasm:
   # ./run_wasm.sh test/test_src/spill3.mbt -o
   ./run_wasm.sh test/test_src/sum-tail.mbt -o
   ./run_wasm.sh test/test_src/sum.mbt -o
-  # diff -Z test/test_src/adder.ans temp/adder.out
-  # diff -Z test/test_src/adder2.ans temp/adder2.out
+  diff -Z test/test_src/adder.ans temp/adder.out
+  diff -Z test/test_src/adder2.ans temp/adder2.out
   # diff -Z test/test_src/cls-bug.ans temp/cls-bug.out
   # diff -Z test/test_src/cls-bug2.ans temp/cls-bug2.out
   diff -Z test/test_src/cls-rec.ans temp/cls-rec.out
-  # diff -Z test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
+  diff -Z test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
   # diff -Z test/test_src/even-odd.ans temp/even-odd.out
   diff -Z test/test_src/fib.ans temp/fib.out
-  # diff -Z test/test_src/float.ans temp/float.out
-  # diff -Z test/test_src/funcomp.ans temp/funcomp.out
+  diff -Z test/test_src/float.ans temp/float.out
+  diff -Z test/test_src/funcomp.ans temp/funcomp.out
   diff -Z test/test_src/gcd.ans temp/gcd.out
-  # diff -Z test/test_src/id.ans temp/id.out
-  # diff -Z test/test_src/inprod-loop.ans temp/inprod-loop.out
-  # diff -Z test/test_src/inprod-rec.ans temp/inprod-rec.out
+  diff -Z test/test_src/id.ans temp/id.out
+  diff -Z test/test_src/inprod-loop.ans temp/inprod-loop.out
+  diff -Z test/test_src/inprod-rec.ans temp/inprod-rec.out
   # diff -Z test/test_src/inprod.ans temp/inprod.out
-  # diff -Z test/test_src/join-reg.ans temp/join-reg.out
+  diff -Z test/test_src/join-reg.ans temp/join-reg.out
   # diff -Z test/test_src/join-reg2.ans temp/join-reg2.out
-  # diff -Z test/test_src/join-stack.ans temp/join-stack.out
+  diff -Z test/test_src/join-stack.ans temp/join-stack.out
   # diff -Z test/test_src/join-stack2.ans temp/join-stack2.out
   # diff -Z test/test_src/join-stack3.ans temp/join-stack3.out
   # diff -Z test/test_src/matmul-flat.ans temp/matmul-flat.out
