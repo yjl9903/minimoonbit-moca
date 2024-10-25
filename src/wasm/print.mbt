@@ -166,7 +166,10 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
             FPrim(_, Mul) => "(f64.mul)"
             FPrim(_, Div) => "(f64.div)"
             ICmp(_, Eq) => "(i32.eq)"
+            ICmp(_, Ge_s) => "(i32.ge_s)"
+            ICmp(_, Gt_s) => "(i32.gt_s)"
             ICmp(_, Le_s) => "(i32.le_s)"
+            ICmp(_, Lt_s) => "(i32.lt_s)"
             FCmp(_, Eq) => "(f64.eq)"
             FCmp(_, Le) => "(f64.le)"
             LocalGet(v) => "(local.get \{v.identifier})"
@@ -175,7 +178,9 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
             GlobalSet(v) => "(global.set \{v.identifier})"
             Call(func) => "(call \{func.identifier})"
             CallIndirect(ty) => "(call_indirect (type \{ty.identifier}))"
-            Malloc => "(call $__builtin_malloc__)" // TODO: impl this
+            // Memory
+            MemoryGrow => "(memory.grow)"
+            Malloc => "(call \{builtin_malloc_identifier})" // TODO: impl this
             ILoad(_, offset) =>
               match offset {
                 Some(offset) => "(i32.load offset=\{offset})"
@@ -196,6 +201,7 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
                 Some(offset) => "(f64.store offset=\{offset})"
                 None => "(f64.store)"
               }
+            // Control flow
             If => "(if"
             IfThen => "(then"
             IfElse => "(else"
