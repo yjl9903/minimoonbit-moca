@@ -303,7 +303,14 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
                 (expr, expr_type) =>
                   (
                     Knf::ExternalFunctionApplication(
-                      @shared.make_array_binding_name,
+                      match expr_type {
+                        Double | Var({ val: Some(Double) }) =>
+                          @shared.make_float_array_binding_name
+                        Int
+                        | Bool | Unit | Var({ val: Some(Int | Bool | Unit) }) =>
+                          @shared.make_array_binding_name
+                        _ => @shared.make_ptr_array_binding_name
+                      },
                       [n.0, expr],
                     ),
                     Type::Array(expr_type),
