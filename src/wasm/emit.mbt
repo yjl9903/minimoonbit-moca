@@ -86,6 +86,7 @@ fn add_func(
   let wasm_type = add_table_func_type(result, ty)
   // Func
   let func = {
+    ssa_name: method.name,
     identifier,
     params: args,
     ty,
@@ -127,6 +128,7 @@ fn add_closure_func(result : WasmResult, label : String) -> WasmFunc {
       let wasm_type = add_table_func_type(result, ty)
       // Func
       let c_func = {
+        ssa_name: label,
         identifier,
         params: args,
         ty,
@@ -170,6 +172,7 @@ fn add_closure_func(result : WasmResult, label : String) -> WasmFunc {
           let wasm_type = add_table_func_type(result, ty)
           // Func
           let c_func = {
+            ssa_name: label,
             identifier,
             params: args,
             ty,
@@ -273,8 +276,8 @@ fn emit_func_block(
       IfGoto(cond, true_target, false_target, merge_target) => {
         let ty = match cond {
           Eq(lhs, rhs) | Le(lhs, rhs) => {
-            func.emit_get_var(lhs)
-            func.emit_get_var(rhs)
+            func.emit_get_var(result, lhs)
+            func.emit_get_var(result, rhs)
             lhs.ty
           }
         }
@@ -329,7 +332,7 @@ fn emit_func_block(
       }
       Return(Some(var)) => {
         // return _;
-        func.emit_get_var(var)
+        func.emit_get_var(result, var)
         func.stmts.push(Return)
         break
       }
@@ -379,9 +382,9 @@ fn WasmFunc::emit_stmt(
       }
     Definition(None, rvalue) => self.emit_rvalue(result, rvalue)
     PutArray(recv, idx, expr) => {
-      self.emit_get_var(expr)
-      self.emit_get_var(recv)
-      self.emit_get_var(idx)
+      self.emit_get_var(result, expr)
+      self.emit_get_var(result, recv)
+      self.emit_get_var(result, idx)
       match recv.ty {
         Double(_) => {
           self.stmts.push(IConst(I32, f64_size))
@@ -416,8 +419,8 @@ fn WasmFunc::emit_rvalue(
     Int(x) => self.stmts.push(IConst(I32, x))
     Double(x) => self.stmts.push(FConst(F64, x))
     Prim(lhs, rhs, op, kind) => {
-      self.emit_get_var(lhs)
-      self.emit_get_var(rhs)
+      self.emit_get_var(result, lhs)
+      self.emit_get_var(result, rhs)
       match (op, kind) {
         (_, Int) => self.stmts.push(IPrim(I32, op))
         (_, Double) => self.stmts.push(FPrim(F64, op))
@@ -427,15 +430,15 @@ fn WasmFunc::emit_rvalue(
       match kind {
         Int => {
           self.stmts.push(IConst(I32, 0))
-          self.emit_get_var(expr)
+          self.emit_get_var(result, expr)
           self.stmts.push(IPrim(I32, Sub))
         }
         Double => {
-          self.emit_get_var(expr)
+          self.emit_get_var(result, expr)
           self.stmts.push(FNeg(F64))
         }
       }
-    Var(var) => self.emit_get_var(var)
+    Var(var) => self.emit_get_var(result, var)
     Tuple(els) => {
       let local_var = add_local_var(self)
       self.stmts.push(IConst(I32, get_vars_type_size(els)))
@@ -445,7 +448,7 @@ fn WasmFunc::emit_rvalue(
       for i = 0; i < els.length(); i = i + 1 {
         let el = els[i]
         self.stmts.push(LocalGet(local_var))
-        self.emit_get_var(el)
+        self.emit_get_var(result, el)
         match el.ty {
           Double => {
             self.stmts.push(FStore(F64, Some(offset)))
@@ -475,7 +478,7 @@ fn WasmFunc::emit_rvalue(
       for i = 0; i < bindings.length(); i = i + 1 {
         let el = bindings[i]
         self.stmts.push(LocalGet(local_var))
-        self.emit_get_var(el.1)
+        self.emit_get_var(result, el.1)
         match el.0.ty {
           Double => {
             self.stmts.push(FStore(F64, Some(offset)))
@@ -492,7 +495,7 @@ fn WasmFunc::emit_rvalue(
 
     // Get from structure
     GetTuple(var, idx) => {
-      self.emit_get_var(var)
+      self.emit_get_var(result, var)
       let types = extract_tuple_type(var.ty)
       let offset = get_types_type_size(types)
       match types[idx] {
@@ -501,8 +504,8 @@ fn WasmFunc::emit_rvalue(
       }
     }
     GetArray(recv, idx) => {
-      self.emit_get_var(recv)
-      self.emit_get_var(idx)
+      self.emit_get_var(result, recv)
+      self.emit_get_var(result, idx)
       match extract_array_type(recv.ty) {
         Double => {
           self.stmts.push(IConst(I32, f64_size))
@@ -533,9 +536,9 @@ fn WasmFunc::emit_rvalue(
 
     // Invoke
     InvokeClosure(callee, args) => {
-      self.emit_get_var(callee) // this_var
-      args.each(fn { arg => self.emit_get_var(arg) }) // args
-      self.emit_get_var(callee)
+      self.emit_get_var(result, callee) // this_var
+      args.each(fn { arg => self.emit_get_var(result, arg) }) // args
+      self.emit_get_var(result, callee)
       self.stmts.push(ILoad(I32, None)) // table index
       let wasm_type = add_table_func_type(
         result,
@@ -544,7 +547,7 @@ fn WasmFunc::emit_rvalue(
       self.stmts.push(CallIndirect(wasm_type))
     }
     InvokeDirect(label, args) => {
-      args.each(fn { a => self.emit_get_var(a) })
+      args.each(fn { a => self.emit_get_var(result, a) })
       match result.funcs.get(label) {
         Some((callee, _)) => self.stmts.push(Call(callee))
         None =>
@@ -560,7 +563,11 @@ fn WasmFunc::emit_rvalue(
   }
 }
 
-fn WasmFunc::emit_get_var(self : WasmFunc, var : @ssa.Var) -> Unit {
+fn WasmFunc::emit_get_var(
+  self : WasmFunc,
+  result : WasmResult,
+  var : @ssa.Var
+) -> Unit {
   match var.const_value {
     Some(Int(x)) => self.stmts.push(IConst(I32, x))
     Some(Double(x)) => self.stmts.push(FConst(F64, x))
@@ -568,10 +575,15 @@ fn WasmFunc::emit_get_var(self : WasmFunc, var : @ssa.Var) -> Unit {
       let merged = self.merged.get(var.id)
       let var = merged.or(var)
       if var.is_this {
-        let var = self.this_var.or_else(
-          fn() { @util.die("should have this var") },
-        )
-        self.stmts.push(LocalSet(var))
+        match self.this_var {
+          Some(var) => self.stmts.push(LocalSet(var))
+          None => {
+            let this_var = add_local_var(self)
+            self.this_var = Some(this_var)
+            self.emit_rvalue(result, @ssa.RValue::Closure(self.ssa_name, []))
+            self.stmts.push(LocalTee(this_var))
+          }
+        }
       } else if var.is_global {
         self.stmts.push(GlobalGet(Var::from_ssa(var)))
       } else {

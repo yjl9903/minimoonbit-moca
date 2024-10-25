@@ -46,6 +46,7 @@ pub struct WasmGlobal {
 }
 
 pub struct WasmFunc {
+  ssa_name: String
   identifier : String
   params : Array[(Var, Type)]
   ty : Type
@@ -57,7 +58,7 @@ pub struct WasmFunc {
   stmts : Array[Instruction]
 
   // Used for building
-  this_var : Var?
+  mut this_var : Var?
   merged : Map[Int, @ssa.Var]
 }
 
