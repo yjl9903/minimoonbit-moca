@@ -335,8 +335,8 @@ test-wasm:
   ./run_wasm.sh test/test_src/join-stack.mbt -o
   ./run_wasm.sh test/test_src/join-stack2.mbt -o
   ./run_wasm.sh test/test_src/join-stack3.mbt -o
-  # ./run_wasm.sh test/test_src/matmul-flat.mbt -o
-  # ./run_wasm.sh test/test_src/matmul.mbt -o
+  ./run_wasm.sh test/test_src/matmul-flat.mbt -o
+  ./run_wasm.sh test/test_src/matmul.mbt -o
   ./run_wasm.sh test/test_src/non-tail-if.mbt -o
   ./run_wasm.sh test/test_src/non-tail-if2.mbt -o
   ./run_wasm.sh test/test_src/print.mbt -o
@@ -366,8 +366,8 @@ test-wasm:
   diff -Z test/test_src/join-stack.ans temp/join-stack.out
   diff -Z test/test_src/join-stack2.ans temp/join-stack2.out
   diff -Z test/test_src/join-stack3.ans temp/join-stack3.out
-  # diff -Z test/test_src/matmul-flat.ans temp/matmul-flat.out
-  # diff -Z test/test_src/matmul.ans temp/matmul.out
+  diff -Z test/test_src/matmul-flat.ans temp/matmul-flat.out
+  diff -Z test/test_src/matmul.ans temp/matmul.out
   diff -Z test/test_src/non-tail-if.ans temp/non-tail-if.out
   diff -Z test/test_src/non-tail-if2.ans temp/non-tail-if2.out
   diff -Z test/test_src/print.ans temp/print.out
