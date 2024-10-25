@@ -77,15 +77,19 @@ fn add_func(
     args.push((Var::from_ssa(method.this.unwrap()), Type::Ptr))
   }
   args.push_iter(method.params.iter().map(fn { p => (Var::from_ssa(p), p.ty) }))
+  // type
+  let ty = if method.is_closure {
+    add_method_this_type(method)
+  } else {
+    method.ty
+  }
+  let wasm_type = add_table_func_type(result, ty)
   // Func
   let func = {
     identifier,
     params: args,
-    ty: if method.is_closure {
-      add_method_this_type(method)
-    } else {
-      method.ty
-    },
+    ty,
+    wasm_type: Some(wasm_type),
     is_closure: method.is_closure,
     table_index,
     locals: Map::new(),
@@ -118,11 +122,15 @@ fn add_closure_func(result : WasmResult, label : String) -> WasmFunc {
       let stmts = func.params.map(fn { p => Instruction::LocalGet(p.0) })
       // Call wrapped function
       stmts.push(Call(func))
+      // type
+      let ty = add_func_type_this_type(func.ty)
+      let wasm_type = add_table_func_type(result, ty)
       // Func
       let c_func = {
         identifier,
         params: args,
-        ty: add_func_type_this_type(func.ty),
+        ty,
+        wasm_type: Some(wasm_type),
         is_closure: true,
         table_index,
         locals: Map::new(),
@@ -132,7 +140,6 @@ fn add_closure_func(result : WasmResult, label : String) -> WasmFunc {
         merged: Map::new(),
       }
       result.funcs.set(label, (func, Some(c_func)))
-      let _ = add_table_func_type(result, c_func.ty)
       c_func
     }
     None =>
@@ -158,11 +165,15 @@ fn add_closure_func(result : WasmResult, label : String) -> WasmFunc {
           )
           // Call wrapped function
           stmts.push(CallImport(func))
+          // type
+          let ty = add_func_type_this_type(func.ty)
+          let wasm_type = add_table_func_type(result, ty)
           // Func
           let c_func = {
             identifier,
             params: args,
-            ty: add_func_type_this_type(func.ty),
+            ty,
+            wasm_type: Some(wasm_type),
             is_closure: true,
             table_index,
             locals: Map::new(),
@@ -368,19 +379,20 @@ fn WasmFunc::emit_stmt(
       }
     Definition(None, rvalue) => self.emit_rvalue(result, rvalue)
     PutArray(recv, idx, expr) => {
+      self.emit_get_var(expr)
       self.emit_get_var(recv)
       self.emit_get_var(idx)
       match recv.ty {
         Double(_) => {
-          self.stmts.push(IConst(I32, 2))
+          self.stmts.push(IConst(I32, f64_size))
           self.stmts.push(IPrim(I32, Mul))
           self.stmts.push(IPrim(I32, Add))
-          self.emit_get_var(expr)
           self.stmts.push(FStore(F64, None))
         }
         _ => {
+          self.stmts.push(IConst(I32, i32_size))
+          self.stmts.push(IPrim(I32, Mul))
           self.stmts.push(IPrim(I32, Add))
-          self.emit_get_var(expr)
           self.stmts.push(IStore(I32, None))
         }
       }
@@ -428,7 +440,7 @@ fn WasmFunc::emit_rvalue(
       let local_var = add_local_var(self)
       self.stmts.push(IConst(I32, get_vars_type_size(els)))
       self.stmts.push(Malloc)
-      self.stmts.push(LocalTee(local_var))
+      self.stmts.push(LocalSet(local_var))
       let mut offset = 0
       for i = 0; i < els.length(); i = i + 1 {
         let el = els[i]
@@ -437,11 +449,11 @@ fn WasmFunc::emit_rvalue(
         match el.ty {
           Double => {
             self.stmts.push(FStore(F64, Some(offset)))
-            offset = offset + 2
+            offset = offset + f64_size
           }
           _ => {
             self.stmts.push(IStore(I32, Some(offset)))
-            offset = offset + 1
+            offset = offset + i32_size
           }
         }
       }
@@ -454,12 +466,12 @@ fn WasmFunc::emit_rvalue(
       self.stmts.push(IConst(I32, closure_size))
       self.stmts.push(Malloc)
       self.stmts.push(LocalTee(local_var))
-      // Store table index
       self.stmts.push(IConst(I32, closure_func.table_index.unwrap()))
+      // Store table index
       self.stmts.push(IStore(I32, None))
       // Store free vars
       bindings.sort_by_key(fn { b => b.0.slot })
-      let mut offset = 1
+      let mut offset = i32_size
       for i = 0; i < bindings.length(); i = i + 1 {
         let el = bindings[i]
         self.stmts.push(LocalGet(local_var))
@@ -467,11 +479,11 @@ fn WasmFunc::emit_rvalue(
         match el.0.ty {
           Double => {
             self.stmts.push(FStore(F64, Some(offset)))
-            offset = offset + 2
+            offset = offset + f64_size
           }
           _ => {
             self.stmts.push(IStore(I32, Some(offset)))
-            offset = offset + 1
+            offset = offset + i32_size
           }
         }
       }
@@ -493,12 +505,14 @@ fn WasmFunc::emit_rvalue(
       self.emit_get_var(idx)
       match extract_array_type(recv.ty) {
         Double => {
-          self.stmts.push(IConst(I32, 2))
+          self.stmts.push(IConst(I32, f64_size))
           self.stmts.push(IPrim(I32, Mul))
           self.stmts.push(IPrim(I32, Add))
           self.stmts.push(FLoad(F64, None))
         }
         _ => {
+          self.stmts.push(IConst(I32, i32_size))
+          self.stmts.push(IPrim(I32, Mul))
           self.stmts.push(IPrim(I32, Add))
           self.stmts.push(ILoad(I32, None))
         }
@@ -519,11 +533,11 @@ fn WasmFunc::emit_rvalue(
 
     // Invoke
     InvokeClosure(callee, args) => {
-      self.emit_get_var(callee)
-      self.stmts.push(ILoad(I32, None)) // table index
       self.emit_get_var(callee) // this_var
       args.each(fn { arg => self.emit_get_var(arg) }) // args
-      let wasm_type = add_table_func_type(result, callee.ty)
+      self.emit_get_var(callee)
+      self.stmts.push(ILoad(I32, None)) // table index
+      let wasm_type = add_table_func_type(result, add_func_type_this_type(callee.ty))
       self.stmts.push(CallIndirect(wasm_type))
     }
     InvokeDirect(label, args) => {
