@@ -139,7 +139,12 @@ fn JsEmitter::emit_block(self : JsEmitter, block : @ssa.Block) -> Unit {
         self.push("continue B\{loop_label};")
         break
       }
-      Return(var) => {
+      Return(None) => {
+        // return _;
+        self.push("return;")
+        break
+      }
+      Return(Some(var)) => {
         // return _;
         self.push("return \{self.emit_var(var)};")
         break

@@ -85,7 +85,8 @@ fn Method::print_stmt(self : Method, stmt : StmtKind) -> String {
     Break(t, _) => "break B\{t};"
     Continue(t) => "continue B\{t};"
     Nop => ""
-    Return(rvalue) => "return \{rvalue.to_string()}"
+    Return(None) => "return;"
+    Return(Some(rvalue)) => "return \{rvalue.to_string()};"
   }
 }
 

@@ -294,15 +294,20 @@ fn MethodBuilder::visit_stmt(
       let _ = self.visit_expr(
         expr,
         fn {
-          rvalue => {
-            let _ = self.ssa_builder.emit(
-              Definition(
-                Some(self.ssa_builder.add_local_var(name, typ)),
-                rvalue,
-              ),
-            )
-            ()
-          }
+          rvalue =>
+            if typ != Unit {
+              let _ = self.ssa_builder.emit(
+                Definition(
+                  Some(self.ssa_builder.add_local_var(name, typ)),
+                  rvalue,
+                ),
+              )
+              ()
+            } else {
+              // Should not define Unit
+              let _ = self.ssa_builder.emit(Definition(None, rvalue))
+              ()
+            }
         },
         visiting_loop=false,
       )
@@ -363,14 +368,28 @@ fn MethodBuilder::visit_stmt(
             expr,
             fn(rvalue) {
               let _ = match rvalue {
-                Var(var) => self.ssa_builder.emit(Return(var))
+                Var(var) =>
+                  if var.ty != Unit {
+                    self.ssa_builder.emit(Return(Some(var)))
+                  } else {
+                    // Should not return Unit
+                    self.ssa_builder.emit(Return(None))
+                  }
                 _ => {
                   let ret_type = @closure.extract_return_type(self.ty)
-                  let local_var = self.ssa_builder.add_local_temp_var(ret_type)
-                  let _ = self.ssa_builder.emit(
-                    Definition(Some(local_var), rvalue),
-                  )
-                  self.ssa_builder.emit(Return(local_var))
+                  if ret_type != Unit {
+                    let local_var = self.ssa_builder.add_local_temp_var(
+                      ret_type,
+                    )
+                    let _ = self.ssa_builder.emit(
+                      Definition(Some(local_var), rvalue),
+                    )
+                    self.ssa_builder.emit(Return(Some(local_var)))
+                  } else {
+                    // Should not return Unit
+                    let _ = self.ssa_builder.emit(Definition(None, rvalue))
+                    self.ssa_builder.emit(Return(None))
+                  }
                 }
               }
               ()
