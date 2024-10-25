@@ -382,20 +382,21 @@ fn WasmFunc::emit_stmt(
       }
     Definition(None, rvalue) => self.emit_rvalue(result, rvalue)
     PutArray(recv, idx, expr) => {
-      self.emit_get_var(result, expr)
       self.emit_get_var(result, recv)
       self.emit_get_var(result, idx)
-      match recv.ty {
+      match extract_array_type(recv.ty) {
         Double(_) => {
           self.stmts.push(IConst(I32, f64_size))
           self.stmts.push(IPrim(I32, Mul))
           self.stmts.push(IPrim(I32, Add))
+          self.emit_get_var(result, expr)
           self.stmts.push(FStore(F64, None))
         }
         _ => {
           self.stmts.push(IConst(I32, i32_size))
           self.stmts.push(IPrim(I32, Mul))
           self.stmts.push(IPrim(I32, Add))
+          self.emit_get_var(result, expr)
           self.stmts.push(IStore(I32, None))
         }
       }
