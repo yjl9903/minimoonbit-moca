@@ -298,9 +298,24 @@ fn WasmFunc::emit_stmt(
         ()
       }
     Definition(None, rvalue) => self.emit_rvalue(result, rvalue)
-    PutArray(recv, idx, expr) =>
-      // "\{self.emit_var(recv)}[\{self.emit_var(idx)}] = \{self.emit_var(expr)};"
-      @util.die("todo")
+    PutArray(recv, idx, expr) => {
+      self.emit_get_var(recv)
+      self.emit_get_var(idx)
+      match recv.ty {
+        Double(_) => {
+          self.stmts.push(IConst(I32, 2))
+          self.stmts.push(IPrim(I32, Mul))
+          self.stmts.push(IPrim(I32, Add))
+          self.emit_get_var(expr)
+          self.stmts.push(FStore(F64, None))
+        }
+        _ => {
+          self.stmts.push(IPrim(I32, Add))
+          self.emit_get_var(expr)
+          self.stmts.push(IStore(I32, None))
+        }
+      }
+    }
     Nop => ()
     Goto(_) => @util.die("unexpected")
     Break(_) => @util.die("unexpected")
@@ -313,8 +328,7 @@ fn WasmFunc::emit_stmt(
 fn WasmFunc::emit_rvalue(
   self : WasmFunc,
   result : WasmResult,
-  rvalue : @ssa.RValue,
-  ~drop : Bool = false
+  rvalue : @ssa.RValue
 ) -> Unit {
   match rvalue {
     Unit => self.stmts.push(IConst(I32, 0))
@@ -369,8 +383,31 @@ fn WasmFunc::emit_rvalue(
     }
 
     // Get from structure
-    GetTuple(var, idx) => @util.die("todo")
-    GetArray(recv, idx) => @util.die("todo")
+    GetTuple(var, idx) => {
+      self.emit_get_var(var)
+      let types = extract_tuple_type(var.ty)
+      let offset = get_types_type_size(types)
+      match types[idx] {
+        Double => self.stmts.push(FLoad(F64, Some(offset)))
+        _ => self.stmts.push(ILoad(I32, Some(offset)))
+      }
+    }
+    GetArray(recv, idx) => {
+      self.emit_get_var(recv)
+      self.emit_get_var(idx)
+      match extract_array_type(recv.ty) {
+        Double => {
+          self.stmts.push(IConst(I32, 2))
+          self.stmts.push(IPrim(I32, Mul))
+          self.stmts.push(IPrim(I32, Add))
+          self.stmts.push(FLoad(F64, None))
+        }
+        _ => {
+          self.stmts.push(IPrim(I32, Add))
+          self.stmts.push(ILoad(I32, None))
+        }
+      }
+    }
     GetClosure(closure, fv) =>
       if closure.is_this {
         // "this[\"\{fv.to_string()}\"]"

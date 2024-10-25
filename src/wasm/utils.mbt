@@ -20,6 +20,30 @@ fn get_type_size(ty : Type) -> Int {
   }
 }
 
-fn get_vars_type_size(vars : Array[@ssa.Var]) -> Int {
-  vars.fold_left(fn { acc, var => acc + get_type_size(var.ty) }, init=0)
+fn get_vars_type_size(vars : Array[@ssa.Var], ~slice : Int? = None) -> Int {
+  (match slice {
+    Some(slice) => vars.iter().take(slice)
+    None => vars.iter()
+  }).fold(fn { acc, var => acc + get_type_size(var.ty) }, init=0)
+}
+
+fn get_types_type_size(vars : Array[Type], ~slice : Int? = None) -> Int {
+  (match slice {
+    Some(slice) => vars.iter().take(slice)
+    None => vars.iter()
+  }).fold(fn { acc, var => acc + get_type_size(var) }, init=0)
+}
+
+fn extract_tuple_type(ty : Type) -> Array[Type] {
+  match ty {
+    Tuple(els) => els
+    _ => @util.die("unreachable")
+  }
+}
+
+fn extract_array_type(ty : Type) -> Type {
+  match ty {
+    Array(el) => el
+    _ => @util.die("unreachable")
+  }
 }
