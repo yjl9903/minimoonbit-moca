@@ -497,7 +497,7 @@ fn WasmFunc::emit_rvalue(
     GetTuple(var, idx) => {
       self.emit_get_var(result, var)
       let types = extract_tuple_type(var.ty)
-      let offset = get_types_type_size(types)
+      let offset = get_types_type_size(types, slice=Some(idx))
       match types[idx] {
         Double => self.stmts.push(FLoad(F64, Some(offset)))
         _ => self.stmts.push(ILoad(I32, Some(offset)))

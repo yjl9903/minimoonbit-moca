@@ -46,7 +46,7 @@ pub struct WasmGlobal {
 }
 
 pub struct WasmFunc {
-  ssa_name: String
+  ssa_name : String
   identifier : String
   params : Array[(Var, Type)]
   ty : Type
