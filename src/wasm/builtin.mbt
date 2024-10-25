@@ -6,12 +6,14 @@ pub let builtin_malloc_identifier = "$__minimbt_builtin_malloc__"
 
 let builtin_malloc_cursor : WasmGlobal = {
   identifier: "$__minimbt_builtin_malloc_cursor__",
+  mutable: true,
   ty: Type::Int,
   value: Some(IConst(I32, 0)),
 }
 
 let builtin_malloc_size : WasmGlobal = {
   identifier: "$__minimbt_builtin_malloc_size__",
+  mutable: true,
   ty: Type::Int,
   value: Some(IConst(I32, page_size)),
 }
@@ -52,6 +54,7 @@ let builtin_malloc : WasmFunc = {
     // Allocate one page
     IConst(I32, 1),
     MemoryGrow,
+    Drop,
     GlobalGet(builtin_malloc_size_var),
     IConst(I32, page_size),
     IPrim(I32, Add),
@@ -65,7 +68,7 @@ let builtin_malloc : WasmFunc = {
     IPrim(I32, Add),
     GlobalSet(builtin_malloc_cursor_var),
     // Return
-    Return
+    Return,
   ],
   merged: Map::new(),
 }

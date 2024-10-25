@@ -315,6 +315,10 @@ test-js:
 test-wasm:
   rm -rf temp
   mkdir temp
+  ./run_wasm.sh test/test_src/sum-tail.mbt temp/sum-tail.out
+  ./run_wasm.sh test/test_src/sum.mbt temp/sum.out
+  diff -Z test/test_src/sum-tail.ans temp/sum-tail.out
+  diff -Z test/test_src/sum.ans temp/sum.out
 
 
 submit:

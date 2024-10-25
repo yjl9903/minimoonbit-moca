@@ -5,6 +5,7 @@ pub let minimoonbit_table_identifier = "$__minimbt_func_table_"
 pub let minimoonbit_import_module = "moonbit"
 
 pub struct WasmResult {
+  memory_import : Array[WasmMemory]
   memory : Array[WasmMemory]
   imports : Map[String, (WasmImportFunc, WasmFunc?)]
   types : Map[String, WasmType]
@@ -39,6 +40,7 @@ pub struct WasmType {
 
 pub struct WasmGlobal {
   identifier : String
+  mutable : Bool
   ty : Type
   value : Instruction?
 }
@@ -58,13 +60,15 @@ pub struct WasmFunc {
 
 fn WasmResult::new() -> WasmResult {
   {
-    memory: [
+    memory_import: [
       {
         import_info: Some((minimoonbit_import_module, "memory")),
         export_info: None,
         limit: 10,
       },
-      { import_info: None, export_info: None, limit: initial_page_count },
+    ],
+    memory: [
+    // { import_info: None, export_info: None, limit: initial_page_count },
     ],
     imports: Map::new(),
     types: Map::new(),

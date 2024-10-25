@@ -16,7 +16,11 @@ enum Instruction {
 
   // Call
   Call(WasmFunc)
+  CallImport(WasmImportFunc)
   CallIndirect(WasmType)
+
+  // Stack
+  Drop
 
   // Memory
   Malloc
