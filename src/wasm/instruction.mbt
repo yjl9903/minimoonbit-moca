@@ -72,7 +72,11 @@ struct Var {
 }
 
 fn Var::from_ssa(var : @ssa.Var) -> Var {
-  { identifier: "$_\{var.id}", var: Some(var), ty: var.ty }
+  if var.is_global {
+    { identifier: "$__global_\{var.id}", var: Some(var), ty: var.ty }
+  } else {
+    { identifier: "$_\{var.id}", var: Some(var), ty: var.ty }
+  }
 }
 
 fn Var::temp_this() -> Var {
