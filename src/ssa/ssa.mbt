@@ -69,7 +69,7 @@ pub enum RValue {
   Closure(String, Array[(FreeVar, Var)]) // signature, free vars
   GetTuple(Var, Int) // _.0 / _.1 / _.2 / ...
   GetArray(Var, Var) // _ [ _ ]
-  GetClosure(Var, FreeVar) // this->_
+  GetClosure(Var, FreeVar, Array[FreeVar]) // this->_
   InvokeClosure(Var, Array[Var]) // _ (_0, _1, ...)
   InvokeDirect(String, Array[Var])
   Phi(Array[Var]) // phi (_0, _1, ...)
