@@ -29,7 +29,7 @@ pub fn print_wasm(result : WasmResult) -> String {
   logger.indent()
   // 1. Memory section
   {
-    let memory = result.memory
+    let memory = result.memory_import
     memory.each(
       fn {
         memory =>
@@ -59,7 +59,24 @@ pub fn print_wasm(result : WasmResult) -> String {
     )
     logger.push("")
   }
-  // 3. Type section
+  // 3. Memory section
+  {
+    let memory = result.memory
+    memory.each(
+      fn {
+        memory =>
+          match memory.import_info {
+            Some((import_module, import_name)) =>
+              logger.push(
+                "(memory (import \"\{import_module}\" \"\{import_name}\") \{memory.limit})",
+              )
+            None => logger.push("(memory \{memory.limit})")
+          }
+      },
+    )
+    logger.push("")
+  }
+  // 4. Type section
   {
     let types = result.types.values()
     types.each(
@@ -72,7 +89,7 @@ pub fn print_wasm(result : WasmResult) -> String {
     )
     logger.push("")
   }
-  // 4. Table section
+  // 5. Table section
   if result.funcs.size() > 0 {
     let table = result.table
     let elems = result.funcs
@@ -85,7 +102,7 @@ pub fn print_wasm(result : WasmResult) -> String {
     logger.push("(elem (i32.const 0) \{elems})")
     logger.push("")
   }
-  // 5. Global section
+  // 6. Global section
   {
     let globals = result.globals.values()
     globals.each(
@@ -104,13 +121,15 @@ pub fn print_wasm(result : WasmResult) -> String {
             FConst(_, x) => "(f64.const \{x})"
             _ => @util.die("unexpected global value")
           }
-          logger.push("(global \{g.identifier} \{print_type(g.ty)} \{value})")
+          logger.push(
+            "(global \{g.identifier} \{print_type(g.ty, mutable=g.mutable)} \{value})",
+          )
         }
       },
     )
     logger.push("")
   }
-  // 6. Func section
+  // 7. Func section
   {
     let funcs = result.funcs.values()
     funcs.each(
@@ -126,7 +145,7 @@ pub fn print_wasm(result : WasmResult) -> String {
       },
     )
   }
-  // 6. Start section
+  // 8. Start section
   logger.push("(start \{minimoonbit_start_identifier})")
   logger.dedent()
   logger.push(")")
@@ -138,7 +157,13 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
   let params = func.params
     .map(fn { p => "(param \{p.0.identifier} \{print_type(p.1)})" })
     .join(" ")
-  let result = "(result \{print_type(@closure.extract_return_type(func.ty))})"
+  let ret_type = @closure.extract_return_type(func.ty)
+  let result = if ret_type != Unit {
+    "(result \{print_type(ret_type)})"
+  } else {
+    // Should not return Unit
+    ""
+  }
   logger.push("(func \{func.identifier} \{params} \{result}")
   logger.indent()
   // 2. Local vars
@@ -177,7 +202,9 @@ fn print_func(logger : Logger, _result : WasmResult, func : WasmFunc) -> Unit {
             GlobalGet(v) => "(global.get \{v.identifier})"
             GlobalSet(v) => "(global.set \{v.identifier})"
             Call(func) => "(call \{func.identifier})"
+            CallImport(func) => "(call \{func.identifier})"
             CallIndirect(ty) => "(call_indirect (type \{ty.identifier}))"
+            Drop => "(drop)"
             // Memory
             MemoryGrow => "(memory.grow)"
             Malloc => "(call \{builtin_malloc_identifier})" // TODO: impl this
@@ -235,15 +262,15 @@ fn print_function_type(ty : Type) -> String {
   match ty {
     DirectFn(args, ret) | ClosureFn(args, ret) => {
       let args = args.map(fn { a => "(param \{print_type(a)})" }).join(" ")
-      let result = "(result \{print_type(ret)})"
+      let result = if ret == Unit { "" } else { "(result \{print_type(ret)})" }
       "\{args} \{result}"
     }
     _ => ""
   }
 }
 
-fn print_type(ty : Type) -> String {
-  match ty {
+fn print_type(ty : Type, ~mutable : Bool = false) -> String {
+  let text = match ty {
     Unit => "i32"
     Int => "i32"
     Bool => "i32"
@@ -253,5 +280,10 @@ fn print_type(ty : Type) -> String {
     Array(_) => "i32"
     Tuple(_) => "i32"
     Ptr => "i32"
+  }
+  if mutable {
+    "(mut \{text})"
+  } else {
+    text
   }
 }

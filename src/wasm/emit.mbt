@@ -41,7 +41,12 @@ fn add_globals(world : @ssa.World, result : WasmResult) -> Unit {
       g =>
         result.globals.set(
           g.id,
-          { identifier: "$__global_\{g.id}", ty: g.ty, value: None },
+          {
+            identifier: "$__global_\{g.id}",
+            mutable: true,
+            ty: g.ty,
+            value: None,
+          },
         )
     },
   )
@@ -167,10 +172,17 @@ fn build_func(method : @ssa.Method, result : WasmResult) -> Unit {
     .iter()
   local_vars.each(fn { lv => emitter.locals.set(lv.id, Var::from_ssa(lv)) })
   // 3. Build stmts
-  emit_func_block(method, emitter, method.body.blocks[0])
+  emit_func_block(result, method, emitter, method.body.blocks[0])
+  // // 4. for main should return 0
+  // if emitter.identifier == minimoonbit_start_identifier {
+  //   let _ = emitter.stmts.pop()
+  //   emitter.stmts.push(IConst(I32, 0))
+  //   emitter.stmts.push(Return)
+  // }
 }
 
 fn emit_func_block(
+  result : WasmResult,
   method : @ssa.Method,
   func : WasmFunc,
   block : @ssa.Block
@@ -181,8 +193,8 @@ fn emit_func_block(
       IfGoto(cond, true_target, false_target, merge_target) => {
         let ty = match cond {
           Eq(lhs, rhs) | Le(lhs, rhs) => {
-            func.emit_var(lhs)
-            func.emit_var(rhs)
+            func.emit_get_var(lhs)
+            func.emit_get_var(rhs)
             lhs.ty
           }
         }
@@ -198,21 +210,23 @@ fn emit_func_block(
         func.stmts.push(If)
         func.stmts.push(IfThen)
         match true_target {
-          Some(t) => emit_func_block(method, func, method.body.blocks[t])
+          Some(t) =>
+            emit_func_block(result, method, func, method.body.blocks[t])
           _ => ()
         }
         func.stmts.push(IfEnd)
         match false_target {
           Some(t) => {
             func.stmts.push(IfElse)
-            emit_func_block(method, func, method.body.blocks[t])
+            emit_func_block(result, method, func, method.body.blocks[t])
             func.stmts.push(IfEnd)
           }
           _ => ()
         }
         func.stmts.push(IfEnd)
         match merge_target {
-          Some(t) => emit_func_block(method, func, method.body.blocks[t])
+          Some(t) =>
+            emit_func_block(result, method, func, method.body.blocks[t])
           _ => ()
         }
         break
@@ -228,27 +242,32 @@ fn emit_func_block(
         func.stmts.push(Continue(loop_label))
         break
       }
-      Return(var) => {
+      Return(None) => {
+        // return;
+        func.stmts.push(Return)
+        break
+      }
+      Return(Some(var)) => {
         // return _;
-        func.emit_var(var)
+        func.emit_get_var(var)
         func.stmts.push(Return)
         break
       }
       _ => {
         // Not a control flow ir
-        func.emit_stmt(stmt)
+        func.emit_stmt(result, stmt)
         if i + 1 == block.stmts.length() {
           match block.succ {
             Some(edge) =>
               match edge {
-                Next(block) => emit_func_block(method, func, block)
+                Next(block) => emit_func_block(result, method, func, block)
                 While(loop_block, return_block) => {
                   // Start a while loop
                   let label = loop_block.label
                   func.stmts.push(Loop(label))
-                  emit_func_block(method, func, loop_block)
+                  emit_func_block(result, method, func, loop_block)
                   func.stmts.push(LoopEnd)
-                  emit_func_block(method, func, return_block)
+                  emit_func_block(result, method, func, return_block)
                 }
                 // The end of a if branch, stop building following
                 IfEnd(_) => ()
@@ -264,21 +283,21 @@ fn emit_func_block(
   }
 }
 
-fn WasmFunc::emit_stmt(self : WasmFunc, stmt : @ssa.Stmt) -> Unit {
+fn WasmFunc::emit_stmt(
+  self : WasmFunc,
+  result : WasmResult,
+  stmt : @ssa.Stmt
+) -> Unit {
   match stmt.stmt {
     Definition(_, Phi(_)) => ()
     Definition(Some(var), rvalue) =>
       if var.const_value.is_empty() {
-        self.emit_rvalue(rvalue)
-        if var.is_global {
-          self.stmts.push(GlobalSet(Var::from_ssa(var)))
-        } else {
-          self.stmts.push(LocalSet(Var::from_ssa(var)))
-        }
+        self.emit_rvalue(result, rvalue)
+        self.emit_set_var(var)
       } else {
         ()
       }
-    Definition(None, rvalue) => self.emit_rvalue(rvalue)
+    Definition(None, rvalue) => self.emit_rvalue(result, rvalue)
     PutArray(recv, idx, expr) =>
       // "\{self.emit_var(recv)}[\{self.emit_var(idx)}] = \{self.emit_var(expr)};"
       @util.die("todo")
@@ -291,14 +310,19 @@ fn WasmFunc::emit_stmt(self : WasmFunc, stmt : @ssa.Stmt) -> Unit {
   }
 }
 
-fn WasmFunc::emit_rvalue(self : WasmFunc, rvalue : @ssa.RValue) -> Unit {
+fn WasmFunc::emit_rvalue(
+  self : WasmFunc,
+  result : WasmResult,
+  rvalue : @ssa.RValue,
+  ~drop : Bool = false
+) -> Unit {
   match rvalue {
     Unit => self.stmts.push(IConst(I32, 0))
     Int(x) => self.stmts.push(IConst(I32, x))
     Double(x) => self.stmts.push(FConst(F64, x))
     Prim(lhs, rhs, op, kind) => {
-      self.emit_var(lhs)
-      self.emit_var(rhs)
+      self.emit_get_var(lhs)
+      self.emit_get_var(rhs)
       match (op, kind) {
         (_, Int) => self.stmts.push(IPrim(I32, op))
         (_, Double) => self.stmts.push(FPrim(F64, op))
@@ -308,25 +332,41 @@ fn WasmFunc::emit_rvalue(self : WasmFunc, rvalue : @ssa.RValue) -> Unit {
       match kind {
         Int => {
           self.stmts.push(IConst(I32, 0))
-          self.emit_var(expr)
+          self.emit_get_var(expr)
           self.stmts.push(IPrim(I32, Sub))
         }
         Double => {
-          self.emit_var(expr)
+          self.emit_get_var(expr)
           self.stmts.push(FNeg(F64))
         }
       }
-    Var(var) => self.emit_var(var)
-    Tuple(els) =>
-      // let els = els.map(fn { e => self.emit_var(e) }).join(", ")
-      // "[\{els}]"
-      @util.die("todo")
-    Closure(label, bindings) =>
-      // let name = get_method_name(label)
+    Var(var) => self.emit_get_var(var)
+    Tuple(els) => {
+      self.stmts.push(IConst(I32, get_vars_type_size(els)))
+      self.stmts.push(Malloc)
+      let mut offset = 0
+      for i = 0; i < els.length(); i = i + 1 {
+        let el = els[i]
+        self.emit_get_var(el)
+        match el.ty {
+          Double => {
+            self.stmts.push(FStore(F64, Some(offset)))
+            offset = offset + 2
+          }
+          _ => {
+            self.stmts.push(IStore(I32, Some(offset)))
+            offset = offset + 1
+          }
+        }
+      }
+    }
+    Closure(label, bindings) => { // let name = get_method_name(label)
       // let bindings = bindings
       //   .map(fn { (fv, var) => "\"\{fv.to_string()}\": \{self.emit_var(var)}" })
       //   .join(", ")
-      @util.die("todo")
+      self.stmts.push(IConst(I32, 1))
+      self.stmts.push(Malloc)
+    }
 
     // Get from structure
     GetTuple(var, idx) => @util.die("todo")
@@ -336,7 +376,7 @@ fn WasmFunc::emit_rvalue(self : WasmFunc, rvalue : @ssa.RValue) -> Unit {
         // "this[\"\{fv.to_string()}\"]"
         @util.die("todo")
       } else {
-        @util.die("")
+        @util.die("unreachable")
       }
 
     // Invoke
@@ -344,17 +384,24 @@ fn WasmFunc::emit_rvalue(self : WasmFunc, rvalue : @ssa.RValue) -> Unit {
       // let args = args.map(fn { a => self.emit_var(a) }).join(", ")
       // "\{self.emit_var(callee)}(\{args})"
       @util.die("todo")
-    InvokeDirect(label, args) =>
-      // let args = args.map(fn { a => self.emit_var(a) }).join(", ")
-      // "\{get_method_name(label)}(\{args})"
-      @util.die("todo")
+    InvokeDirect(label, args) => {
+      args.each(fn { a => self.emit_get_var(a) })
+      match result.funcs.get(label) {
+        Some((callee, _)) => self.stmts.push(Call(callee))
+        None =>
+          match result.imports.get(label) {
+            Some((callee, _)) => self.stmts.push(CallImport(callee))
+            None => @util.die("should have func \{label}")
+          }
+      }
+    }
 
     // Phi
     Phi(_) => ()
   }
 }
 
-fn WasmFunc::emit_var(self : WasmFunc, var : @ssa.Var) -> Unit {
+fn WasmFunc::emit_get_var(self : WasmFunc, var : @ssa.Var) -> Unit {
   match var.const_value {
     Some(Int(x)) => self.stmts.push(IConst(I32, x))
     Some(Double(x)) => self.stmts.push(FConst(F64, x))
@@ -367,6 +414,24 @@ fn WasmFunc::emit_var(self : WasmFunc, var : @ssa.Var) -> Unit {
         self.stmts.push(GlobalGet(Var::from_ssa(var)))
       } else {
         self.stmts.push(LocalGet(Var::from_ssa(var)))
+      }
+    }
+  }
+}
+
+fn WasmFunc::emit_set_var(self : WasmFunc, var : @ssa.Var) -> Unit {
+  match var.const_value {
+    Some(Int(x)) => ()
+    Some(Double(x)) => ()
+    _ => {
+      let merged = self.merged.get(var.id)
+      let var = merged.or(var)
+      if var.is_this {
+        @util.die("TODO")
+      } else if var.is_global {
+        self.stmts.push(GlobalSet(Var::from_ssa(var)))
+      } else {
+        self.stmts.push(LocalSet(Var::from_ssa(var)))
       }
     }
   }
