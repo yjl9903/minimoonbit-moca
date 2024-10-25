@@ -135,7 +135,7 @@ fn SsaBuilder::add_free_vars(
   free_vars : Array[(Name, @closure.LowType)]
 ) -> Unit {
   let this = self.this.or_else(fn() { @util.die("should have this var") })
-  free_vars.each(
+  let free_local_vars = free_vars.map(
     fn {
       fv => {
         let free_var = {
@@ -148,10 +148,16 @@ fn SsaBuilder::add_free_vars(
         self.free_vars_counter = self.free_vars_counter + 1
         self.formal_free_vars.set(fv.0, free_var)
         self.free_vars.set(fv.0, local_var)
+        (local_var, free_var)
+      }
+    },
+  )
+  let free_vars = free_local_vars.map(fn { (_, fv) => fv })
+  free_local_vars.each(
+    fn {
+      (lv, fv) => {
         // let _i = this->_fv
-        let _ = self.emit(
-          Definition(Some(local_var), GetClosure(this, free_var)),
-        )
+        let _ = self.emit(Definition(Some(lv), GetClosure(this, fv, free_vars)))
         ()
       }
     },

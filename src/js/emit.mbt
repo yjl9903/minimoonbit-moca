@@ -227,7 +227,7 @@ fn JsEmitter::emit_method_rvalue(
     // Get from structure
     GetTuple(var, idx) => "\{self.emit_var(var)}[\{idx}]"
     GetArray(recv, idx) => "\{self.emit_var(recv)}[\{self.emit_var(idx)}]"
-    GetClosure(closure, fv) =>
+    GetClosure(closure, fv, _) =>
       if closure.is_this {
         "this[\"\{fv.to_string()}\"]"
       } else {
