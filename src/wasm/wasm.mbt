@@ -73,10 +73,12 @@ fn WasmResult::new() -> WasmResult {
     imports: Map::new(),
     types: Map::new(),
     globals: Map::from_array(
-      [(-10, builtin_malloc_cursor), (-11, builtin_malloc_size)],
+      []
+      // [(-10, builtin_malloc_cursor), (-11, builtin_malloc_size)],
     ),
     funcs: Map::from_array(
-      [(builtin_malloc_identifier, (builtin_malloc, None))],
+      []
+      // [(builtin_malloc_identifier, (builtin_malloc, None))],
     ),
     table: { identifier: minimoonbit_table_identifier, size: 0 },
     start: minimoonbit_start_identifier,
