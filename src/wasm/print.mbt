@@ -95,9 +95,10 @@ pub fn print_wasm(result : WasmResult) -> String {
     let elems = result.funcs
       .values()
       .filter(fn { f => not(f.1.is_empty()) })
-      .map(fn { f => "\{f.1.unwrap().identifier}" })
+      .map(fn { f => (f.1.unwrap().table_index.unwrap(), "\{f.1.unwrap().identifier}") })
       .collect()
-      .join(" ")
+    elems.sort_by_key(fn { (idx, _) => idx })
+    let elems = elems.map(fn { (_, id) => id }).join(" ")
     logger.push("(table \{table.identifier} \{result.table.size} funcref)")
     logger.push("(elem (i32.const 0) \{elems})")
     logger.push("")
