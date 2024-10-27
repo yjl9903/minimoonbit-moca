@@ -90,7 +90,7 @@ jobs:
 
       - name: moon version
         run: |
-          zig version
+          wasm-tools --version
           moon version --all
           moonrun --version
 
@@ -121,7 +121,7 @@ jobs:
 
       - name: moon version
         run: |
-          wasm-tools --version
+          zig version
           moon version --all
           moonrun --version
 
@@ -132,7 +132,6 @@ jobs:
       - name: test wasm
         run: |
           just test-riscv
-        
 
   format:
     runs-on: ubuntu-latest
