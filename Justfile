@@ -379,5 +379,10 @@ test-wasm:
   diff -Z test/test_src/sum.ans temp/sum.out
 
 
+test-riscv:
+  rm -rf temp
+  mkdir temp
+
+
 submit:
   git archive -o submit.zip HEAD

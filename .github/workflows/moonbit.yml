@@ -102,6 +102,38 @@ jobs:
         run: |
           just test-wasm
 
+  build-riscv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: extractions/setup-just@v1
+
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+
+      - name: install moonbit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s minimoonbit
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: moon version
+        run: |
+          wasm-tools --version
+          moon version --all
+          moonrun --version
+
+      - run: |
+          moon update
+          moon check
+
+      - name: test wasm
+        run: |
+          just test-riscv
+        
+
   format:
     runs-on: ubuntu-latest
 
