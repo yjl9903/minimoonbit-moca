@@ -90,7 +90,7 @@ jobs:
 
       - name: moon version
         run: |
-          wasm-tools --version
+          zig version
           moon version --all
           moonrun --version
 
