@@ -33,6 +33,9 @@ pub struct Var {
   is_global : Bool // from global
   mut is_mut : Bool // is mutable, may be updated from loop
   const_value : RValue? // const
+
+  // riscv
+  size: Int
 }
 
 pub fn Var::op_equal(self : Var, other : Var) -> Bool {
