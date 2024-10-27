@@ -35,7 +35,7 @@ pub struct Var {
   const_value : RValue? // const
 
   // riscv
-  size: Int
+  size : Int
 }
 
 pub fn Var::op_equal(self : Var, other : Var) -> Bool {
