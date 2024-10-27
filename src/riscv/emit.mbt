@@ -1,6 +1,4 @@
-pub fn emit(
-  input : Unit // TODO
-) -> Array[AssemblyFunction] {
+pub fn emit(world : @ssa.World) -> Array[AssemblyFunction] {
   abort("todo")
 }
 
