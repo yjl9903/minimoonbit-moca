@@ -152,7 +152,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     Asm =>
       // Backend
       match self.backend {
-        RSICV => self.asm = Some(@riscv.emit(@util.die("TODO")))
+        RSICV => self.asm = Some(@riscv.emit(self.ssa.unwrap()))
         JS => self.js = Some(@js.emit_js(self.ssa.unwrap()))
         WASM => self.wasm = Some(@wasm.emit_wasm(self.ssa.unwrap()))
       }

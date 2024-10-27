@@ -5,6 +5,8 @@
       "alias": "typing"
     },
     "moonbitlang/minimbt/closure",
+    "moonbitlang/minimbt/ssa",
+    "moonbitlang/minimbt/shared",
     "moonbitlang/minimbt/util"
   ]
 }
