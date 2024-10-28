@@ -1,6 +1,17 @@
-pub fn emit(world : @ssa.World) -> Array[AssemblyFunction] {
+pub fn emit(world : @ssa.World) -> AssemblyProgram {
+  // 1. Build machine ir
   let machine = @machine.build_machine_ir(world)
-  abort("todo")
+  // 2. Optimizing todo
+  // 3. Generate final asm
+  let functions = machine.methods.map(
+    fn { method => emit_function(machine, method) },
+  )
+  let prog = { functions, }
+  prog
+}
+
+pub struct AssemblyProgram {
+  functions : Array[AssemblyFunction]
 }
 
 pub struct AssemblyFunction {
@@ -9,17 +20,9 @@ pub struct AssemblyFunction {
   body : Array[RvAsm]
 }
 
-pub fn AssemblyFunction::output(
-  self : AssemblyFunction,
-  logger : Logger
-) -> Unit {
-  let name = self.name
-  if self.export {
-    logger.write_string(".global \{name}\n")
-  }
-  logger.write_string("\{name}:\n")
-  for asm in self.body {
-    Show::output(asm, logger)
-    logger.write_string("\n")
-  }
+fn emit_function(
+  world : MachineWorld,
+  method : MachineMethod
+) -> AssemblyFunction {
+  @util.die("todo")
 }

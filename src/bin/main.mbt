@@ -64,7 +64,7 @@ struct CompileStatus {
   mut opt_knf : @knf.Knf?
   mut closure_ir : @closure.Program?
   mut ssa : @ssa.World?
-  mut asm : Array[@riscv.AssemblyFunction]?
+  mut asm : @riscv.AssemblyProgram?
   mut js : @js.JsResult?
   mut wasm : @wasm.WasmResult?
 }
@@ -174,7 +174,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Asm => @util.die("TODO")
       Finished =>
         match self.backend {
-          RSICV => @riscv.print_functions(self.asm.unwrap())
+          RSICV => @riscv.print_assembly(self.asm.unwrap())
           JS => @js.print_js(self.js.unwrap())
           WASM => @wasm.print_wasm(self.wasm.unwrap())
         }
@@ -190,7 +190,7 @@ fn CompileStatus::output(self : CompileStatus, json : Bool) -> String {
       Asm => @util.die("TODO")
       Finished =>
         match self.backend {
-          RSICV => @riscv.print_functions(self.asm.unwrap())
+          RSICV => @riscv.print_assembly(self.asm.unwrap())
           JS => @js.print_js(self.js.unwrap())
           WASM => @wasm.print_wasm(self.wasm.unwrap())
         }
