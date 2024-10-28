@@ -34,9 +34,9 @@ pub struct MachineVar {
   is_mut : Bool // is mutable, may be updated from loop
 
   // phi
-  is_phi : Bool // phi node
+  mut is_phi : Bool // phi node
+  mut outcoming_var : MachineVar?
   incoming_vars : Array[MachineVar]
-  outcoming_var : MachineVar?
 }
 
 pub enum Condition {
@@ -74,8 +74,22 @@ pub struct Stmt {
   mut stmt : StmtKind
   mut def : MachineVar?
   mut uses : Array[MachineVar]
+
+  // ssa
+  ssa : @ssa.Stmt
+}
+
+pub fn Stmt::new(slot : Int, stmt : StmtKind, ssa : @ssa.Stmt) -> Stmt {
+  { slot, stmt, def: None, uses: [], ssa }
 }
 
 pub struct IR {
   stmts : Array[Stmt]
+  blocks : Array[Block]
+}
+
+pub struct Block {
+  label : Int
+  stmts : Array[Stmt]
+  // mut succ : BlockEdge?
 }

@@ -1,4 +1,5 @@
 pub fn emit(world : @ssa.World) -> Array[AssemblyFunction] {
+  let machine = @machine.build_machine_ir(world)
   abort("todo")
 }
 
