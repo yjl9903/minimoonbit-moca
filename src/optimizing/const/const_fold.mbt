@@ -2,7 +2,7 @@ pub fn const_fold_dfs(
   ast : Syntax,
   mp : @hashmap.T[(String, String), Syntax]
 ) -> Syntax {
-  let __ = @shared.debug("AST: \{ast}");
+  let __ = @shared.debug("AST: \{ast}")
   match ast {
     Prim(lhs, rhs, op, ~kind) => {
       // debug("Matched Prim")
