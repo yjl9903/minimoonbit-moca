@@ -15,6 +15,10 @@ pub struct MachineMethod {
   params : Array[MachineVar]
   local_vars : Array[MachineVar]
 
+  // info
+  stack_vars : Map[Int, MachineVar]
+  mut stack_size : Int
+
   // body
   body : IR
 
@@ -33,7 +37,7 @@ pub struct MachineVar {
   name : String?
   ty : Type
   size : Int
-  offset : Int
+  mut offset : Int
 
   // Flags
   is_this : Bool // this

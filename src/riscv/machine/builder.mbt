@@ -32,6 +32,8 @@ fn create_machine_method(
     params: method.params.map(fn { p => MachineVar::from_ssa(p) }),
     local_vars: method.local_vars.map(fn { p => MachineVar::from_ssa(p) }),
     body: { stmts: [], blocks: [] },
+    stack_vars: Map::new(),
+    stack_size: 0,
     is_closure: method.is_closure,
     free_vars: method.formal_free_vars,
   }
@@ -118,6 +120,7 @@ fn Builder::add_temp_var(self : Builder, ty : Type) -> MachineVar {
     outcoming_var: None,
   }
   self.vars.set(id, var)
+  self.method.local_vars.push(var)
   var
 }
 
@@ -140,6 +143,7 @@ fn Builder::add_int_const_var(self : Builder, value : Int) -> MachineVar {
     outcoming_var: None,
   }
   self.vars.set(id, var)
+  self.method.local_vars.push(var)
   var
 }
 
@@ -206,6 +210,23 @@ fn Builder::build(self : Builder, method : @ssa.Method) -> Unit {
       }
     },
   )
+  // 4. Calc frame size
+  let mut offset = 0
+  for _, var in self.vars {
+    if var.is_param {
+      if var.is_this {
+        // TODO
+      } else {
+        // TODO
+      }
+    } else if var.outcoming_var.is_empty() {
+      // Var is not merged by a phi node
+      var.offset = offset
+      offset = offset + var.size
+      self.method.stack_vars.set(var.id, var)
+    }
+  }
+  self.method.stack_size = offset
 }
 
 fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
