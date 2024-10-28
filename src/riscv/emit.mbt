@@ -4,7 +4,7 @@ pub fn emit(world : @ssa.World) -> AssemblyProgram {
   // 2. Optimizing todo
   // 3. Generate final asm
   let functions = machine.methods.map(
-    fn { method => emit_function(machine, method) },
+    fn { method => emit_method(machine, method) },
   )
   let prog = { functions, }
   prog
@@ -20,9 +20,19 @@ pub struct AssemblyFunction {
   body : Array[RvAsm]
 }
 
-fn emit_function(
+pub fn emit_asm(self : AssemblyFunction, asm : RvAsm) -> Unit {
+  self.body.push(asm)
+}
+
+fn emit_method(
   world : MachineWorld,
   method : MachineMethod
 ) -> AssemblyFunction {
-  @util.die("todo")
+  let asm_func = { name: method.name, export: method.is_main, body: [] }
+  asm_func.emit_method_body()
+  asm_func
+}
+
+fn emit_method_body(self : AssemblyFunction) -> Unit {
+
 }
