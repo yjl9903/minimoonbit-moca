@@ -1,5 +1,5 @@
 typealias Type = @closure.LowType
 
-typealias MachineWorld = @machine.MachineWorld
+typealias PrimKind = @ssa.PrimKind
 
-typealias MachineMethod = @machine.MachineMethod
+typealias PrimOp = @ssa.PrimOp

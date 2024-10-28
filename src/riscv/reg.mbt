@@ -3,6 +3,10 @@ struct MemAccess[TBase, TOff] {
   offset : TOff
 } derive(Show)
 
+fn MemAccess::new(base : Reg, offset : Int) -> MemAccess[Reg, Int] {
+  { base, offset }
+}
+
 type Label String derive(Show, Eq, Hash)
 
 /// RISC-V register
