@@ -32,6 +32,12 @@ pub enum ConstValue {
   Double(Double)
 }
 
+pub enum ParamOffset {
+  Reg(Reg)
+  FReg(FReg)
+  Offset(Int)
+}
+
 pub struct MachineVar {
   id : Int
   name : String?
@@ -40,7 +46,7 @@ pub struct MachineVar {
 
   // Offset
   mut offset : Int
-  // mut param_reg : Reg?
+  mut param_offset : ParamOffset?
 
   // Flags
   is_this : Bool // this
