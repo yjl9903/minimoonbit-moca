@@ -210,23 +210,6 @@ fn Builder::build(self : Builder, method : @ssa.Method) -> Unit {
       }
     },
   )
-  // 4. Calc frame size
-  let mut offset = 0
-  for _, var in self.vars {
-    if var.is_param {
-      if var.is_this {
-        // TODO
-      } else {
-        // TODO
-      }
-    } else if var.outcoming_var.is_empty() {
-      // Var is not merged by a phi node
-      var.offset = offset
-      offset = offset + var.size
-      self.method.stack_vars.set(var.id, var)
-    }
-  }
-  self.method.stack_size = offset
 }
 
 fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {

@@ -37,7 +37,10 @@ pub struct MachineVar {
   name : String?
   ty : Type
   size : Int
+
+  // Offset
   mut offset : Int
+  // mut param_reg : Reg?
 
   // Flags
   is_this : Bool // this
@@ -50,6 +53,13 @@ pub struct MachineVar {
   mut is_phi : Bool // phi node
   mut outcoming_var : MachineVar?
   incoming_vars : Array[MachineVar]
+}
+
+pub fn MachineVar::is_float(self : MachineVar) -> Bool {
+  match self.ty {
+    Double => true
+    _ => false
+  }
 }
 
 pub enum Condition {
