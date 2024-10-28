@@ -92,7 +92,7 @@ pub fn WorldBuilder::build(
   // 3. Build all the method
   let main_method = main_method_builder.build(main_expr)
   let methods = method_builders.map(
-    fn { (def, builder) => (def.id, builder.build(def.body)) },
+    fn { (def, builder) => (def.name._, builder.build(def.body)) },
   )
   // 4. Create the world
   let world : World = {

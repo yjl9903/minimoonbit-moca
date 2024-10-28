@@ -70,6 +70,20 @@ pub fn extract_return_type(typ : LowType) -> LowType {
   }
 }
 
+pub fn extract_tuple_type(ty : LowType) -> Array[LowType] {
+  match ty {
+    Tuple(els) => els
+    _ => @util.die("unreachable")
+  }
+}
+
+pub fn extract_array_type(ty : LowType) -> LowType {
+  match ty {
+    Array(el) => el
+    _ => @util.die("unreachable")
+  }
+}
+
 pub fn to_closure_fn_low_type(typ : Type) -> LowType {
   match typ {
     Unit => Unit

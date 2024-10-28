@@ -11,6 +11,6 @@ pub fn World::get_world() -> World {
 pub struct World {
   externals : Map[String, Type]
   global : Array[Var]
-  methods : Map[Int, Method]
+  methods : Map[String, Method]
   main_method : Method
 }

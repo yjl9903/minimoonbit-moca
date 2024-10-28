@@ -22,3 +22,35 @@ pub fn get_type_size(ty : Type) -> Int {
     _ => i32_size
   }
 }
+
+pub fn get_tuple_types_size(vars : Array[Var], ~slice : Int? = None) -> Int {
+  (match slice {
+    Some(slice) => vars.iter().take(slice)
+    None => vars.iter()
+  }).fold(fn { acc, var => acc + get_type_size(var.ty) }, init=0)
+}
+
+pub fn get_tuple_size(vars : Array[Type], ~slice : Int? = None) -> Int {
+  (match slice {
+    Some(slice) => vars.iter().take(slice)
+    None => vars.iter()
+  }).fold(fn { acc, var => acc + get_type_size(var) }, init=0)
+}
+
+pub fn get_free_vars_size(
+  fvs : Array[FreeVar],
+  ~target : FreeVar? = None
+) -> Int {
+  match target {
+    Some(target) =>
+      fvs.fold(
+        fn {
+          acc, fv =>
+            acc + (if fv.slot < target.slot { get_type_size(fv.ty) } else { 0 })
+        },
+        init=i32_size,
+      )
+    None =>
+      fvs.fold(fn { acc, fv => acc + get_type_size(fv.ty) }, init=i32_size)
+  }
+}

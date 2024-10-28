@@ -1,11 +1,14 @@
 pub struct MachineWorld {
+  globals : Map[Int, MachineVar]
   methods : Array[MachineMethod]
+  ssa : @ssa.World
 }
 
 pub struct MachineMethod {
   id : Int
   name : String
   ty : Type
+  is_main : Bool
 
   // vars
   this : MachineVar?
@@ -20,6 +23,11 @@ pub struct MachineMethod {
   free_vars : Array[@ssa.FreeVar]
 }
 
+pub enum ConstValue {
+  Int(Int)
+  Double(Double)
+}
+
 pub struct MachineVar {
   id : Int
   name : String?
@@ -32,6 +40,7 @@ pub struct MachineVar {
   is_param : Bool // param
   is_global : Bool // from global
   is_mut : Bool // is mutable, may be updated from loop
+  const_value : ConstValue? // const value
 
   // phi
   mut is_phi : Bool // phi node
@@ -53,17 +62,19 @@ pub enum RValue {
   Double(Double)
   Neg(MachineVar, PrimKind)
   Prim(MachineVar, MachineVar, PrimOp, PrimKind)
-  Var(MachineVar)
-  Load((MachineVar, Int)) // load _, _(_)
-  InvokeClosure(MachineVar, Array[MachineVar])
-  InvokeDirect(Int, Array[MachineVar])
+  Var(MachineVar, PrimKind)
+  Load((MachineVar, Int), PrimKind) // load _, _(_)
+  InvokeClosure(MachineVar, Array[MachineVar], PrimKind)
+  InvokeDirect(String, Array[MachineVar], PrimKind)
+  Malloc(Int)
   Phi(Array[MachineVar])
 }
 
 pub enum StmtKind {
   Definition(MachineVar?, RValue)
-  Store((MachineVar, Int), MachineVar) // store _(_), _
-  IfGoto(Condition, Int, Int)
+  Store((MachineVar, Int), MachineVar, PrimKind) // store _(_), _
+  StoreAddress((MachineVar, Int), String)
+  IfGoto(Condition, Int?, Int?)
   Goto(Int)
   Nop
   Return(MachineVar?)
