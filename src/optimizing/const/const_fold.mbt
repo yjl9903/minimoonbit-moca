@@ -16,7 +16,8 @@ pub fn const_fold_dfs(
           }
         Double(l_value) =>
           match new_rhs {
-            Double(r_value) => Double(get_bin_op_value_Double(l_value, r_value, op))
+            Double(r_value) =>
+              Double(get_bin_op_value_Double(l_value, r_value, op))
             _ => Prim(new_lhs, new_rhs, op, ~kind)
           }
         _ => Prim(new_lhs, new_rhs, op, ~kind)
@@ -28,7 +29,7 @@ pub fn const_fold_dfs(
       const_fold_dfs_let(id, value_type, expr, next_stmt, mp)
     Var(id) =>
       if mp.contains((id, "Int")) {
-        @shared.debug("Matched Var \{id}");
+        @shared.debug("Matched Var \{id}")
         mp.get((id, "Int")).unwrap()
       } else if mp.contains((id, "Double")) {
         mp.get((id, "Double")).unwrap()
@@ -81,14 +82,14 @@ fn const_fold_dfs_let(
     Int(const_value) => {
       mp.remove((id, "Int"))
       mp.remove((id, "Double"))
-      let value: Syntax = Int(const_value)
+      let value : Syntax = Int(const_value)
       mp.set((id, "Int"), value)
       Let((id, value_type), Int(const_value), const_fold_dfs(next_stmt, mp))
     }
     Double(const_value) => {
       mp.remove((id, "Int"))
       mp.remove((id, "Double"))
-      let value: Syntax = Double(const_value)
+      let value : Syntax = Double(const_value)
       mp.set((id, "Double"), value)
       Let((id, value_type), Double(const_value), const_fold_dfs(next_stmt, mp))
     }
