@@ -5,43 +5,43 @@ pub enum RvAsm {
   Xor(Reg, Reg, Reg)
   Or(Reg, Reg, Reg)
   And(Reg, Reg, Reg)
-  Sll(Reg, Reg, Reg)
-  Srl(Reg, Reg, Reg)
-  Sra(Reg, Reg, Reg)
-  Slt(Reg, Reg, Reg)
-  Sltu(Reg, Reg, Reg)
+  Sll(Reg, Reg, Reg) // Shift left logical
+  Srl(Reg, Reg, Reg) // Shift right logical 
+  Sra(Reg, Reg, Reg) // Shift right arith
+  Slt(Reg, Reg, Reg) // set rd on rs1 < rs2
+  Sltu(Reg, Reg, Reg) // set rd on rs1 unsigned < rs2
   // reg-imm arith
   Addi(Reg, Reg, Int)
   Xori(Reg, Reg, Int)
   Ori(Reg, Reg, Int)
   Andi(Reg, Reg, Int)
-  Slli(Reg, Reg, Int)
-  Srli(Reg, Reg, Int)
-  Srai(Reg, Reg, Int)
-  Slti(Reg, Reg, Int)
-  Sltiu(Reg, Reg, Int)
+  Slli(Reg, Reg, Int) // Shift left logical. imm
+  Srli(Reg, Reg, Int) // Shift right logical. imm
+  Srai(Reg, Reg, Int) // Shift right arith. imm
+  Slti(Reg, Reg, Int) // set rd on rs1 < imm
+  Sltiu(Reg, Reg, Int) // set rd on rs1 unsigned < imm
   // mem
   // memory access
-  Lb(Reg, MemAccess[Reg, Int])
-  Lh(Reg, MemAccess[Reg, Int])
-  Lw(Reg, MemAccess[Reg, Int])
-  Ld(Reg, MemAccess[Reg, Int])
-  Lbu(Reg, MemAccess[Reg, Int])
-  Lhu(Reg, MemAccess[Reg, Int])
-  Lwu(Reg, MemAccess[Reg, Int])
-  Sb(Reg, MemAccess[Reg, Int])
-  Sh(Reg, MemAccess[Reg, Int])
-  Sw(Reg, MemAccess[Reg, Int])
-  Sd(Reg, MemAccess[Reg, Int])
+  Lb(Reg, MemAccess[Reg, Int]) // Load byte
+  Lh(Reg, MemAccess[Reg, Int]) // load half word
+  Lw(Reg, MemAccess[Reg, Int]) // load word
+  Ld(Reg, MemAccess[Reg, Int]) // load double word
+  Lbu(Reg, MemAccess[Reg, Int]) // load byte unsigned
+  Lhu(Reg, MemAccess[Reg, Int]) // load half word unsigned
+  Lwu(Reg, MemAccess[Reg, Int]) // load word unsigned
+  Sb(Reg, MemAccess[Reg, Int]) // store byte
+  Sh(Reg, MemAccess[Reg, Int]) // store half world
+  Sw(Reg, MemAccess[Reg, Int]) // store word
+  Sd(Reg, MemAccess[Reg, Int]) // store double word
   // control flow
-  Beq(Reg, Reg, Label)
-  Bne(Reg, Reg, Label)
-  Blt(Reg, Reg, Label)
-  Bge(Reg, Reg, Label)
-  Ble(Reg, Reg, Label)
-  Bgt(Reg, Reg, Label)
-  Bltu(Reg, Reg, Label)
-  Bgeu(Reg, Reg, Label)
+  Beq(Reg, Reg, Label) // rs1 == rs2 goto
+  Bne(Reg, Reg, Label) // rs1 != rs2 goto
+  Blt(Reg, Reg, Label) // <
+  Bge(Reg, Reg, Label) // >=
+  Ble(Reg, Reg, Label) // <=
+  Bgt(Reg, Reg, Label) // >
+  Bltu(Reg, Reg, Label) // unsigned <
+  Bgeu(Reg, Reg, Label) // >= unsigned
   // system
   Ecall
   // rv32/64m
