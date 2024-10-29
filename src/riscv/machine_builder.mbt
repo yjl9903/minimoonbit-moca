@@ -322,7 +322,8 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
           }
         None =>
           match rvalue {
-            InvokeDirect(_) | InvokeClosure(_) => [Definition(None, rvalue)]
+            InvokeDirect(_) | InvokeClosure(_) =>
+              [..stmts, Definition(None, rvalue)]
             _ => []
           }
       }
