@@ -118,17 +118,19 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   // ------------- sp - 8
   // / --- fp ---/
   // ------------- sp
-  // Save ra and fp
+
+  // 1. Prologue
   self.emit_asm(Addi(Sp, Sp, -16))
   self.emit_asm(Sd(Ra, MemAccess::new(Sp, 8)))
   self.emit_asm(Sd(Fp, MemAccess::new(Sp, 0)))
   self.emit_asm(Mv(Fp, Sp))
-  // TODO: save reg
 
-  // 1. Calc stack size
+  // 1.1. Calc stack size
   self.emit_asm(Addi(Sp, Sp, -self.machine.stack_size))
 
-  // 2. TEMP: store the params
+  // 1.2. TODO: save reg
+
+  // 1.3. TEMP: store the params
   for var in self.machine.params {
     match var.param_offset {
       Some(Reg(r)) => self.emit_asm(Sw(r, MemAccess::new(Fp, var.offset)))
@@ -145,7 +147,7 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
     }
   }
 
-  // 3. Build stmts
+  // 2. Build stmts
   for block in self.machine.body.blocks {
     self.emit_asm(Label(self.create_label(block.label)))
     for stmt in block.stmts {
@@ -159,8 +161,31 @@ fn AssemblyFunction::emit_method_stmt(
   stmt : Stmt
 ) -> Unit {
   match stmt.stmt {
-    Definition(None, rvalue) => self.emit_method_rvalue(rvalue)
-    Definition(Some(def), rvalue) => self.emit_method_rvalue(rvalue)
+    Definition(None, rvalue) =>
+      self.emit_method_rvalue(rvalue, fn { _ => () }, fn { _ => () })
+    Definition(Some(def), rvalue) => {
+      let mut kind = None
+      self.emit_method_rvalue(
+        rvalue,
+        fn {
+          reg => {
+            kind = Some(PrimKind::Int)
+            self.emit_asm(Sw(reg, MemAccess::new(Fp, def.offset)))
+          }
+        },
+        fn {
+          freg => {
+            kind = Some(PrimKind::Double)
+            self.emit_asm(Fsd(freg, MemAccess::new(Fp, def.offset)))
+          }
+        },
+      )
+      match (def.is_float(), kind) {
+        (true, Some(Double)) => ()
+        (false, Some(Int)) => ()
+        _ => @util.die("unreachable")
+      }
+    }
     Store((recv, offset), expr, kind) => {
       self.emit_asm(Lw(T0, MemAccess::new(Fp, recv.offset)))
       match kind {
@@ -192,22 +217,99 @@ fn AssemblyFunction::emit_method_stmt(
           }
         None => ()
       }
-      // TODO: restore things
-      self.emit_asm(Ret)
+      // Epilogue
+      // self.emit_asm(Label(self.create_return_label()))
+      // TODO: restore reg
+      self.emit_asm(Mv(Sp, Fp))
+      self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
+      self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
+      self.emit_asm(Addi(Sp, Sp, 16))
+      if self.machine.is_main {
+        self.emit_asm(Li(A0, "0"))
+        self.emit_asm(Li(A7, "93"))
+        self.emit_asm(Ecall)
+      } else {
+        self.emit_asm(Ret)
+      }
     }
   }
 }
 
 fn AssemblyFunction::emit_method_rvalue(
   self : AssemblyFunction,
-  rvalue : RValue
+  rvalue : RValue,
+  contg : (Reg) -> Unit,
+  contf : (FReg) -> Unit
 ) -> Unit {
+  match rvalue {
+    Int(x) => {
+      self.emit_asm(Li(T0, x.to_string()))
+      contg(T0)
+    }
+    Double(x) =>
+      // TODO: load imm double x
+      contf(Ft0)
+    Neg(expr, Int) => {
+      self.emit_asm(Lw(T0, MemAccess::new(Fp, expr.offset)))
+      self.emit_asm(Sub(T0, Zero, T0))
+      contg(T0)
+    }
+    Neg(expr, Double) => {
+      self.emit_asm(Fld(Ft0, MemAccess::new(Fp, expr.offset)))
+      self.emit_asm(FnegD(Ft0, Ft0))
+      contf(Ft0)
+    }
+    Prim(lhs, rhs, op, Int) => {
+      self.emit_asm(Lw(T0, MemAccess::new(Fp, lhs.offset)))
+      self.emit_asm(Lw(T1, MemAccess::new(Fp, rhs.offset)))
+      self.emit_asm(
+        match op {
+          Add => Add(T0, T0, T1)
+          Sub => Sub(T0, T0, T1)
+          Mul => Mul(T0, T0, T1)
+          Div => Div(T0, T0, T1)
+        },
+      )
+      contg(T0)
+    }
+    Prim(lhs, rhs, op, Double) => {
+      self.emit_asm(Fld(Ft0, MemAccess::new(Fp, lhs.offset)))
+      self.emit_asm(Fld(Ft1, MemAccess::new(Fp, rhs.offset)))
+      self.emit_asm(
+        match op {
+          Add => FaddD(Ft0, Ft0, Ft1)
+          Sub => FsubD(Ft0, Ft0, Ft1)
+          Mul => FmulD(Ft0, Ft0, Ft1)
+          Div => FdivD(Ft0, Ft0, Ft1)
+        },
+      )
+      contf(Ft0)
+    }
+    Var(var, Int) => {
+      self.emit_asm(Lw(T0, MemAccess::new(Fp, var.offset)))
+      contg(T0)
+    }
+    Var(var, Double) => {
+      self.emit_asm(Fld(Ft0, MemAccess::new(Fp, var.offset)))
+      contf(Ft0)
+    }
+    Load((recv, offset), Int) => {
+      self.emit_asm(Lw(T0, MemAccess::new(Fp, recv.offset)))
+      self.emit_asm(Lw(T0, MemAccess::new(T0, offset)))
+      contg(T0)
+    }
+    Load((recv, offset), Double) => {
+      self.emit_asm(Lw(T0, MemAccess::new(Fp, recv.offset)))
+      self.emit_asm(Fld(Ft0, MemAccess::new(T0, offset)))
+      contf(Ft0)
+    }
 
-}
+    // Invoke
+    InvokeClosure(_) => @util.die("todo")
+    InvokeDirect(_) => @util.die("todo")
+    Malloc(_) => @util.die("todo")
 
-fn AssemblyFunction::create_label(
-  self : AssemblyFunction,
-  label : Int
-) -> String {
-  "__\{self.name}__B\{label}"
+    // Phi
+    Phi(_) => ()
+  }
 }
