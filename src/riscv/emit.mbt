@@ -198,6 +198,7 @@ fn AssemblyFunction::emit_method_stmt(
       }
     }
     Store((recv, offset), expr, kind) => {
+      self.emit_comment("--- Store \{offset}(\{recv.id}) \{expr.id} ---")
       self.emit_get_int_var(T0, recv)
       match kind {
         Double => {
@@ -209,6 +210,7 @@ fn AssemblyFunction::emit_method_stmt(
           self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
         }
       }
+      self.emit_comment("--- Store end ---")
     }
     IfGoto(cond, _true_target, false_target) => {
       match cond {
@@ -240,6 +242,7 @@ fn AssemblyFunction::emit_method_stmt(
     Goto(label) => self.emit_asm(J(self.create_label(label)))
     Nop => ()
     Return(var) => {
+      self.emit_comment("--- Return \{self.name} ---")
       match var {
         Some(var) =>
           if var.is_float() {
