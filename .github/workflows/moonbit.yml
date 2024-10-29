@@ -123,8 +123,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-libriscv-emulator
       
-      - name: build rvlinux
-        run: ./build_rvlinux.sh
+      - name: build runtime
+        run: |
+          ./build_rvlinux.sh
+          ./build_riscvrt.sh
 
       - name: install moonbit
         run: |
