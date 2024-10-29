@@ -204,7 +204,33 @@ fn AssemblyFunction::emit_method_stmt(
       self.emit_asm(La(T1, label))
       self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
     }
-    IfGoto(_) => @util.die("")
+    IfGoto(cond, _true_target, false_target) => {
+      match cond {
+        Eq(lhs, rhs, Int)
+        | Ne(lhs, rhs, Int)
+        | Lt(lhs, rhs, Int)
+        | Le(lhs, rhs, Int) | Gt(lhs, rhs, Int) | Ge(lhs, rhs, Int) => {
+          self.emit_asm(Lw(T0, MemAccess::new(Fp, lhs.offset)))
+          self.emit_asm(Lw(T1, MemAccess::new(Fp, rhs.offset)))
+        }
+        Eq(lhs, rhs, Double)
+        | Ne(lhs, rhs, Double)
+        | Lt(lhs, rhs, Double)
+        | Le(lhs, rhs, Double) | Gt(lhs, rhs, Double) | Ge(lhs, rhs, Double) => {
+          self.emit_asm(Fld(Ft0, MemAccess::new(Fp, lhs.offset)))
+          self.emit_asm(Fld(Ft1, MemAccess::new(Fp, rhs.offset)))
+        }
+      }
+      match cond {
+        Eq(_, _, Int) =>
+          self.emit_asm(Bne(T0, T1, self.create_label(false_target.unwrap())))
+        Eq(_, _, Double) => @util.die("todo")
+        Le(_, _, Int) =>
+          self.emit_asm(Bgt(T0, T1, self.create_label(false_target.unwrap())))
+        Le(_, _, Double) => @util.die("todo")
+        _ => @util.die("todo")
+      }
+    }
     Goto(label) => self.emit_asm(J(self.create_label(label)))
     Nop => ()
     Return(var) => {
