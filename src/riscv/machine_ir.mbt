@@ -50,6 +50,7 @@ pub struct MachineVar {
   mut param_offset : ParamOffset?
 
   // Flags
+  mut is_live : Bool
   is_this : Bool // this
   is_param : Bool // param
   is_global : Bool // from global
@@ -80,11 +81,11 @@ pub enum Condition {
 
 pub enum RValue {
   Int(Int)
-  Double(Double)
   Neg(MachineVar, PrimKind)
   Prim(MachineVar, MachineVar, PrimOp, PrimKind)
   Var(MachineVar, PrimKind)
   Load((MachineVar, Int), PrimKind) // load _, _(_)
+  LoadLabel(MachineVar, String, PrimKind)
   InvokeClosure(MachineVar, Array[MachineVar], PrimKind)
   InvokeDirect(String, Array[MachineVar], PrimKind)
   Malloc(Int)
@@ -94,7 +95,7 @@ pub enum RValue {
 pub enum StmtKind {
   Definition(MachineVar?, RValue)
   Store((MachineVar, Int), MachineVar, PrimKind) // store _(_), _
-  StoreAddress((MachineVar, Int), String)
+  StoreLabel((MachineVar, Int), String)
   IfGoto(Condition, Int?, Int?)
   Goto(Int)
   Nop

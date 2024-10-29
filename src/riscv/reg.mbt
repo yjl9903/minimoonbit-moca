@@ -3,7 +3,14 @@ struct MemAccess[TBase, TOff] {
   offset : TOff
 } derive(Show)
 
-fn MemAccess::new(base : Reg, offset : Int) -> MemAccess[Reg, Int] {
+fn MemAccess::new(
+  base : Reg,
+  offset : Int,
+  ~loc : SourceLoc = _
+) -> MemAccess[Reg, Int] {
+  if offset == -1 {
+    @util.die("Unexpected offset: \{base} \{offset}", ~loc)
+  }
   { base, offset }
 }
 

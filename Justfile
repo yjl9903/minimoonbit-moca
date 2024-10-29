@@ -389,7 +389,7 @@ test-riscv:
   # ./run_riscv.sh test/test_src/cls-rec.mbt -o
   # ./run_riscv.sh test/test_src/cls-reg-bug.mbt -o
   # ./run_riscv.sh test/test_src/even-odd.mbt -o
-  # ./run_riscv.sh test/test_src/fib.mbt -o
+  ./run_riscv.sh test/test_src/fib.mbt -o
   # ./run_riscv.sh test/test_src/float.mbt -o
   # ./run_riscv.sh test/test_src/funcomp.mbt -o
   # ./run_riscv.sh test/test_src/gcd.mbt -o
@@ -420,7 +420,7 @@ test-riscv:
   # diff -Z test/test_src/cls-rec.ans temp/cls-rec.out
   # diff -Z test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
   # diff -Z test/test_src/even-odd.ans temp/even-odd.out
-  # diff -Z test/test_src/fib.ans temp/fib.out
+  diff -Z test/test_src/fib.ans temp/fib.out
   # diff -Z test/test_src/float.ans temp/float.out
   # diff -Z test/test_src/funcomp.ans temp/funcomp.out
   # diff -Z test/test_src/gcd.ans temp/gcd.out

@@ -100,12 +100,13 @@ fn AssemblyFunction::calc_stack_size(self : AssemblyFunction) -> Unit {
   // 2.1. Local variables
   let mut offset = 0
   for _, var in self.machine.local_vars {
-    // Var is not merged by a phi node
-    if var.outcoming_var.is_empty() {
-      offset = offset + var.size
-      var.offset = -offset
-      self.machine.stack_vars.set(var.id, var)
+    // Not a const value
+    if not(var.const_value.is_empty()) || not(var.is_live) {
+      continue
     }
+    offset = offset + var.size
+    var.offset = -offset
+    self.machine.stack_vars.set(var.id, var)
   }
   // 2.2. Phi vars
   for _, var in self.machine.local_vars {
@@ -194,20 +195,20 @@ fn AssemblyFunction::emit_method_stmt(
       }
     }
     Store((recv, offset), expr, kind) => {
-      self.emit_asm(Lw(T0, MemAccess::new(Fp, recv.offset)))
+      self.emit_get_int_var(T0, recv)
       match kind {
         Double => {
-          self.emit_asm(Fld(Ft0, MemAccess::new(Fp, expr.offset)))
+          self.emit_get_float_var(Ft0, expr)
           self.emit_asm(Fsd(Ft0, MemAccess::new(T0, offset)))
         }
         Int => {
-          self.emit_asm(Lw(T1, MemAccess::new(Fp, expr.offset)))
+          self.emit_get_int_var(T1, expr)
           self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
         }
       }
     }
-    StoreAddress((recv, offset), label) => {
-      self.emit_asm(Lw(T0, MemAccess::new(Fp, recv.offset)))
+    StoreLabel((recv, offset), label) => {
+      self.emit_get_int_var(T0, recv)
       self.emit_asm(La(T1, label))
       self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
     }
@@ -217,15 +218,15 @@ fn AssemblyFunction::emit_method_stmt(
         | Ne(lhs, rhs, Int)
         | Lt(lhs, rhs, Int)
         | Le(lhs, rhs, Int) | Gt(lhs, rhs, Int) | Ge(lhs, rhs, Int) => {
-          self.emit_asm(Lw(T0, MemAccess::new(Fp, lhs.offset)))
-          self.emit_asm(Lw(T1, MemAccess::new(Fp, rhs.offset)))
+          self.emit_get_int_var(T0, lhs)
+          self.emit_get_int_var(T1, rhs)
         }
         Eq(lhs, rhs, Double)
         | Ne(lhs, rhs, Double)
         | Lt(lhs, rhs, Double)
         | Le(lhs, rhs, Double) | Gt(lhs, rhs, Double) | Ge(lhs, rhs, Double) => {
-          self.emit_asm(Fld(Ft0, MemAccess::new(Fp, lhs.offset)))
-          self.emit_asm(Fld(Ft1, MemAccess::new(Fp, rhs.offset)))
+          self.emit_get_float_var(Ft0, lhs)
+          self.emit_get_float_var(Ft1, rhs)
         }
       }
       match cond {
@@ -244,9 +245,9 @@ fn AssemblyFunction::emit_method_stmt(
       match var {
         Some(var) =>
           if var.is_float() {
-            self.emit_asm(Fld(Fa0, MemAccess::new(Fp, var.offset)))
+            self.emit_get_float_var(Fa0, var)
           } else {
-            self.emit_asm(Lw(A0, MemAccess::new(Fp, var.offset)))
+            self.emit_get_int_var(A0, var)
           }
         None => ()
       }
@@ -275,26 +276,26 @@ fn AssemblyFunction::emit_method_rvalue(
   contf : (FReg) -> Unit
 ) -> Unit {
   match rvalue {
-    Int(x) => {
-      self.emit_asm(Li(T0, x.to_string()))
-      contg(T0)
-    }
-    Double(x) =>
-      // TODO: load imm double x
-      contf(Ft0)
+    Int(x) =>
+      if x == 0 {
+        contg(Zero)
+      } else {
+        self.emit_asm(Li(T0, x.to_string()))
+        contg(T0)
+      }
     Neg(expr, Int) => {
-      self.emit_asm(Lw(T0, MemAccess::new(Fp, expr.offset)))
+      self.emit_get_int_var(T0, expr)
       self.emit_asm(Sub(T0, Zero, T0))
       contg(T0)
     }
     Neg(expr, Double) => {
-      self.emit_asm(Fld(Ft0, MemAccess::new(Fp, expr.offset)))
+      self.emit_get_float_var(Ft0, expr)
       self.emit_asm(FnegD(Ft0, Ft0))
       contf(Ft0)
     }
     Prim(lhs, rhs, op, Int) => {
-      self.emit_asm(Lw(T0, MemAccess::new(Fp, lhs.offset)))
-      self.emit_asm(Lw(T1, MemAccess::new(Fp, rhs.offset)))
+      self.emit_get_int_var(T0, lhs)
+      self.emit_get_int_var(T1, rhs)
       self.emit_asm(
         match op {
           Add => Add(T0, T0, T1)
@@ -306,8 +307,8 @@ fn AssemblyFunction::emit_method_rvalue(
       contg(T0)
     }
     Prim(lhs, rhs, op, Double) => {
-      self.emit_asm(Fld(Ft0, MemAccess::new(Fp, lhs.offset)))
-      self.emit_asm(Fld(Ft1, MemAccess::new(Fp, rhs.offset)))
+      self.emit_get_float_var(Ft0, lhs)
+      self.emit_get_float_var(Ft1, rhs)
       self.emit_asm(
         match op {
           Add => FaddD(Ft0, Ft0, Ft1)
@@ -319,23 +320,27 @@ fn AssemblyFunction::emit_method_rvalue(
       contf(Ft0)
     }
     Var(var, Int) => {
-      self.emit_asm(Lw(T0, MemAccess::new(Fp, var.offset)))
+      self.emit_get_int_var(T0, var)
       contg(T0)
     }
     Var(var, Double) => {
-      self.emit_asm(Fld(Ft0, MemAccess::new(Fp, var.offset)))
+      self.emit_get_float_var(Ft0, var)
       contf(Ft0)
     }
+
+    // Load
     Load((recv, offset), Int) => {
-      self.emit_asm(Lw(T0, MemAccess::new(Fp, recv.offset)))
+      self.emit_get_int_var(T0, recv)
       self.emit_asm(Lw(T0, MemAccess::new(T0, offset)))
       contg(T0)
     }
     Load((recv, offset), Double) => {
-      self.emit_asm(Lw(T0, MemAccess::new(Fp, recv.offset)))
+      self.emit_get_int_var(T0, recv)
       self.emit_asm(Fld(Ft0, MemAccess::new(T0, offset)))
       contf(Ft0)
     }
+    LoadLabel(recv, label, Int) => @util.die("todo")
+    LoadLabel(recv, label, Double) => @util.die("todo")
 
     // Invoke
     InvokeClosure(callee, args, kind) => {
@@ -344,7 +349,7 @@ fn AssemblyFunction::emit_method_rvalue(
       new_args.push_iter(args.iter())
       new_args.push(callee)
       let stack_size = self.emit_invoke_args(new_args)
-      self.emit_asm(Lw(T5, MemAccess::new(Fp, callee.offset)))
+      self.emit_get_int_var(T5, callee)
       self.emit_asm(Lw(T5, MemAccess::new(T5, 0)))
       self.emit_asm(Jalr(T5))
       if stack_size != 0 {
@@ -379,6 +384,36 @@ fn AssemblyFunction::emit_method_rvalue(
 
     // Phi
     Phi(_) => ()
+  }
+}
+
+fn AssemblyFunction::emit_get_int_var(
+  self : AssemblyFunction,
+  reg : Reg,
+  var : MachineVar,
+  ~loc : SourceLoc = _
+) -> Unit {
+  match var.const_value {
+    Some(Int(x)) =>
+      if x == 0 {
+        self.emit_asm(Mv(reg, Zero))
+      } else {
+        self.emit_asm(Li(reg, x.to_string()))
+      }
+    Some(Double(_)) => @util.die("should be Int")
+    None => self.emit_asm(Lw(reg, MemAccess::new(Fp, var.offset, ~loc)))
+  }
+}
+
+fn AssemblyFunction::emit_get_float_var(
+  self : AssemblyFunction,
+  reg : FReg,
+  var : MachineVar
+) -> Unit {
+  match var.const_value {
+    Some(Int(_)) => @util.die("should be Double")
+    Some(Double(_)) => @util.die("TODO")
+    None => self.emit_asm(Fld(reg, MemAccess::new(Fp, var.offset)))
   }
 }
 
@@ -420,10 +455,10 @@ fn AssemblyFunction::emit_invoke_args(
     fn {
       arg => {
         if arg.is_float() {
-          self.emit_asm(Fld(Ft0, MemAccess::new(Fp, arg.offset)))
+          self.emit_get_float_var(Ft0, arg)
           self.emit_asm(Fsd(Ft0, MemAccess::new(Sp, offset)))
         } else {
-          self.emit_asm(Lw(T0, MemAccess::new(Fp, arg.offset)))
+          self.emit_get_int_var(T0, arg)
           self.emit_asm(Sw(T0, MemAccess::new(Sp, offset)))
         }
         offset += arg.size
@@ -439,8 +474,7 @@ fn AssemblyFunction::emit_invoke_args(
     if arg.is_float() {
       if fp < freg_arg_list.length() {
         let freg = freg_arg_list[fp]
-        self.emit_asm(Fld(Ft0, MemAccess::new(Fp, arg.offset)))
-        self.emit_asm(FmvD(freg, Ft0))
+        self.emit_get_float_var(freg, arg)
         fp += 1
       } else {
         ()
@@ -449,8 +483,7 @@ fn AssemblyFunction::emit_invoke_args(
     } else {
       if gp < reg_arg_list.length() {
         let reg = reg_arg_list[gp]
-        self.emit_asm(Lw(T0, MemAccess::new(Fp, arg.offset)))
-        self.emit_asm(Mv(reg, T0))
+        self.emit_get_int_var(reg, arg)
         gp += 1
       } else {
         ()
