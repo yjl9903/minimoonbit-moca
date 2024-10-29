@@ -119,9 +119,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: libriscv/emulator/.build/rvlinux
-          key: ${{ runner.os }}-rvlinux-${{ hashFiles('libriscv/**') }}
+          key: ${{ runner.os }}-rvlinux
           restore-keys: |
-            ${{ runner.os }}-rvlinux-
+            ${{ runner.os }}-rvlinux
       
       - name: build rvlinux
         run: ./build_rvlinux.sh
