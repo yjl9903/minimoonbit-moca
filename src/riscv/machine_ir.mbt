@@ -1,5 +1,6 @@
 pub struct MachineWorld {
-  globals : Map[Int, MachineVar]
+  globals : Map[Int, (String, MachineVar)]
+  doubles : Map[Double, String]
   methods : Array[MachineMethod]
   ssa : @ssa.World
 }
@@ -85,7 +86,7 @@ pub enum RValue {
   Prim(MachineVar, MachineVar, PrimOp, PrimKind)
   Var(MachineVar, PrimKind)
   Load((MachineVar, Int), PrimKind) // load _, _(_)
-  LoadLabel(MachineVar, String, PrimKind)
+  LoadLabel(String)
   InvokeClosure(MachineVar, Array[MachineVar], PrimKind)
   InvokeDirect(String, Array[MachineVar], PrimKind)
   Malloc(Int)
@@ -95,7 +96,6 @@ pub enum RValue {
 pub enum StmtKind {
   Definition(MachineVar?, RValue)
   Store((MachineVar, Int), MachineVar, PrimKind) // store _(_), _
-  StoreLabel((MachineVar, Int), String)
   IfGoto(Condition, Int?, Int?)
   Goto(Int)
   Nop
