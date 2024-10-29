@@ -19,13 +19,11 @@ pub fn AssemblyFunction::output(
   let label = self.label
   if self.export {
     logger.write_string(".global \{label}\n")
-  } else {
     // TODO
-    if is_debug {
-      logger.write_string(".global \{label}\n")
-    } else {
-      logger.write_string(".local \{label}\n")
-    }
+  } else if is_debug {
+    logger.write_string(".global \{label}\n")
+  } else {
+    logger.write_string(".local \{label}\n")
   }
   logger.write_string(".text\n")
   logger.write_string(".type \{label}, @function\n")

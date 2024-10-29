@@ -21,7 +21,8 @@ fn create_machine_method(
 ) -> MachineMethod {
   let local_vars = method.local_vars.map(fn { p => MachineVar::from_ssa(p) })
   let param_vars = local_vars.filter(fn { v => v.is_param })
-  let this_var = match local_vars.search_by(fn { v => v.is_this && v.is_param }) {
+  let this_var = match
+    local_vars.search_by(fn { v => v.is_this && v.is_param }) {
     Some(idx) => Some(local_vars[idx])
     None => None
   }
@@ -41,7 +42,7 @@ fn create_machine_method(
     is_main,
     this: this_var,
     params: param_vars,
-    local_vars: local_vars,
+    local_vars,
     body: { stmts: [], blocks: [] },
     stack_vars: Map::new(),
     stack_size: 0,
