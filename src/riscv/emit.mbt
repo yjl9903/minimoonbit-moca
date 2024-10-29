@@ -167,6 +167,7 @@ fn AssemblyFunction::emit_method_stmt(
   stmt : Stmt
 ) -> Unit {
   match stmt.stmt {
+    Definition(_, Phi(_)) => ()
     Definition(None, rvalue) =>
       self.emit_method_rvalue(rvalue, fn { _ => () }, fn { _ => () })
     Definition(Some(def), rvalue) => {

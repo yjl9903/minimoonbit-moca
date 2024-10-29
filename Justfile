@@ -382,8 +382,8 @@ test-wasm:
 test-riscv:
   rm -rf temp
   mkdir temp
-  # ./run_riscv.sh test/test_src/adder.mbt -o
-  # ./run_riscv.sh test/test_src/adder2.mbt -o
+  ./run_riscv.sh test/test_src/adder.mbt -o
+  ./run_riscv.sh test/test_src/adder2.mbt -o
   # ./run_riscv.sh test/test_src/cls-bug.mbt -o
   # ./run_riscv.sh test/test_src/cls-bug2.mbt -o
   # ./run_riscv.sh test/test_src/cls-rec.mbt -o
@@ -411,10 +411,10 @@ test-riscv:
   # ./run_riscv.sh test/test_src/spill.mbt -o
   # ./run_riscv.sh test/test_src/spill2.mbt -o
   # ./run_riscv.sh test/test_src/spill3.mbt -o
-  # ./run_riscv.sh test/test_src/sum-tail.mbt -o
-  # ./run_riscv.sh test/test_src/sum.mbt -o
-  # diff -Z test/test_src/adder.ans temp/adder.out
-  # diff -Z test/test_src/adder2.ans temp/adder2.out
+  ./run_riscv.sh test/test_src/sum-tail.mbt -o
+  ./run_riscv.sh test/test_src/sum.mbt -o
+  diff -Z test/test_src/adder.ans temp/adder.out
+  diff -Z test/test_src/adder2.ans temp/adder2.out
   # diff -Z test/test_src/cls-bug.ans temp/cls-bug.out
   # diff -Z test/test_src/cls-bug2.ans temp/cls-bug2.out
   # diff -Z test/test_src/cls-rec.ans temp/cls-rec.out
@@ -442,8 +442,8 @@ test-riscv:
   # diff -Z test/test_src/spill.ans temp/spill.out
   # diff -Z test/test_src/spill2.ans temp/spill2.out
   # diff -Z test/test_src/spill3.ans temp/spill3.out
-  # diff -Z test/test_src/sum-tail.ans temp/sum-tail.out
-  # diff -Z test/test_src/sum.ans temp/sum.out
+  diff -Z test/test_src/sum-tail.ans temp/sum-tail.out
+  diff -Z test/test_src/sum.ans temp/sum.out
 
 
 submit:
