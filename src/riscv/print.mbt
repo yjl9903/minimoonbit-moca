@@ -19,7 +19,11 @@ pub fn AssemblyFunction::output(
   let label = self.label
   if self.export {
     logger.write_string(".global \{label}\n")
+  } else {
+    logger.write_string(".local \{label}\n")
   }
+  logger.write_string(".text\n")
+  logger.write_string(".type \{label}, @function\n")
   logger.write_string("\{label}:\n")
   for asm in self.body {
     Show::output(asm, logger)
