@@ -19,18 +19,20 @@ pub fn AssemblyProgram::output_data_section(
   // ---
   logger.write_string(".section .data\n")
   for _, v in self.world.globals {
+    logger.write_string("\n")
     let (label, var) = v
     logger.write_string(".global \{label}\n")
     logger.write_string("\{label}:\n")
     match var.ty {
-      Double => logger.write_string("  .float 0.0\n")
+      Double => logger.write_string("  .double 0.0\n")
       _ => logger.write_string("  .word 0\n")
     }
   }
   for value, label in self.world.doubles {
+    logger.write_string("\n")
     logger.write_string(".global \{label}\n")
     logger.write_string("\{label}:\n")
-    logger.write_string("  .float \{value.to_string()}\n")
+    logger.write_string("  .double \{value.to_string()}\n")
   }
   // ---
   if is_debug {
