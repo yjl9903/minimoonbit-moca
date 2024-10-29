@@ -407,7 +407,7 @@ test-riscv:
   # ./run_riscv.sh test/test_src/non-tail-if.mbt -o
   ./run_riscv.sh test/test_src/non-tail-if2.mbt -o
   ./run_riscv.sh test/test_src/print.mbt -o
-  # ./run_riscv.sh test/test_src/shuffle.mbt -o
+  ./run_riscv.sh test/test_src/shuffle.mbt -o
   ./run_riscv.sh test/test_src/spill.mbt -o
   ./run_riscv.sh test/test_src/spill2.mbt -o
   ./run_riscv.sh test/test_src/spill3.mbt -o
@@ -438,7 +438,7 @@ test-riscv:
   # diff -Z test/test_src/non-tail-if.ans temp/non-tail-if.out
   diff -Z test/test_src/non-tail-if2.ans temp/non-tail-if2.out
   diff -Z test/test_src/print.ans temp/print.out
-  # diff -Z test/test_src/shuffle.ans temp/shuffle.out
+  diff -Z test/test_src/shuffle.ans temp/shuffle.out
   diff -Z test/test_src/spill.ans temp/spill.out
   diff -Z test/test_src/spill2.ans temp/spill2.out
   diff -Z test/test_src/spill3.ans temp/spill3.out
