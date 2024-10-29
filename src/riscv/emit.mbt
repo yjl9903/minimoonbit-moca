@@ -102,8 +102,8 @@ fn AssemblyFunction::calc_stack_size(self : AssemblyFunction) -> Unit {
   for _, var in self.machine.local_vars {
     // Var is not merged by a phi node
     if var.outcoming_var.is_empty() {
-      var.offset = -offset
       offset = offset + var.size
+      var.offset = -offset
       self.machine.stack_vars.set(var.id, var)
     }
   }
