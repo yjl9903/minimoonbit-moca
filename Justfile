@@ -385,10 +385,10 @@ test-riscv:
   ./run_riscv.sh test/test_src/adder.mbt -o
   ./run_riscv.sh test/test_src/adder2.mbt -o
   ./run_riscv.sh test/test_src/cls-bug.mbt -o
-  # ./run_riscv.sh test/test_src/cls-bug2.mbt -o
+  ./run_riscv.sh test/test_src/cls-bug2.mbt -o
   ./run_riscv.sh test/test_src/cls-rec.mbt -o
   ./run_riscv.sh test/test_src/cls-reg-bug.mbt -o
-  # ./run_riscv.sh test/test_src/even-odd.mbt -o
+  ./run_riscv.sh test/test_src/even-odd.mbt -o
   ./run_riscv.sh test/test_src/fib.mbt -o
   # ./run_riscv.sh test/test_src/float.mbt -o
   ./run_riscv.sh test/test_src/funcomp.mbt -o
@@ -416,10 +416,10 @@ test-riscv:
   diff -Z test/test_src/adder.ans temp/adder.out
   diff -Z test/test_src/adder2.ans temp/adder2.out
   diff -Z test/test_src/cls-bug.ans temp/cls-bug.out
-  # diff -Z test/test_src/cls-bug2.ans temp/cls-bug2.out
+  diff -Z test/test_src/cls-bug2.ans temp/cls-bug2.out
   diff -Z test/test_src/cls-rec.ans temp/cls-rec.out
   diff -Z test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
-  # diff -Z test/test_src/even-odd.ans temp/even-odd.out
+  diff -Z test/test_src/even-odd.ans temp/even-odd.out
   diff -Z test/test_src/fib.ans temp/fib.out
   # diff -Z test/test_src/float.ans temp/float.out
   diff -Z test/test_src/funcomp.ans temp/funcomp.out
@@ -435,7 +435,7 @@ test-riscv:
   diff -Z test/test_src/join-stack3.ans temp/join-stack3.out
   # diff -Z test/test_src/matmul-flat.ans temp/matmul-flat.out
   # diff -Z test/test_src/matmul.ans temp/matmul.out
-  diff -Z test/test_src/non-tail-if.ans temp/non-tail-if.out
+  # diff -Z test/test_src/non-tail-if.ans temp/non-tail-if.out
   diff -Z test/test_src/non-tail-if2.ans temp/non-tail-if2.out
   diff -Z test/test_src/print.ans temp/print.out
   # diff -Z test/test_src/shuffle.ans temp/shuffle.out
