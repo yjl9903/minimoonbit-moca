@@ -200,8 +200,8 @@ fn AssemblyFunction::emit_method_stmt(
           self.emit_asm(Fsd(Ft0, MemAccess::new(T0, offset)))
         }
         Int => {
-          self.emit_asm(Lw(T0, MemAccess::new(Fp, expr.offset)))
-          self.emit_asm(Sw(T0, MemAccess::new(T0, offset)))
+          self.emit_asm(Lw(T1, MemAccess::new(Fp, expr.offset)))
+          self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
         }
       }
     }
