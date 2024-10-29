@@ -26,6 +26,10 @@ pub fn emit_asm(self : AssemblyFunction, asm : RvAsm) -> Unit {
   self.body.push(asm)
 }
 
+pub fn emit_comment(self : AssemblyFunction, comment : String) -> Unit {
+  self.body.push(Comment(comment))
+}
+
 fn create_asm_func(
   world : MachineWorld,
   method : MachineMethod
@@ -82,7 +86,7 @@ fn AssemblyFunction::calc_stack_size(self : AssemblyFunction) -> Unit {
   }
   // 1.3. Calculate stack offset
   let mut re_offset = 16
-  stack_params.rev_each(
+  stack_params.each(
     fn {
       var => {
         var.param_offset = Some(Offset(re_offset))
@@ -331,11 +335,119 @@ fn AssemblyFunction::emit_method_rvalue(
     }
 
     // Invoke
-    InvokeClosure(_) => @util.die("todo")
-    InvokeDirect(_) => @util.die("todo")
-    Malloc(_) => @util.die("todo")
+    InvokeClosure(callee, args, kind) => {
+      self.emit_comment("--- invoke_closure \{callee.id} ---")
+      let new_args = []
+      new_args.push_iter(args.iter())
+      new_args.push(callee)
+      let stack_size = self.emit_invoke_args(args)
+      self.emit_asm(Lw(T5, MemAccess::new(Fp, callee.offset)))
+      self.emit_asm(Lw(T5, MemAccess::new(T5, 0)))
+      self.emit_asm(Jalr(T5))
+      self.emit_asm(Addi(Sp, Sp, stack_size))
+      self.emit_comment("--- invoke_closure \{callee.id} ---")
+      match kind {
+        Double => contf(Fa0)
+        Int => contg(A0)
+      }
+    }
+    InvokeDirect(label, args, kind) => {
+      self.emit_comment("--- invoke_direct \{label} ---")
+      let stack_size = self.emit_invoke_args(args)
+      self.emit_asm(Call(label))
+      self.emit_asm(Addi(Sp, Sp, stack_size))
+      self.emit_comment("--- invoke_direct \{label} ---")
+      match kind {
+        Double => contf(Fa0)
+        Int => contg(A0)
+      }
+    }
+    Malloc(size) => {
+      self.emit_comment("--- malloc \{size} ---")
+      self.emit_asm(Li(A0, size.to_string()))
+      self.emit_asm(Call("minimbt_malloc"))
+      self.emit_comment("--- malloc \{size} ---")
+      contg(A0)
+    }
 
     // Phi
     Phi(_) => ()
   }
+}
+
+fn AssemblyFunction::emit_invoke_args(
+  self : AssemblyFunction,
+  args : Array[MachineVar]
+) -> Int {
+  let mut gp = 0
+  let mut fp = 0
+  let mut offset = 0
+  let stack = []
+  for i = 0; i < args.length(); i = i + 1 {
+    let arg = args[i]
+    if arg.is_float() {
+      if fp < freg_arg_list.length() {
+        fp += 1
+      } else {
+        offset += arg.size
+        stack.push(arg)
+      }
+      ()
+    } else {
+      if gp < reg_arg_list.length() {
+        gp += 1
+      } else {
+        offset += arg.size
+        stack.push(arg)
+      }
+      ()
+    }
+  }
+
+  // 1. Pass by stack in reverse
+  let stack_size = offset
+  self.emit_asm(Addi(Sp, Sp, -offset))
+  stack.each(
+    fn {
+      arg => {
+        offset -= arg.size
+        if arg.is_float() {
+          self.emit_asm(Fld(Ft0, MemAccess::new(Fp, arg.offset)))
+          self.emit_asm(Fsd(Ft0, MemAccess::new(Sp, offset)))
+        } else {
+          self.emit_asm(Lw(T0, MemAccess::new(Fp, arg.offset)))
+          self.emit_asm(Sw(T0, MemAccess::new(Sp, offset)))
+        }
+      }
+    },
+  )
+
+  // 2. Pass by reg
+  gp = 0
+  fp = 0
+  for i = 0; i < args.length(); i = i + 1 {
+    let arg = args[i]
+    if arg.is_float() {
+      if fp < freg_arg_list.length() {
+        let freg = freg_arg_list[fp]
+        self.emit_asm(Fld(Ft0, MemAccess::new(Fp, arg.offset)))
+        self.emit_asm(FmvD(freg, Ft0))
+        fp += 1
+      } else {
+        ()
+      }
+      ()
+    } else {
+      if gp < reg_arg_list.length() {
+        let reg = reg_arg_list[fp]
+        self.emit_asm(Lw(T0, MemAccess::new(Fp, arg.offset)))
+        self.emit_asm(Mv(reg, T0))
+        gp += 1
+      } else {
+        ()
+      }
+      ()
+    }
+  }
+  stack_size
 }
