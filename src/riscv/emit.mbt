@@ -342,7 +342,7 @@ fn AssemblyFunction::emit_method_rvalue(
       let new_args = []
       new_args.push_iter(args.iter())
       new_args.push(callee)
-      let stack_size = self.emit_invoke_args(args)
+      let stack_size = self.emit_invoke_args(new_args)
       self.emit_asm(Lw(T5, MemAccess::new(Fp, callee.offset)))
       self.emit_asm(Lw(T5, MemAccess::new(T5, 0)))
       self.emit_asm(Jalr(T5))
@@ -441,7 +441,7 @@ fn AssemblyFunction::emit_invoke_args(
       ()
     } else {
       if gp < reg_arg_list.length() {
-        let reg = reg_arg_list[fp]
+        let reg = reg_arg_list[gp]
         self.emit_asm(Lw(T0, MemAccess::new(Fp, arg.offset)))
         self.emit_asm(Mv(reg, T0))
         gp += 1
