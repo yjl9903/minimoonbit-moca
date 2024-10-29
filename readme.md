@@ -28,13 +28,21 @@ Make sure you have installed zig 0.13.0 ([here](https://github.com/ziglang/zig/w
 ```bash
 git submodule update --init --recursive
 ./build_rvlinux.sh
+./build_riscvrt.sh
 ```
 
 You will have `rvlinux` linked in the project root directory.
 
 ## Run
 
-Run with RSIC-V backend.
+You can use the following scripts to run our MiniMoonbit implementation.
+
+```bash
+./run_riscv.sh test/test_src/print.mbt
+./run_wasm.sh test/test_src/print.mbt
+```
+
+Run with RSIC-V backend manually.
 
 ```bash
 moon run src/bin/main.mbt -- <input> -o <output>
@@ -44,14 +52,14 @@ zig build-exe -target riscv64-linux -femit-bin=<exe_file> \
 rvlinux -n <exe_file>
 ```
 
-Run with JS backend, output should have `.mjs` ext.
+Run with JS backend manually.
 
 ```bash
-moon run src/bin/main.mbt -- --js <input> -o <output>
-node ./js_rt/runtime.mjs <output>
+moon run src/bin/main.mbt -- --js <input> -o <output>.mjs
+node ./js_rt/runtime.mjs <output>.mjs
 ```
 
-Run with WASM backend:
+Run with WASM backend manually.
 
 ```bash
 moon run src/bin/main.mbt -- --wasm <input> -o <output>.wat
