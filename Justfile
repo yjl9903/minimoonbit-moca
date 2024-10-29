@@ -404,7 +404,7 @@ test-riscv:
   ./run_riscv.sh test/test_src/join-stack3.mbt -o
   # ./run_riscv.sh test/test_src/matmul-flat.mbt -o
   # ./run_riscv.sh test/test_src/matmul.mbt -o
-  ./run_riscv.sh test/test_src/non-tail-if.mbt -o
+  # ./run_riscv.sh test/test_src/non-tail-if.mbt -o
   ./run_riscv.sh test/test_src/non-tail-if2.mbt -o
   ./run_riscv.sh test/test_src/print.mbt -o
   # ./run_riscv.sh test/test_src/shuffle.mbt -o

@@ -402,9 +402,15 @@ fn Builder::build_rvalue(
       let addr = self.add_temp_var(Ptr)
       (Load((addr, 0), Double), [Definition(Some(addr), LoadLabel(label))])
     }
-    Neg(v, kind) => (Neg(self.get_var(v), kind), [])
-    Prim(lhs, rhs, op, kind) =>
-      (Prim(self.get_var(lhs), self.get_var(rhs), op, kind), [])
+    Neg(v, kind) => {
+      let (v, stmts) = self.build_get_var(v)
+      (Neg(v, kind), stmts)
+    }
+    Prim(lhs, rhs, op, kind) => {
+      let (lhs, lhs_stmts) = self.build_get_var(lhs)
+      let (rhs, rhs_stmts) = self.build_get_var(rhs)
+      (Prim(lhs, rhs, op, kind), [..lhs_stmts, ..rhs_stmts])
+    }
     Var(v) => {
       let var = self.get_var(v)
       match var.const_value {
@@ -431,7 +437,7 @@ fn Builder::build_rvalue(
           } else {
             (
               Var(
-                self.get_var(v),
+                var,
                 match v.ty {
                   Double => Double
                   _ => Int
@@ -454,11 +460,15 @@ fn Builder::build_rvalue(
         let el = els[i]
         match el.ty {
           Double => {
-            stmts.push(Store((def, offset), self.get_var(el), Double))
+            let (el, el_stmts) = self.build_get_var(el)
+            stmts.push_iter(el_stmts.iter())
+            stmts.push(Store((def, offset), el, Double))
             offset += @ssa.f64_size
           }
           _ => {
-            stmts.push(Store((def, offset), self.get_var(el), Int))
+            let (el, el_stmts) = self.build_get_var(el)
+            stmts.push_iter(el_stmts.iter())
+            stmts.push(Store((def, offset), el, Int))
             offset += @ssa.i32_size
           }
         }
@@ -482,11 +492,15 @@ fn Builder::build_rvalue(
           (fv, var) =>
             match fv.ty {
               Double => {
-                stmts.push(Store((def, offset), self.get_var(var), Double))
+                let (el, el_stmts) = self.build_get_var(var)
+                stmts.push_iter(el_stmts.iter())
+                stmts.push(Store((def, offset), el, Double))
                 offset += @ssa.f64_size
               }
               _ => {
-                stmts.push(Store((def, offset), self.get_var(var), Int))
+                let (el, el_stmts) = self.build_get_var(var)
+                stmts.push_iter(el_stmts.iter())
+                stmts.push(Store((def, offset), el, Int))
                 offset += @ssa.i32_size
               }
             }
@@ -499,28 +513,30 @@ fn Builder::build_rvalue(
     GetTuple(var, idx) => {
       let types = @closure.extract_tuple_type(var.ty)
       let offset = @ssa.get_tuple_size(types, slice=Some(idx))
+      let (var, stmts) = self.build_get_var(var)
       (
         Load(
-          (self.get_var(var), offset),
+          (var, offset),
           match types[idx] {
             Double => Double
             _ => Int
           },
         ),
-        [],
+        stmts,
       )
     }
     GetClosure(recv, fv, all_fvs) => {
       let offset = @ssa.get_free_vars_size(all_fvs, target=Some(fv))
+      let (recv, stmts) = self.build_get_var(recv)
       (
         Load(
-          (self.get_var(recv), offset),
+          (recv, offset),
           match fv.ty {
             Double => Double
             _ => Int
           },
         ),
-        [],
+        stmts,
       )
     }
     GetArray(recv, idx) => {
@@ -533,11 +549,15 @@ fn Builder::build_rvalue(
       }
       let size_var = self.add_int_const_var(width)
       let def_var = self.add_temp_var(ty)
+      let (idx, idx_stmts) = self.build_get_var(idx)
+      let (recv, recv_stmts) = self.build_get_var(recv)
       let stmts = [
-        Definition(Some(offset), Prim(self.get_var(idx), size_var, Mul, Int)),
-        Definition(Some(addr), Prim(self.get_var(recv), offset, Add, Int)),
-        Definition(Some(def_var), Load((addr, 0), kind)),
-      ]
+          ..idx_stmts,
+          Definition(Some(offset), Prim(idx, size_var, Mul, Int)),
+          ..recv_stmts,
+          Definition(Some(addr), Prim(recv, offset, Add, Int)),
+          Definition(Some(def_var), Load((addr, 0), kind)),
+        ]
       (
         Var(
           def_var,
@@ -554,27 +574,46 @@ fn Builder::build_rvalue(
     InvokeDirect(label, args) => {
       let ty = self.world.ssa.get_method_type(label).unwrap()
       let ret_type = @closure.extract_return_type(ty)
+      let stmts = []
       let invoke = InvokeDirect(
         create_method_label(label),
-        args.map(fn { a => self.get_var(a) }),
+        args.map(
+          fn {
+            a => {
+              let (a, a_stmts) = self.build_get_var(a)
+              stmts.push_iter(a_stmts.iter())
+              a
+            }
+          },
+        ),
         match ret_type {
           Double => Double
           _ => Int
         },
       )
-      (invoke, [])
+      (invoke, stmts)
     }
     InvokeClosure(callee, args) => {
       let ret_type = @closure.extract_return_type(callee.ty)
+      let (callee, callee_stmts) = self.build_get_var(callee)
+      let stmts = [..callee_stmts]
       let invoke = InvokeClosure(
-        self.get_var(callee),
-        args.map(fn { a => self.get_var(a) }),
+        callee,
+        args.map(
+          fn {
+            a => {
+              let (a, a_stmts) = self.build_get_var(a)
+              stmts.push_iter(a_stmts.iter())
+              a
+            }
+          },
+        ),
         match ret_type {
           Double => Double
           _ => Int
         },
       )
-      (invoke, [])
+      (invoke, stmts)
     }
 
     // Phi
