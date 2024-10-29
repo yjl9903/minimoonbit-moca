@@ -54,6 +54,15 @@ pub fn Var::output(self : Var, logger : Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 
+pub fn Var::is_const(self : Var) -> Bool {
+  match self.const_value {
+    Some(Unit) => true
+    Some(Int(_)) => true
+    Some(Double(_)) => true
+    _ => false
+  }
+}
+
 pub struct FreeVar {
   id : Int
   name : String?
