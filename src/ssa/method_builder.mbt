@@ -264,7 +264,12 @@ fn SsaBuilder::create_new_block(self : SsaBuilder) -> Block {
 
 fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
   let _ = self.visit_stmt(expr)
-  let local_vars = self.ssa_builder.local_vars.values().collect()
+  let local_vars = []
+  match self.ssa_builder.this {
+    Some(this) => local_vars.push(this)
+    None => ()
+  }
+  local_vars.push_iter(self.ssa_builder.local_vars.values())
   local_vars.push_iter(self.ssa_builder.local_temp_vars.iter())
   self.validate()
   {

@@ -17,6 +17,7 @@ pub struct AssemblyProgram {
 
 pub struct AssemblyFunction {
   name : String
+  label : String
   export : Bool
   body : Array[RvAsm]
   machine : MachineMethod
@@ -36,6 +37,7 @@ fn create_asm_func(
 ) -> AssemblyFunction {
   let asm_func = {
     name: method.name,
+    label: method.label,
     export: method.is_main,
     body: [],
     machine: method,
@@ -381,7 +383,7 @@ fn AssemblyFunction::emit_invoke_args(
 ) -> Int {
   let mut gp = 0
   let mut fp = 0
-  let mut offset = 0
+  let mut stack_size = 0
   let stack = []
   for i = 0; i < args.length(); i = i + 1 {
     let arg = args[i]
@@ -389,7 +391,7 @@ fn AssemblyFunction::emit_invoke_args(
       if fp < freg_arg_list.length() {
         fp += 1
       } else {
-        offset += arg.size
+        stack_size += arg.size
         stack.push(arg)
       }
       ()
@@ -397,7 +399,7 @@ fn AssemblyFunction::emit_invoke_args(
       if gp < reg_arg_list.length() {
         gp += 1
       } else {
-        offset += arg.size
+        stack_size += arg.size
         stack.push(arg)
       }
       ()
@@ -405,12 +407,11 @@ fn AssemblyFunction::emit_invoke_args(
   }
 
   // 1. Pass by stack in reverse
-  let stack_size = offset
+  let mut offset = 0
   self.emit_asm(Addi(Sp, Sp, -offset))
   stack.each(
     fn {
       arg => {
-        offset -= arg.size
         if arg.is_float() {
           self.emit_asm(Fld(Ft0, MemAccess::new(Fp, arg.offset)))
           self.emit_asm(Fsd(Ft0, MemAccess::new(Sp, offset)))
@@ -418,6 +419,7 @@ fn AssemblyFunction::emit_invoke_args(
           self.emit_asm(Lw(T0, MemAccess::new(Fp, arg.offset)))
           self.emit_asm(Sw(T0, MemAccess::new(Sp, offset)))
         }
+        offset += arg.size
       }
     },
   )
