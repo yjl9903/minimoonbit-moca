@@ -244,9 +244,9 @@ fn AssemblyFunction::emit_method_stmt(
       match var {
         Some(var) =>
           if var.is_float() {
-            self.emit_asm(Fsd(Fa0, MemAccess::new(Fp, var.offset)))
+            self.emit_asm(Fld(Fa0, MemAccess::new(Fp, var.offset)))
           } else {
-            self.emit_asm(Sw(A0, MemAccess::new(Fp, var.offset)))
+            self.emit_asm(Lw(A0, MemAccess::new(Fp, var.offset)))
           }
         None => ()
       }
@@ -347,7 +347,9 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_asm(Lw(T5, MemAccess::new(Fp, callee.offset)))
       self.emit_asm(Lw(T5, MemAccess::new(T5, 0)))
       self.emit_asm(Jalr(T5))
-      self.emit_asm(Addi(Sp, Sp, stack_size))
+      if stack_size != 0 {
+        self.emit_asm(Addi(Sp, Sp, stack_size))
+      }
       self.emit_comment("--- invoke_closure \{callee.id} ---")
       match kind {
         Double => contf(Fa0)
@@ -358,7 +360,9 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_comment("--- invoke_direct \{label} ---")
       let stack_size = self.emit_invoke_args(args)
       self.emit_asm(Call(label))
-      self.emit_asm(Addi(Sp, Sp, stack_size))
+      if stack_size != 0 {
+        self.emit_asm(Addi(Sp, Sp, stack_size))
+      }
       self.emit_comment("--- invoke_direct \{label} ---")
       match kind {
         Double => contf(Fa0)
@@ -409,7 +413,9 @@ fn AssemblyFunction::emit_invoke_args(
 
   // 1. Pass by stack in reverse
   let mut offset = 0
-  self.emit_asm(Addi(Sp, Sp, -offset))
+  if stack_size != 0 {
+    self.emit_asm(Addi(Sp, Sp, -stack_size))
+  }
   stack.each(
     fn {
       arg => {
