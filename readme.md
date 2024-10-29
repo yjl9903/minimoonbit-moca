@@ -21,6 +21,17 @@ moon update
 moon install
 ```
 
+Optionally, build RISC-V simulator.
+
+Make sure you have installed zig 0.13.0 ([here](https://github.com/ziglang/zig/wiki/Install-Zig-from-a-Package-Manager)) and cmake.
+
+```bash
+git submodule update --init --recursive
+./build_rvlinux.sh
+```
+
+You will have `rvlinux` linked in the project root directory.
+
 ## Run
 
 Run with RSIC-V backend.

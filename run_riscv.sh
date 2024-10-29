@@ -10,4 +10,4 @@ zig build-exe -target riscv64-linux "-femit-bin=temp/${filename}" \
   "temp/${filename}.s" /runtime/riscv_rt/zig-out/lib/libmincaml.a \
   -O Debug -fno-strip -mcpu=baseline_rv64 || exit $?
 
-rvlinux -n "temp/${filename}"
+./rvlinux -n "temp/${filename}"
