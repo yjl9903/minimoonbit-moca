@@ -6,13 +6,14 @@ pub fn emit(world : @ssa.World) -> AssemblyProgram {
   let functions = machine.methods.map(
     fn { method => create_asm_func(machine, method) },
   )
-  let prog = { functions, }
+  let prog = { functions, world: machine }
   functions.each(fn { func => func.emit_method_body() })
   prog
 }
 
 pub struct AssemblyProgram {
   functions : Array[AssemblyFunction]
+  world : MachineWorld
 }
 
 pub struct AssemblyFunction {
@@ -21,6 +22,7 @@ pub struct AssemblyFunction {
   export : Bool
   body : Array[RvAsm]
   machine : MachineMethod
+  world : MachineWorld
 }
 
 pub fn emit_asm(self : AssemblyFunction, asm : RvAsm) -> Unit {
@@ -41,6 +43,7 @@ fn create_asm_func(
     export: method.is_main,
     body: [],
     machine: method,
+    world,
   }
   asm_func.calc_stack_size()
   asm_func
@@ -207,11 +210,6 @@ fn AssemblyFunction::emit_method_stmt(
         }
       }
     }
-    StoreLabel((recv, offset), label) => {
-      self.emit_get_int_var(T0, recv)
-      self.emit_asm(La(T1, label))
-      self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
-    }
     IfGoto(cond, _true_target, false_target) => {
       match cond {
         Eq(lhs, rhs, Int)
@@ -339,8 +337,10 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_asm(Fld(Ft0, MemAccess::new(T0, offset)))
       contf(Ft0)
     }
-    LoadLabel(recv, label, Int) => @util.die("todo")
-    LoadLabel(recv, label, Double) => @util.die("todo")
+    LoadLabel(label) => {
+      self.emit_asm(La(T0, label))
+      contg(T0)
+    }
 
     // Invoke
     InvokeClosure(callee, args, kind) => {
@@ -412,7 +412,11 @@ fn AssemblyFunction::emit_get_float_var(
 ) -> Unit {
   match var.const_value {
     Some(Int(_)) => @util.die("should be Double")
-    Some(Double(_)) => @util.die("TODO")
+    Some(Double(x)) => {
+      let label = add_double_const(self.world, x)
+      self.emit_asm(La(T0, label))
+      self.emit_asm(Fld(reg, MemAccess::new(T0, 0)))
+    }
     None => self.emit_asm(Fld(reg, MemAccess::new(Fp, var.offset)))
   }
 }

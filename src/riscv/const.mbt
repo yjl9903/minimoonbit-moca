@@ -4,6 +4,14 @@ fn create_method_label(name : String) -> String {
   name.replace_all(old="/", new="_")
 }
 
+fn create_global_variable_label(var : @ssa.Var) -> String {
+  "G.global_variable.\{var.id}"
+}
+
+fn create_double_label(value : Double) -> String {
+  "G.float_const.\{value.to_string()}"
+}
+
 fn AssemblyFunction::create_label(
   self : AssemblyFunction,
   label : Int

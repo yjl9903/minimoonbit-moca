@@ -1,8 +1,19 @@
 pub fn build_machine_ir(world : @ssa.World) -> MachineWorld {
-  let machine = { globals: Map::new(), methods: [], ssa: world }
+  let machine = {
+    globals: Map::new(),
+    doubles: Map::new(),
+    methods: [],
+    ssa: world,
+  }
   // 1. Add global variables
   world.global.each(
-    fn { v => machine.globals.set(v.id, MachineVar::from_ssa(v)) },
+    fn {
+      v =>
+        machine.globals.set(
+          v.id,
+          (create_global_variable_label(v), MachineVar::from_ssa(v)),
+        )
+    },
   )
   // 2. Add methods
   machine.methods.push(
@@ -104,7 +115,7 @@ fn Builder::new(world : MachineWorld, method : MachineMethod) -> Builder {
 fn Builder::get_var(self : Builder, var : @ssa.Var) -> MachineVar {
   if var.is_global {
     match self.world.globals.get(var.id) {
-      Some(v) => v
+      Some(v) => v.1
       None => @util.die("unreachable")
     }
   } else {
@@ -163,6 +174,17 @@ fn Builder::add_int_const_var(self : Builder, value : Int) -> MachineVar {
   self.vars.set(id, var)
   self.method.local_vars.push(var)
   var
+}
+
+fn Builder::add_double_const(world : MachineWorld, value : Double) -> String {
+  match world.doubles.get(value) {
+    Some(label) => label
+    None => {
+      let label = create_double_label(value)
+      world.doubles.set(value, label)
+      label
+    }
+  }
 }
 
 fn Builder::build(self : Builder, method : @ssa.Method) -> Unit {
@@ -245,7 +267,19 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
           if var.is_const() {
             []
           } else if var.is_global {
-            @util.die("todo")
+            let (expr, kind) = match rvalue {
+              Var(var, kind) => (var, kind)
+              _ => {
+                let tmp = self.add_temp_var(var.ty)
+                stmts.push(Definition(Some(tmp), rvalue))
+                (tmp, if tmp.is_float() { Double } else { Int })
+              }
+            }
+            let (label, _) = self.world.globals.get(var.id).unwrap()
+            let addr = self.add_temp_var(Type::Ptr)
+            stmts.push(Definition(Some(addr), LoadLabel(label)))
+            stmts.push(Store((addr, 0), expr, kind))
+            stmts
           } else {
             let def = self.get_var(var)
             match rvalue {
@@ -266,12 +300,6 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
                         Store((tmp, offset), expr, kind) =>
                           if tmp.id == rvalue.id {
                             Store((def, offset), expr, kind)
-                          } else {
-                            stmt
-                          }
-                        StoreLabel((tmp, offset), label) =>
-                          if tmp.id == rvalue.id {
-                            StoreLabel((def, offset), label)
                           } else {
                             stmt
                           }
@@ -307,11 +335,17 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
         Double => (PrimKind::Double, @ssa.f64_size)
         _ => (PrimKind::Int, @ssa.i32_size)
       }
+      let (idx, idx_stmts) = self.build_get_var(idx)
+      let (recv, recv_stmts) = self.build_get_var(recv)
+      let (value, value_stmts) = self.build_get_var(value)
       let size_var = self.add_int_const_var(width)
       [
-        Definition(Some(offset), Prim(self.get_var(idx), size_var, Mul, Int)),
-        Definition(Some(addr), Prim(self.get_var(recv), offset, Add, Int)),
-        Store((addr, 0), self.get_var(value), kind),
+        ..idx_stmts,
+        Definition(Some(offset), Prim(idx, size_var, Mul, Int)),
+        ..recv_stmts,
+        Definition(Some(addr), Prim(recv, offset, Add, Int)),
+        ..value_stmts,
+        Store((addr, 0), value, kind),
       ]
     }
     IfGoto(cond, true_branch, false_branch, _) => {
@@ -322,17 +356,37 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
             _ => PrimKind::Int
           }
       }
+      let stmts = []
       let cond = match cond {
-        Eq(lhs, rhs) => Eq(self.get_var(lhs), self.get_var(rhs), kind)
-        Le(lhs, rhs) => Le(self.get_var(lhs), self.get_var(rhs), kind)
+        Eq(lhs, rhs) => {
+          let (lhs, lhs_stmts) = self.build_get_var(lhs)
+          let (rhs, rhs_stmts) = self.build_get_var(rhs)
+          stmts.push_iter(lhs_stmts.iter())
+          stmts.push_iter(rhs_stmts.iter())
+          Eq(lhs, rhs, kind)
+        }
+        Le(lhs, rhs) => {
+          let (lhs, lhs_stmts) = self.build_get_var(lhs)
+          let (rhs, rhs_stmts) = self.build_get_var(rhs)
+          stmts.push_iter(lhs_stmts.iter())
+          stmts.push_iter(rhs_stmts.iter())
+          Le(lhs, rhs, kind)
+        }
       }
-      [IfGoto(cond, true_branch, false_branch)]
+      [..stmts, IfGoto(cond, true_branch, false_branch)]
     }
     Goto(l) => [Goto(l)]
     Break(_, l) => [Goto(l)]
     Continue(l) => [Goto(l)]
     Nop => [Nop]
-    Return(v) => [Return(v.map(fn { v => self.get_var(v) }))]
+    Return(v) =>
+      match v {
+        Some(v) => {
+          let (v, stmts) = self.build_get_var(v)
+          [..stmts, Return(Some(v))]
+        }
+        None => [Return(None)]
+      }
   }
 }
 
@@ -343,7 +397,11 @@ fn Builder::build_rvalue(
   match rvalue {
     Unit => (Int(0), [])
     Int(x) => (Int(x), [])
-    Double(x) => @util.die("todo")
+    Double(x) => {
+      let label = add_double_const(self.world, x)
+      let addr = self.add_temp_var(Ptr)
+      (Load((addr, 0), Double), [Definition(Some(addr), LoadLabel(label))])
+    }
     Neg(v, kind) => (Neg(self.get_var(v), kind), [])
     Prim(lhs, rhs, op, kind) =>
       (Prim(self.get_var(lhs), self.get_var(rhs), op, kind), [])
@@ -351,11 +409,25 @@ fn Builder::build_rvalue(
       let var = self.get_var(v)
       match var.const_value {
         Some(Int(x)) => (Int(x), [])
-        Some(Double(x)) => @util.die("todo")
+        Some(Double(x)) => {
+          let label = add_double_const(self.world, x)
+          let addr = self.add_temp_var(Ptr)
+          (Load((addr, 0), Double), [Definition(Some(addr), LoadLabel(label))])
+        }
         None =>
           if var.is_global {
-            // TODO
-            @util.die("todo")
+            let (label, _) = self.world.globals.get(var.id).unwrap()
+            let addr = self.add_temp_var(Ptr)
+            (
+              Load(
+                (addr, 0),
+                match v.ty {
+                  Double => Double
+                  _ => Int
+                },
+              ),
+              [Definition(Some(addr), LoadLabel(label))],
+            )
           } else {
             (
               Var(
@@ -400,7 +472,9 @@ fn Builder::build_rvalue(
       let stmts = [def_stmt]
       // 1. Store fp
       let mut offset = @ssa.i32_size
-      stmts.push(StoreLabel((def, 0), create_method_label(label)))
+      let addr = self.add_temp_var(Type::Ptr)
+      stmts.push(Definition(Some(addr), LoadLabel(create_method_label(label))))
+      stmts.push(Store((def, 0), addr, Int))
       // 2. Store fields
       fvs.sort_by_key(fn { (fv, _) => fv.slot })
       fvs.each(
@@ -505,5 +579,35 @@ fn Builder::build_rvalue(
 
     // Phi
     Phi(vars) => (Phi(vars.map(fn { v => self.get_var(v) })), [])
+  }
+}
+
+fn Builder::build_get_var(
+  self : Builder,
+  var : @ssa.Var
+) -> (MachineVar, Array[StmtKind]) {
+  if var.is_global {
+    match self.world.globals.get(var.id) {
+      Some((label, g)) => {
+        let addr = self.add_temp_var(Ptr)
+        let tmp = self.add_temp_var(var.ty)
+        (
+          tmp,
+          [
+            Definition(Some(addr), LoadLabel(label)),
+            Definition(
+              Some(tmp),
+              Load((addr, 0), if g.is_float() { Double } else { Int }),
+            ),
+          ],
+        )
+      }
+      None => @util.die("unreachable")
+    }
+  } else {
+    match self.vars.get(var.id) {
+      Some(v) => (v, [])
+      None => @util.die("unreachable")
+    }
   }
 }
