@@ -14,3 +14,14 @@ pub struct World {
   methods : Map[String, Method]
   main_method : Method
 }
+
+pub fn get_method_type(self : World, label : String) -> Type? {
+  match self.methods.get(label) {
+    Some(m) => Some(m.ty)
+    None =>
+      match self.externals.get(label) {
+        Some(mty) => Some(mty)
+        None => None
+      }
+  }
+}

@@ -434,7 +434,7 @@ fn Builder::build_rvalue(
 
     // Invoke
     InvokeDirect(label, args) => {
-      let ty = self.world.ssa.methods.get(label).unwrap().ty
+      let ty = self.world.ssa.get_method_type(label).unwrap()
       let ret_type = @closure.extract_return_type(ty)
       let invoke = InvokeDirect(
         label,
