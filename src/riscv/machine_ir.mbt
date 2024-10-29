@@ -7,13 +7,14 @@ pub struct MachineWorld {
 pub struct MachineMethod {
   id : Int
   name : String
+  label : String
   ty : Type
   is_main : Bool
 
   // vars
   this : MachineVar?
-  params : Array[MachineVar]
-  local_vars : Array[MachineVar]
+  params : Array[MachineVar] // including this, params
+  local_vars : Array[MachineVar] // including this, params, local_vars
 
   // info
   stack_vars : Map[Int, MachineVar]

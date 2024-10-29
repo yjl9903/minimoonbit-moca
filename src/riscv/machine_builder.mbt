@@ -19,6 +19,12 @@ fn create_machine_method(
   method : @ssa.Method,
   ~is_main : Bool = false
 ) -> MachineMethod {
+  let local_vars = method.local_vars.map(fn { p => MachineVar::from_ssa(p) })
+  let param_vars = local_vars.filter(fn { v => v.is_param })
+  let this_var = match local_vars.search_by(fn { v => v.is_this && v.is_param }) {
+    Some(idx) => Some(local_vars[idx])
+    None => None
+  }
   let machine = {
     id: method.slot,
     name: if is_main {
@@ -26,11 +32,16 @@ fn create_machine_method(
     } else {
       method.name
     },
+    label: if is_main {
+      "minimbt_main"
+    } else {
+      create_method_label(method.name)
+    },
     ty: method.ty,
     is_main,
-    this: method.this.map(fn { v => MachineVar::from_ssa(v) }),
-    params: method.params.map(fn { p => MachineVar::from_ssa(p) }),
-    local_vars: method.local_vars.map(fn { p => MachineVar::from_ssa(p) }),
+    this: this_var,
+    params: param_vars,
+    local_vars: local_vars,
     body: { stmts: [], blocks: [] },
     stack_vars: Map::new(),
     stack_size: 0,
@@ -346,7 +357,7 @@ fn Builder::build_rvalue(
           let stmts = [def_stmt]
           // 1. Store fp
           let mut offset = @ssa.i32_size
-          stmts.push(StoreAddress((def, 0), label))
+          stmts.push(StoreAddress((def, 0), create_method_label(label)))
           // 2. Store fields
           fvs.sort_by_key(fn { (fv, _) => fv.slot })
           fvs.each(
@@ -437,7 +448,7 @@ fn Builder::build_rvalue(
       let ty = self.world.ssa.get_method_type(label).unwrap()
       let ret_type = @closure.extract_return_type(ty)
       let invoke = InvokeDirect(
-        label,
+        create_method_label(label),
         args.map(fn { a => self.get_var(a) }),
         match ret_type {
           Double => Double
