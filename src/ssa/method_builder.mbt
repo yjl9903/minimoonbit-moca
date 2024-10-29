@@ -26,7 +26,7 @@ fn MethodBuilder::new_main(world_builder : WorldBuilder) -> MethodBuilder {
     args: [],
     is_closure: false,
     formal_free_vars: [],
-    ssa_builder: SsaBuilder::new(world_builder, old_name, ty),
+    ssa_builder: SsaBuilder::new(world_builder, name, old_name, ty),
   }
 }
 
@@ -39,18 +39,26 @@ fn MethodBuilder::new(
   let free_vars = free_vars.filter(
     fn { (name, _) => not(world_builder.global_vars.contains(name)) },
   )
+  let is_closure = free_vars.length() > 0
   let builder = {
     id: def.id,
     name: def.name._,
     old_name: def.old_name,
     ty: def.ty,
     args: def.args,
-    is_closure: def.is_closure,
+    is_closure,
     formal_free_vars: free_vars,
-    ssa_builder: SsaBuilder::new(world_builder, def.old_name, def.ty),
+    ssa_builder: SsaBuilder::new(
+      world_builder,
+      def.name._,
+      def.old_name,
+      def.ty,
+    ),
   }
   // Build this and free vars
-  builder.ssa_builder.add_this()
+  if is_closure {
+    builder.ssa_builder.add_this()
+  }
   if builder.is_closure {
     builder.ssa_builder.add_free_vars(builder.formal_free_vars)
   }
@@ -60,6 +68,7 @@ fn MethodBuilder::new(
 }
 
 struct SsaBuilder {
+  name : String
   old_name : Name
   ty : Type
   mut this : Var?
@@ -90,11 +99,13 @@ struct LoopBuilder {
 
 fn SsaBuilder::new(
   world_builder : WorldBuilder,
+  name : String,
   old_name : Name,
   ty : Type
 ) -> SsaBuilder {
   let current_block = Block::new(0)
   {
+    name,
     old_name,
     ty,
     this: None,
@@ -231,7 +242,16 @@ fn SsaBuilder::get_var(self : SsaBuilder, name : Name) -> Var {
     None =>
       // 2. Recursion
       if name == self.old_name {
-        self.this.or_else(fn() { @util.die("should have this var") })
+        self.this.or_else(
+          fn() {
+            // Build a closure for usage
+            let this_closure = self.add_local_temp_var(self.ty)
+            let _ = self.emit(
+              Definition(Some(this_closure), Closure(self.name, [])),
+            )
+            this_closure
+          },
+        )
       } else {
         match self.free_vars.get(name) {
           // 3. Find in the closure env
