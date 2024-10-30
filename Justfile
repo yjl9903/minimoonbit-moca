@@ -447,4 +447,5 @@ test-riscv:
 
 
 submit:
+  rm -f submit.zip
   git archive -o submit.zip HEAD
