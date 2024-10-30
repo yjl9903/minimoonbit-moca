@@ -1,6 +1,4 @@
 pub fn transform_may_tail_recursion(knf : Knf) -> Knf {
-  let max_counter = @knf.knf_max_counter(knf)
-  knf_counter.val = max_counter + 1
   visit_knf_may_tail(knf)
 }
 
@@ -84,7 +82,7 @@ fn MayTailContext::transform(self : MayTailContext) -> @knf.FuncDef {
         // Add acc arg
         let args = []
         args.push_iter(self.def.args.iter())
-        let acc = new_temp()
+        let acc = @knf.new_temp()
         args.push((acc, ty))
         // Build loop body
         let loop_body = Knf::Loop(
@@ -358,7 +356,7 @@ fn MayTailContext::transform_stmt(
           Add(lhs, rhs) | FAdd(lhs, rhs) | Mul(lhs, rhs) | FMul(lhs, rhs) =>
             if name == lhs || name == rhs {
               let other = if name == lhs { rhs } else { lhs }
-              let temp_acc = new_temp()
+              let temp_acc = @knf.new_temp()
               let temp_expr : Knf = match rest {
                 Add(_) => Add(acc.0, other)
                 FAdd(_) => FAdd(acc.0, other)
