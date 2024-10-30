@@ -338,7 +338,15 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
                 fn {
                   args =>
                     (
-                      Knf::Apply(func, args.map(fn { a => a.0 })),
+                      if func.slot == 0 {
+                        // ExternalApplication
+                        Knf::ExternalFunctionApplication(
+                          @shared.ffi_prefix + name,
+                          args.map(fn { a => a.0 }),
+                        )
+                      } else {
+                        Knf::Apply(func, args.map(fn { a => a.0 }))
+                      },
                       match extract_return_type(func_ty) {
                         Some(t) => t
                         None =>
