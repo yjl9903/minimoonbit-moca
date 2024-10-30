@@ -3,35 +3,32 @@ pub typealias LocalEnv = @immut/hashmap.T[String, Type]
 pub let knf_counter : Ref[Int] = { val: 0 }
 
 struct KnfEnv {
-  // mut counter : Int
-  env : @hashmap.T[String, (Name, Type)]
+  mut env : @immut/hashmap.T[String, (Name, Type)]
   externals : @immut/hashmap.T[String, Type]
 }
 
 pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
-  let env = { env: @hashmap.new(), externals }
+  let knf_env = { env: @immut/hashmap.new(), externals }
   externals.each(
     fn {
       name, typ => {
         let binding = Name::name_only(@shared.ffi_prefix + name)
-        env.env.set(name, (binding, typ))
+        knf_env.env = knf_env.env.add(name, (binding, typ))
       }
     },
   )
-  env
+  knf_env
 }
 
 pub fn KnfEnv::fork(self : KnfEnv) -> KnfEnv {
-  let fork_env = @hashmap.new()
-  self.env.each(fn { k, v => fork_env.set(k, v) })
-  { env: fork_env, externals: self.externals }
+  { env: self.env, externals: self.externals }
 }
 
 pub fn KnfEnv::init_counter_from_existing(
   _self : KnfEnv,
   _existing : Knf
 ) -> Unit {
-  // self.counter = knf_max_counter(existing) + 1
+  ()
 }
 
 pub fn new_temp() -> Name {
@@ -48,7 +45,7 @@ pub fn new_named_temp(name : String) -> Name {
 
 fn KnfEnv::new_let_binding(self : KnfEnv, name : String, typ : Type) -> Name {
   let binding : Name = { name: Some(name), slot: knf_counter.val }
-  self.env.set(name, (binding, typ))
+  self.env = self.env.add(name, (binding, typ))
   knf_counter.val += 1
   binding
 }
@@ -56,7 +53,7 @@ fn KnfEnv::new_let_binding(self : KnfEnv, name : String, typ : Type) -> Name {
 fn KnfEnv::new_let_rec_binding(self : KnfEnv, def : @types.Fundef) -> Name {
   let name = def.name.0
   let binding : Name = { name: Some(name), slot: knf_counter.val }
-  self.env.set(name, (binding, def.name.1))
+  self.env = self.env.add(name, (binding, def.name.1))
   knf_counter.val += 1
   binding
 }
@@ -65,11 +62,11 @@ fn KnfEnv::find_binding_by_string(
   self : KnfEnv,
   name : String
 ) -> (Name, Type)? {
-  self.env.get(name)
+  self.env.find(name)
 }
 
 fn KnfEnv::find_name_by_string(self : KnfEnv, name : String) -> Name? {
-  self.env.get(name).map(fn { v => v.0 })
+  self.env.find(name).map(fn { v => v.0 })
 }
 
 pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
@@ -81,14 +78,14 @@ fn KnfEnv::visit_global_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
     match syntax {
       Unit => Knf::Unit
       Let((name, typ), expr, rest) => {
-        let (expr, _) = self.visit_expr(expr)
+        let (expr, _) = self.fork().visit_expr(expr)
         let name = self.new_let_binding(name, typ)
         Knf::Let((name, typ), expr, visitor(rest))
       }
       LetRec(def, rest) =>
         match def.name.0 {
           "init" => {
-            let (body, _) = self.visit_stmt(def.body)
+            let (body, _) = self.fork().visit_stmt(def.body)
             let temp = new_temp()
             let rest = visitor(rest)
             Knf::Let((temp, Unit), body, rest)
@@ -130,7 +127,7 @@ fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
 fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
   match syntax {
     Let((name, typ), expr, rest) => {
-      let (expr, _) = self.visit_expr(expr)
+      let (expr, _) = self.fork().visit_expr(expr)
       let name = self.new_let_binding(name, typ)
       let (rest, rest_type) = self.visit_stmt(rest)
       (Knf::Let((name, typ), expr, rest), rest_type)
@@ -165,7 +162,7 @@ fn KnfEnv::to_let_temp(
   expr : @types.Syntax,
   rest : ((Name, Type)) -> (Knf, Type)
 ) -> (Knf, Type) {
-  let (expr, expr_type) = self.visit_expr(expr)
+  let (expr, expr_type) = self.fork().visit_expr(expr)
   let name = new_temp()
   let (rest, rest_type) = rest((name, expr_type))
   (Knf::Let((name, expr_type), expr, rest), rest_type)
@@ -216,7 +213,7 @@ fn KnfEnv::to_let_temps(
   let exprs = exprs.map(
     fn {
       expr => {
-        let (expr, expr_type) = self.visit_expr(expr)
+        let (expr, expr_type) = self.fork().visit_expr(expr)
         let name = new_temp()
         (name, expr_type, expr)
       }
@@ -331,7 +328,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
     App(sig, args) =>
       match sig {
         Var(name) =>
-          match self.env.get(name) {
+          match self.env.find(name) {
             Some((func, func_ty)) =>
               self.to_let_temps(
                 args,
@@ -432,8 +429,8 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             rhs,
             fn {
               (lhs, _), (rhs, _) => {
-                let (true_branch, true_type) = self.visit_stmt(true_branch)
-                let (false_branch, _) = self.visit_stmt(false_branch)
+                let (true_branch, true_type) = self.fork().visit_stmt(true_branch)
+                let (false_branch, _) = self.fork().visit_stmt(false_branch)
                 (
                   Knf::IfEq(lhs, rhs, true_branch, false_branch, true_type),
                   true_type,
@@ -447,8 +444,8 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             rhs,
             fn {
               (lhs, _), (rhs, _) => {
-                let (true_branch, true_type) = self.visit_stmt(true_branch)
-                let (false_branch, _) = self.visit_stmt(false_branch)
+                let (true_branch, true_type) = self.fork().visit_stmt(true_branch)
+                let (false_branch, _) = self.fork().visit_stmt(false_branch)
                 (
                   Knf::IfLe(lhs, rhs, true_branch, false_branch, true_type),
                   true_type,
@@ -461,8 +458,8 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             cond,
             fn {
               (cond, _) => {
-                let (true_branch, true_type) = self.visit_stmt(true_branch)
-                let (false_branch, _) = self.visit_stmt(false_branch)
+                let (true_branch, true_type) = self.fork().visit_stmt(true_branch)
+                let (false_branch, _) = self.fork().visit_stmt(false_branch)
                 (
                   Knf::IfEq(
                     cond,
