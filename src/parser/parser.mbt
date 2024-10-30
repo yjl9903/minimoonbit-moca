@@ -635,7 +635,7 @@ fn value_expr(state : State) -> Syntax!ParseError {
           fn {
             s => {
               s.accept!(TokenKind::LPAREN)
-              let result = s.parse!(value_expr)
+              let result = s.parse!(expr)
               s.accept!(TokenKind::RPAREN)
               debug("get_or_apply_level_expr: \{result}")
               result
