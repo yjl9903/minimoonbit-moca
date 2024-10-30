@@ -53,6 +53,15 @@ fn add_interpreter_fns(interpreter : @knf_eval.KnfInterpreter) -> Unit {
     },
   )
   interpreter.add_extern_fn(
+    "minimbt_atan",
+    fn(args) {
+      match args[0] {
+        Double(d) => Double(@math.atan(d))
+        _ => @util.die("atan expects Double")
+      }
+    },
+  )
+  interpreter.add_extern_fn(
     "minimbt_sqrt",
     fn(args) {
       match args[0] {
@@ -147,6 +156,15 @@ fn add_closure_interpreter_fns(
     },
   )
   interpreter.add_extern_fn(
+    "minimbt_atan",
+    fn(args) {
+      match args[0] {
+        Double(d) => Double(@math.atan(d))
+        _ => @util.die("atan expects Double")
+      }
+    },
+  )
+  interpreter.add_extern_fn(
     "minimbt_sqrt",
     fn(args) {
       match args[0] {
@@ -201,6 +219,7 @@ fn externals() -> @immut/hashmap.T[String, @types.Type] {
   .add("truncate", @types.Fun([Double], Int))
   .add("sin", @types.Fun([Double], Double))
   .add("cos", @types.Fun([Double], Double))
+  .add("atan", @types.Fun([Double], Double))
   .add("sqrt", @types.Fun([Double], Double))
   .add("abs_float", @types.Fun([Double], Double))
   .add("int_of_float", @types.Fun([Double], Int))
