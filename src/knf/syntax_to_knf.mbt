@@ -328,30 +328,51 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
         None => @util.die("miss typing information : Neg(expr, None)")
       }
     /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...)) 
-    App(sig, args) => {
-      let external = match sig {
+    App(sig, args) =>
+      match sig {
         Var(name) =>
-          self.externals
-          .find(name)
-          .map(fn { external_typ => (@shared.ffi_prefix + name, external_typ) })
-        _ => None
-      }
-      match external {
-        Some((name, external_typ)) =>
-          self.to_let_temps(
-            args,
-            fn {
-              args =>
-                (
-                  ExternalFunctionApplication(name, args.map(fn { a => a.0 })),
-                  match extract_return_type(external_typ) {
-                    Some(t) => t
-                    None => @util.die("Type mismatch: should be function type")
-                  },
-                )
-            },
-          )
-        None =>
+          match self.env.get(name) {
+            Some((func, func_ty)) =>
+              self.to_let_temps(
+                args,
+                fn {
+                  args =>
+                    (
+                      Knf::Apply(func, args.map(fn { a => a.0 })),
+                      match extract_return_type(func_ty) {
+                        Some(t) => t
+                        None =>
+                          @util.die("Type mismatch: should be function type")
+                      },
+                    )
+                },
+              )
+            None =>
+              match self.externals.find(name) {
+                Some(external_typ) =>
+                  self.to_let_temps(
+                    args,
+                    fn {
+                      args =>
+                        (
+                          ExternalFunctionApplication(
+                            @shared.ffi_prefix + name,
+                            args.map(fn { a => a.0 }),
+                          ),
+                          match extract_return_type(external_typ) {
+                            Some(t) => t
+                            None =>
+                              @util.die(
+                                "Type mismatch: should be function type",
+                              )
+                          },
+                        )
+                    },
+                  )
+                None => @util.die("unknown function \{name}")
+              }
+          }
+        _ =>
           self.to_let_temp(
             sig,
             fn {
@@ -373,7 +394,6 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             },
           )
       }
-    }
     Get(recv, idx) =>
       /// let _recv = (recv) in let _idx = (idx) in Get(_recv, _idx)
       self.to_let_temp(
