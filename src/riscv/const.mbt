@@ -9,7 +9,7 @@ fn create_global_variable_label(var : @ssa.Var) -> String {
 }
 
 fn create_double_label(value : Double) -> String {
-  "G.float_const.\{value.to_string()}"
+  "G.float_const.\{value.reinterpret_as_u64().to_string()}"
 }
 
 fn AssemblyFunction::create_label(
