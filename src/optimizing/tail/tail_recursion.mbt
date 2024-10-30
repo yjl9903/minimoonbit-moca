@@ -1,6 +1,4 @@
 pub fn transform_tail_recursion(knf : Knf) -> Knf {
-  let max_counter = @knf.knf_max_counter(knf)
-  knf_counter.val = max_counter + 1
   visit_knf_tail(knf)
 }
 
