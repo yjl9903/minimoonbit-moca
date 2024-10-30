@@ -36,7 +36,7 @@ fn Gamma::inherit(
             for i = 0; i < n; i = i + 1 {
               let el = els[i]
               let expected = expected[i]
-              self.inherit!(el, expected)
+              self.fork().inherit!(el, expected)
             }
           } else {
             raise TypeError("Type mismatch: tuple length \{syntax}")
@@ -44,10 +44,10 @@ fn Gamma::inherit(
         _ => raise TypeError("Type mismatch: should be tuple \{syntax}")
       }
     Array(n, el) => {
-      self.inherit!(n, Type::Int)
+      self.fork().inherit!(n, Type::Int)
       match expected {
         Array(expected) | Var({ val: Some(Array(expected)) }) =>
-          self.inherit!(el, expected)
+          self.fork().inherit!(el, expected)
         _ => raise TypeError("Type mismatch: should be array \{syntax}")
       }
     }
@@ -55,18 +55,19 @@ fn Gamma::inherit(
     // Operation
     Not(expr) =>
       match expected {
-        Bool | Var({ val: Some(Bool) }) => self.inherit!(expr, Type::Bool)
+        Bool | Var({ val: Some(Bool) }) =>
+          self.fork().inherit!(expr, Type::Bool)
         _ => raise TypeError("Type mismatch: should be bool")
       }
     Neg(expr, ..) as neg =>
       match expected {
         Int | Var({ val: Some(Int) }) => {
           neg.kind = Some(Kind::Int)
-          self.inherit!(expr, Type::Int)
+          self.fork().inherit!(expr, Type::Int)
         }
         Double | Var({ val: Some(Double) }) => {
           neg.kind = Some(Kind::Double)
-          self.inherit!(expr, Type::Double)
+          self.fork().inherit!(expr, Type::Double)
         }
         _ => raise TypeError("Type mismatch: should be numeric")
       }
@@ -74,29 +75,29 @@ fn Gamma::inherit(
       match expected {
         Int | Var({ val: Some(Int) }) => {
           prim.kind = Some(Kind::Int)
-          self.inherit!(lhs, Type::Int)
-          self.inherit!(rhs, Type::Int)
+          self.fork().inherit!(lhs, Type::Int)
+          self.fork().inherit!(rhs, Type::Int)
         }
         Double | Var({ val: Some(Double) }) => {
           prim.kind = Some(Kind::Double)
-          self.inherit!(lhs, Type::Double)
-          self.inherit!(rhs, Type::Double)
+          self.fork().inherit!(lhs, Type::Double)
+          self.fork().inherit!(rhs, Type::Double)
         }
         Var({ val: None } as vt) => {
-          let lhs_typ = self.synthesis!(lhs)
-          let rhs_typ = self.synthesis!(rhs)
+          let lhs_typ = self.fork().synthesis!(lhs)
+          let rhs_typ = self.fork().synthesis!(rhs)
           match unify!(lhs_typ, rhs_typ) {
             Int => {
               vt.val = Some(Int)
               prim.kind = Some(Kind::Int)
-              self.inherit!(lhs, Type::Int)
-              self.inherit!(rhs, Type::Int)
+              self.fork().inherit!(lhs, Type::Int)
+              self.fork().inherit!(rhs, Type::Int)
             }
             Double => {
               vt.val = Some(Double)
               prim.kind = Some(Kind::Double)
-              self.inherit!(lhs, Type::Double)
-              self.inherit!(rhs, Type::Double)
+              self.fork().inherit!(lhs, Type::Double)
+              self.fork().inherit!(rhs, Type::Double)
             }
             _ => raise TypeError("Type mismatch: should be numeric")
           }
@@ -106,8 +107,8 @@ fn Gamma::inherit(
     Eq(lhs, rhs) | LE(lhs, rhs) =>
       match expected {
         Bool | Var({ val: Some(Bool) }) => {
-          let lhs_typ = self.synthesis!(lhs)
-          let rhs_typ = self.synthesis!(rhs)
+          let lhs_typ = self.fork().synthesis!(lhs)
+          let rhs_typ = self.fork().synthesis!(rhs)
           let unified = unify!(lhs_typ, rhs_typ)
           match unified {
             Int | Bool | Double | Var({ val: Some(Int | Bool | Double) }) => ()
@@ -120,12 +121,12 @@ fn Gamma::inherit(
         _ => raise TypeError("Type mismatch: should be Bool, \{syntax}")
       }
     App(sig, args) => {
-      let synthed_sig = self.synthesis!(sig)
+      let synthed_sig = self.fork().synthesis!(sig)
       match synthed_sig {
         Fun(targs, tret) | Var({ val: Some(Fun(targs, tret)) }) =>
           if targs.length() == args.length() {
             for i = 0; i < targs.length(); i = i + 1 {
-              self.inherit!(args[i], targs[i])
+              self.fork().inherit!(args[i], targs[i])
             }
             let _ = unify!(tret, expected)
             ()
@@ -137,12 +138,12 @@ fn Gamma::inherit(
         Var({ val: None } as ref) => {
           let targs : Array[Type] = Array::new()
           for i = 0; i < args.length(); i = i + 1 {
-            let synthed = self.synthesis!(args[i])
+            let synthed = self.fork().synthesis!(args[i])
             targs.push(synthed)
           }
           let typ = Type::Fun(targs, expected)
           ref.val = Some(typ)
-          self.inherit!(sig, typ)
+          self.fork().inherit!(sig, typ)
         }
         _ => raise TypeError("Type mismatch: \{sig} : \{synthed_sig}")
       }
@@ -150,20 +151,20 @@ fn Gamma::inherit(
 
     // Branch
     If(cond, true_branch, false_branch) => {
-      self.inherit!(cond, Type::Bool)
-      self.inherit!(true_branch, expected)
-      self.inherit!(false_branch, expected)
+      self.fork().inherit!(cond, Type::Bool)
+      self.fork().inherit!(true_branch, expected)
+      self.fork().inherit!(false_branch, expected)
     }
 
     // Array
     Get(recv, idx) => {
-      self.inherit!(recv, Type::Array(expected))
-      self.inherit!(idx, Type::Int)
+      self.fork().inherit!(recv, Type::Array(expected))
+      self.fork().inherit!(idx, Type::Int)
     }
     Put(_) =>
       match expected {
         Unit | Var({ val: Some(Unit) }) => {
-          let _ = self.synthesis!(syntax)
+          let _ = self.fork().synthesis!(syntax)
           ()
         }
         _ =>
@@ -199,10 +200,10 @@ fn Gamma::inherit_let(
     if not(is_known_type(typ)) {
       raise TypeError("Unknown type \{typ}")
     }
-    self.inherit!(expr, typ)
+    self.fork().inherit!(expr, typ)
   } else {
     // Infer type from expr
-    let synthed = self.synthesis!(expr)
+    let synthed = self.fork().synthesis!(expr)
     match typ {
       Var(typ) => typ.val = Some(synthed)
       _ => ()
@@ -271,7 +272,7 @@ fn Gamma::inherit_let_tuple(
   els : Array[(String, Type)],
   expr : @types.Syntax
 ) -> Unit!TypeError {
-  let synthed_tuple = self.synthesis!(expr)
+  let synthed_tuple = self.fork().synthesis!(expr)
   match synthed_tuple {
     Tuple(synthed_els) | Var({ val: Some(Tuple(synthed_els)) }) =>
       if els.length() == synthed_els.length() {
@@ -306,7 +307,7 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
           }
       }
     Tuple(els) => {
-      let types = els.map(fn { e => self.synthesis?(e) })
+      let types = els.map(fn { e => self.fork().synthesis?(e) })
       let type_error = types.search_by(fn { t => t.is_err() })
       let types = match type_error {
         Some(i) =>
@@ -319,17 +320,17 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       Type::Tuple(types)
     }
     Array(n, el) => {
-      self.inherit!(n, Type::Int)
-      Type::Array(self.synthesis!(el))
+      self.fork().inherit!(n, Type::Int)
+      Type::Array(self.fork().synthesis!(el))
     }
 
     // Operation
     Not(expr) => {
-      self.inherit!(expr, Type::Bool)
+      self.fork().inherit!(expr, Type::Bool)
       Type::Bool
     }
     Neg(expr, ..) as neg =>
-      match self.synthesis?(expr) {
+      match self.fork().synthesis?(expr) {
         Ok(Int) | Ok(Var({ val: Some(Int) })) => {
           neg.kind = Some(Kind::Int)
           Type::Int
@@ -342,7 +343,7 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
         _ => raise TypeError("Type mismatch: should be numeric")
       }
     Prim(lhs, rhs, _, ..) as prim =>
-      match unify!(self.synthesis!(lhs), self.synthesis!(rhs)) {
+      match unify!(self.fork().synthesis!(lhs), self.fork().synthesis!(rhs)) {
         Int => {
           prim.kind = Some(Kind::Int)
           Int
@@ -355,23 +356,23 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
         _ => raise TypeError("Type mismatch: should be Int, Double")
       }
     Eq(lhs, rhs) | LE(lhs, rhs) =>
-      match unify!(self.synthesis!(lhs), self.synthesis!(rhs)) {
+      match unify!(self.fork().synthesis!(lhs), self.fork().synthesis!(rhs)) {
         Int | Double | Bool => Bool
         _ => raise TypeError("Type mismatch: should be Int, Bool, Double")
       }
     App(sig, args) => {
-      let tsig = self.synthesis!(sig)
+      let tsig = self.fork().synthesis!(sig)
       match tsig {
         Fun(targs, tret) | Var({ val: Some(Fun(targs, tret)) }) => {
           for i = 0; i < targs.length(); i = i + 1 {
-            self.inherit!(args[i], targs[i])
+            self.fork().inherit!(args[i], targs[i])
           }
           tret
         }
         Var({ val: None } as at) => {
           let targs : Array[Type] = Array::new(capacity=args.length())
           for i = 0; i < args.length(); i = i + 1 {
-            let argt = self.synthesis!(args[i])
+            let argt = self.fork().synthesis!(args[i])
             targs.push(argt)
           }
           let syn = Type::Fun(targs, Type::Var({ val: None }))
@@ -384,16 +385,16 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
 
     // Branch
     If(cond, true_branch, false_branch) => {
-      self.inherit!(cond, Type::Bool)
-      let true_type = self.synthesis!(true_branch)
-      let false_type = self.synthesis!(false_branch)
+      self.fork().inherit!(cond, Type::Bool)
+      let true_type = self.fork().synthesis!(true_branch)
+      let false_type = self.fork().synthesis!(false_branch)
       unify!(true_type, false_type)
     }
 
     // Array
     Get(recv, idx) => {
-      let trecv = self.synthesis!(recv)
-      self.inherit!(idx, Type::Int)
+      let trecv = self.fork().synthesis!(recv)
+      self.fork().inherit!(idx, Type::Int)
       match trecv {
         Array(el) | Var({ val: Some(Array(el)) }) => el
         Var({ val: None } as at) => {
@@ -405,9 +406,9 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       }
     }
     Put(recv, idx, expr) => {
-      let recv_typ = self.synthesis!(recv)
-      self.inherit!(idx, Type::Int)
-      let expr_typ = self.synthesis!(expr)
+      let recv_typ = self.fork().synthesis!(recv)
+      self.fork().inherit!(idx, Type::Int)
+      let expr_typ = self.fork().synthesis!(expr)
       let _ = unify!(recv_typ, Array(expr_typ))
       Type::Unit
     }
