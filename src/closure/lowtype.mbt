@@ -121,35 +121,3 @@ pub fn to_direct_fn_low_type(typ : Type) -> LowType {
     Var({ val: None }) => @util.die("Unknown type \{typ}")
   }
 }
-
-fn unify(lhs : LowType, rhs : LowType) -> LowType {
-  match (lhs, rhs) {
-    (Unit, Unit) => Unit
-    (Bool, Bool) => Bool
-    (Int, Int) => Int
-    (Double, Double) => Double
-    (Ptr, Ptr) => Ptr
-    (Array(lhs), Array(rhs)) => unify(lhs, rhs)
-    (Tuple(lhs), Tuple(rhs)) =>
-      if lhs.length() == rhs.length() {
-        Tuple(lhs.mapi(fn { i, _ => unify(lhs[i], rhs[i]) }))
-      } else {
-        @util.die("Type mismatch: different tuple length \{lhs} - \{rhs}")
-      }
-    (
-      DirectFn(l_args, l_ret) | ClosureFn(l_args, l_ret),
-      DirectFn(r_args, r_ret) | ClosureFn(r_args, r_ret),
-    ) =>
-      if l_args.length() == r_args.length() {
-        let args = l_args.mapi(fn { i, _ => unify(l_args[i], r_args[i]) })
-        let ret = unify(l_ret, r_ret)
-        match (lhs, rhs) {
-          (DirectFn(_), DirectFn(_)) => DirectFn(args, ret)
-          _ => ClosureFn(args, ret)
-        }
-      } else {
-        @util.die("Type mismatch: different args length \{lhs} - \{rhs}")
-      }
-    _ => @util.die("Type mismatch: should be typechecked")
-  }
-}
