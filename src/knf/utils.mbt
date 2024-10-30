@@ -74,16 +74,6 @@ pub fn knf_max_counter(knf : Knf) -> Int {
   }
 }
 
-fn concat_knf(lhs : Knf, rhs : Knf) -> Knf {
-  match lhs {
-    Unit => rhs
-    Let(_, _, rest) => concat_knf(rest, rhs)
-    LetRec(_, rest) => concat_knf(rest, rhs)
-    LetTuple(_, _, rest) => concat_knf(rest, rhs)
-    _ => lhs
-  }
-}
-
 pub fn extract_array_type(typ : Type) -> Type? {
   match typ {
     Array(typ) | Var({ val: Some(Array(typ)) }) => Some(typ)
