@@ -50,14 +50,3 @@ fn is_known_type(typ : Type) -> Bool {
     _ => true
   }
 }
-
-// fn unwrap_type(typ : Type) -> Type? {
-//   match typ {
-//     Var(t) =>
-//       match t.val {
-//         Some(t) => unwrap_type(t)
-//         None => None
-//       }
-//     _ => Some(typ)
-//   }
-// }
