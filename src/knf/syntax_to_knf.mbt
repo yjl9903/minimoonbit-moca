@@ -1,6 +1,6 @@
 pub typealias LocalEnv = @immut/hashmap.T[String, Type]
 
-pub let knf_counter : Ref[Int] = { val: 0 }
+pub let knf_counter : Ref[Int] = { val: 1 }
 
 struct KnfEnv {
   mut env : @immut/hashmap.T[String, (Name, Type)]
