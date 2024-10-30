@@ -429,7 +429,9 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             rhs,
             fn {
               (lhs, _), (rhs, _) => {
-                let (true_branch, true_type) = self.fork().visit_stmt(true_branch)
+                let (true_branch, true_type) = self
+                  .fork()
+                  .visit_stmt(true_branch)
                 let (false_branch, _) = self.fork().visit_stmt(false_branch)
                 (
                   Knf::IfEq(lhs, rhs, true_branch, false_branch, true_type),
@@ -444,7 +446,9 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             rhs,
             fn {
               (lhs, _), (rhs, _) => {
-                let (true_branch, true_type) = self.fork().visit_stmt(true_branch)
+                let (true_branch, true_type) = self
+                  .fork()
+                  .visit_stmt(true_branch)
                 let (false_branch, _) = self.fork().visit_stmt(false_branch)
                 (
                   Knf::IfLe(lhs, rhs, true_branch, false_branch, true_type),
@@ -458,7 +462,9 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             cond,
             fn {
               (cond, _) => {
-                let (true_branch, true_type) = self.fork().visit_stmt(true_branch)
+                let (true_branch, true_type) = self
+                  .fork()
+                  .visit_stmt(true_branch)
                 let (false_branch, _) = self.fork().visit_stmt(false_branch)
                 (
                   Knf::IfEq(
