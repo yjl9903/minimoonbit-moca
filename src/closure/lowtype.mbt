@@ -112,12 +112,12 @@ pub fn to_direct_fn_low_type(typ : Type) -> LowType {
     Ptr => Ptr
     Fun(args, ret) =>
       DirectFn(
-        args.map(fn { a => to_direct_fn_low_type(a) }),
-        to_direct_fn_low_type(ret),
+        args.map(fn { a => to_closure_fn_low_type(a) }),
+        to_closure_fn_low_type(ret),
       )
-    Tuple(els) => Tuple(els.map(fn { el => to_direct_fn_low_type(el) }))
-    Array(arr) => Array(to_direct_fn_low_type(arr))
-    Var({ val: Some(t) }) => to_direct_fn_low_type(t)
+    Tuple(els) => Tuple(els.map(fn { el => to_closure_fn_low_type(el) }))
+    Array(arr) => Array(to_closure_fn_low_type(arr))
+    Var({ val: Some(t) }) => to_closure_fn_low_type(t)
     Var({ val: None }) => @util.die("Unknown type \{typ}")
   }
 }
