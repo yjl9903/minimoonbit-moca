@@ -200,7 +200,8 @@ test {
 test {
   inspect!(
     parse_minimoonbit_file!("test/test_parser/let.mbt"),
-  content=
-    #|LetRec({name: ("main", Fun([], Unit)), args: [], body: Let(("a", Var({val: None})), Neg(Prim(Int(1), Int(2), Add, kind=None), kind=None), Let(("t1", Var({val: None})), App(Var("print_int"), [Neg(Prim(Int(1), Int(2), Add, kind=None), kind=None)]), Unit))}, Unit)
+    content=
+      #|LetRec({name: ("main", Fun([], Unit)), args: [], body: Let(("a", Var({val: None})), Neg(Prim(Int(1), Int(2), Add, kind=None), kind=None), Let(("t1", Var({val: None})), App(Var("print_int"), [Neg(Prim(Int(1), Int(2), Add, kind=None), kind=None)]), Unit))}, Unit)
+    ,
   )
 }
