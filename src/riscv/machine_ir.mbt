@@ -67,6 +67,15 @@ pub struct MachineVar {
   incoming_vars : Array[MachineVar]
 }
 
+pub fn MachineVar::to_string(self : MachineVar) -> String {
+  let name = self.name.or("")
+  name + "_" + self.id.to_string()
+}
+
+pub fn MachineVar::output(self : MachineVar, logger : Logger) -> Unit {
+  logger.write_string(self.to_string())
+}
+
 pub fn MachineVar::is_float(self : MachineVar) -> Bool {
   match self.ty {
     Double => true
@@ -81,7 +90,7 @@ pub enum Condition {
   Le(MachineVar, MachineVar, PrimKind)
   Gt(MachineVar, MachineVar, PrimKind)
   Ge(MachineVar, MachineVar, PrimKind)
-}
+} derive(Show)
 
 pub enum RValue {
   Int(Int)
@@ -94,7 +103,7 @@ pub enum RValue {
   InvokeDirect(String, Array[MachineVar], PrimKind)
   Malloc(Int)
   Phi(Array[MachineVar])
-}
+} derive(Show)
 
 pub enum StmtKind {
   Definition(MachineVar?, RValue)
