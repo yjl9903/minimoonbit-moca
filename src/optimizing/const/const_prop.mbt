@@ -173,7 +173,10 @@ pub fn mark_ssa_const_variable(method : @ssa.Method) -> Unit {
     fn { blk => blk.stmts.eachi(fn { i, _ => work_list.push((blk.label, i)) }) },
   )
 
-  // Work list
+  // Init params as NAC
+  method.params.each(fn { var => consts[0].set(var.id, NAC) })
+
+  // Work list solver
   while not(work_list.is_empty()) {
     let cur = work_list.pop().unwrap()
     let stmt = method.body.blocks[cur.0].stmts[cur.1]
