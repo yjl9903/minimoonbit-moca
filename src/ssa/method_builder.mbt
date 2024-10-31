@@ -538,7 +538,14 @@ fn MethodBuilder::visit_expr(
     }
 
     // Var
-    Var(name) => cont(Var(self.ssa_builder.get_var(name)))
+    Var(name) => {
+      let var = self.ssa_builder.get_var(name)
+      match var.const_value {
+        Some(Int(x)) => cont(Int(x))
+        Some(Double(x)) => cont(Double(x))
+        _ => cont(Var(var))
+      }
+    }
     MakeTuple(els) =>
       cont(Tuple(els.map(fn { el => self.ssa_builder.get_var(el) })))
 
