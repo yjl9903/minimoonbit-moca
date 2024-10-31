@@ -26,3 +26,5 @@ rv64_failed_tests/
 
 __pycache__
 temp
+*.ssa
+*.out
