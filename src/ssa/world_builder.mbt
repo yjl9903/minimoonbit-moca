@@ -51,7 +51,6 @@ fn WorldBuilder::add_global_var(
   let var : Var = {
     id: self.global_vars_counter,
     name: name.name,
-    slot: self.global_vars_counter,
     ty: typ,
     is_this: false,
     is_param: false,

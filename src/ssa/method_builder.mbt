@@ -55,8 +55,6 @@ fn MethodBuilder::new(
       def.ty,
     ),
   }
-  // Local vars should not be conflict with global vars
-  builder.ssa_builder.local_vars_counter = world_builder.global_vars_counter + 1
   // Build this and free vars
   if is_closure {
     builder.ssa_builder.add_this()
@@ -87,7 +85,6 @@ struct SsaBuilder {
   local_vars : Map[Name, Var]
   local_temp_vars : Array[Var]
   mut free_vars_counter : Int
-  mut local_vars_counter : Int
 
   // Builder
   loops : Map[Name, LoopBuilder]
@@ -120,7 +117,6 @@ fn SsaBuilder::new(
     local_vars: Map::new(),
     local_temp_vars: [],
     free_vars_counter: 0,
-    local_vars_counter: 0,
     loops: Map::new(),
     world_builder,
   }
@@ -129,9 +125,8 @@ fn SsaBuilder::new(
 fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
   self.this = Some(
     {
-      id: self.local_vars_counter,
+      id: self.world_builder.global_vars_counter,
       name: Some("%this"),
-      slot: self.local_vars_counter,
       ty: self.ty,
       is_this: true,
       is_param: true,
@@ -141,7 +136,8 @@ fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
       size: get_type_size(self.ty),
     },
   )
-  self.local_vars_counter = self.local_vars_counter + 1
+  self.world_builder.global_vars_counter = self.world_builder.global_vars_counter +
+    1
 }
 
 fn SsaBuilder::add_free_vars(
@@ -200,9 +196,8 @@ fn SsaBuilder::add_local_var(
         Some(var) => var
         None => {
           let var = {
-            id: self.local_vars_counter,
+            id: self.world_builder.global_vars_counter,
             name: name.name,
-            slot: self.local_vars_counter,
             ty: typ,
             is_this: false,
             is_param,
@@ -211,7 +206,8 @@ fn SsaBuilder::add_local_var(
             const_value: get_const_value(name),
             size: get_type_size(typ),
           }
-          self.local_vars_counter = self.local_vars_counter + 1
+          self.world_builder.global_vars_counter = self.world_builder.global_vars_counter +
+            1
           self.local_vars.set(name, var)
           var
         }
@@ -221,9 +217,8 @@ fn SsaBuilder::add_local_var(
 
 fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
   let var = {
-    id: self.local_vars_counter,
+    id: self.world_builder.global_vars_counter,
     name: None,
-    slot: self.local_vars_counter,
     ty: typ,
     is_this: false,
     is_param: false,
@@ -233,7 +228,8 @@ fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
     size: get_type_size(typ),
   }
   self.local_temp_vars.push(var)
-  self.local_vars_counter = self.local_vars_counter + 1
+  self.world_builder.global_vars_counter = self.world_builder.global_vars_counter +
+    1
   var
 }
 
@@ -562,10 +558,10 @@ fn MethodBuilder::visit_expr(
 
       // 0. Store current block
       let if_block = self.ssa_builder.current_block
+      let _ = self.ssa_builder.emit(Nop)
       let if_stmt = self.ssa_builder.emit(IfGoto(condition, None, None, None))
 
       // 1.1. Create true branch block
-      let _ = self.ssa_builder.emit(Nop)
       let true_block = self.ssa_builder.create_new_block()
       self.ssa_builder.current_block = true_block
 

@@ -26,13 +26,12 @@ pub fn PrimOp::output(self : PrimOp, logger : Logger) -> Unit {
 pub struct Var {
   id : Int
   name : String?
-  slot : Int
   ty : Type
   is_this : Bool // this
   is_param : Bool // param
-  is_global : Bool // from global
+  mut is_global : Bool // from global
   mut is_mut : Bool // is mutable, may be updated from loop
-  const_value : RValue? // const
+  mut const_value : RValue? // const
 
   // riscv
   size : Int
@@ -175,6 +174,33 @@ fn Stmt::get_def_uses(stmt : StmtKind) -> (Var?, Array[Var]) {
         None => (None, [])
       }
     _ => (None, [])
+  }
+}
+
+pub fn IR::get_next_block_ids(
+  self : IR,
+  block_id : Int,
+  stmt_id : Int
+) -> Array[(Int, Int)] {
+  let block = self.blocks[block_id]
+  let stmt = block.stmts[stmt_id]
+  match stmt.stmt {
+    Definition(_) | PutArray(_) | Nop =>
+      if stmt_id + 1 == block.stmts.length() {
+        match block.succ {
+          Some(Next(idx) | IfEnd(idx) | Continue(idx) | Break(idx)) =>
+            [(idx.label, 0)]
+          Some(While(loop_blk, _)) => [(loop_blk.label, 0)]
+          Some(IfStart(_)) => @util.die("unreachable")
+          None => []
+        }
+      } else {
+        [(block_id, stmt_id + 1)]
+      }
+    IfGoto(_, true_target, false_target, _) =>
+      [(true_target.unwrap(), 0), (false_target.unwrap(), 0)]
+    Goto(idx) | Continue(idx) | Break(_, idx) => [(idx, 0)]
+    Return(_) => []
   }
 }
 
