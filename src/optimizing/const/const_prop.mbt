@@ -153,6 +153,11 @@ pub fn mark_ssa_const_variable(method : @ssa.Method) -> Unit {
               }
               val.map(fn { val => (def.id, val) })
             }
+            GetTuple(_) => Some((def.id, NAC))
+            GetArray(_) => Some((def.id, NAC))
+            GetClosure(_) => Some((def.id, NAC))
+            InvokeClosure(_) => Some((def.id, NAC))
+            InvokeDirect(_) => Some((def.id, NAC))
             _ => None
           }
         } else {

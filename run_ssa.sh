@@ -2,4 +2,4 @@
 
 filepath=$1
 
-moon run src/bin --debug -- --emit-ssa "$filepath"
+moon run src/bin --debug -- --emit-ssa "$filepath" 2>/dev/null
