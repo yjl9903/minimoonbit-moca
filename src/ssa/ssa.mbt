@@ -129,6 +129,15 @@ pub fn Stmt::new(slot : Int, stmt : StmtKind) -> Stmt {
   { slot, stmt, def, uses }
 }
 
+pub fn Stmt::has_side_effects(self : Stmt) -> Bool {
+  match self.stmt {
+    Definition(_, InvokeClosure(_) | InvokeDirect(_) | Phi(_)) => true
+    Definition(Some(_), _) => true
+    Definition(None, _) => false
+    _ => true
+  }
+}
+
 pub fn Stmt::update(self : Stmt, stmt : StmtKind) -> Unit {
   let (def, uses) = get_def_uses(stmt)
   self.def = def
