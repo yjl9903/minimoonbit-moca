@@ -6,11 +6,13 @@
     },
     "moonbitlang/minimbt/knf",
     "moonbitlang/minimbt/closure",
+    "moonbitlang/minimbt/ssa",
     "moonbitlang/minimbt/util",
     "moonbitlang/minimbt/shared",
     "moonbitlang/minimbt/optimizing/const",
     "moonbitlang/minimbt/optimizing/copy",
     "moonbitlang/minimbt/optimizing/liveness",
-    "moonbitlang/minimbt/optimizing/tail"
+    "moonbitlang/minimbt/optimizing/tail",
+    "moonbitlang/minimbt/optimizing/dead"
   ]
 }
