@@ -1,4 +1,8 @@
 pub fn remove_ssa_dead_code(method : @ssa.Method) -> Unit {
+  // 1. remove unit
+  remove_unit_variables(method)
+
+  // 2. DCE
   while true {
     let mut removed = false
     let used : @hashset.T[Int] = @hashset.new()
@@ -14,7 +18,10 @@ pub fn remove_ssa_dead_code(method : @ssa.Method) -> Unit {
     )
     method.body.stmts.each(
       fn {
-        stmt =>
+        stmt => {
+          if stmt.has_side_effects() {
+            return
+          }
           match stmt.def {
             Some(v) =>
               if not(v.is_const() || v.is_global) && not(used.contains(v.id)) {
@@ -23,6 +30,7 @@ pub fn remove_ssa_dead_code(method : @ssa.Method) -> Unit {
               }
             None => ()
           }
+        }
       },
     )
     if not(removed) {
@@ -59,4 +67,19 @@ pub fn remove_ssa_dead_code(method : @ssa.Method) -> Unit {
     method.local_vars.clear()
     method.local_vars.push_iter(local_vars.iter())
   }
+}
+
+fn remove_unit_variables(method : @ssa.Method) -> Unit {
+  method.body.stmts.each(
+    fn {
+      stmt =>
+        match stmt.stmt {
+          Definition(Some(def), _) =>
+            if not(stmt.has_side_effects()) && def.ty == Unit {
+              stmt.update(Definition(Some(def), Unit))
+            }
+          _ => ()
+        }
+    },
+  )
 }
