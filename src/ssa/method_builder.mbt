@@ -133,6 +133,8 @@ fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
       is_global: false,
       is_mut: false,
       const_value: None,
+      is_phi: false,
+      outcoming: None,
       size: get_type_size(self.ty),
     },
   )
@@ -204,6 +206,8 @@ fn SsaBuilder::add_local_var(
             is_global: false,
             is_mut: false,
             const_value: get_const_value(name),
+            is_phi: false,
+            outcoming: None,
             size: get_type_size(typ),
           }
           self.world_builder.global_vars_counter = self.world_builder.global_vars_counter +
@@ -215,7 +219,11 @@ fn SsaBuilder::add_local_var(
   }
 }
 
-fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
+fn SsaBuilder::add_local_temp_var(
+  self : SsaBuilder,
+  typ : Type,
+  ~is_phi : Bool = false
+) -> Var {
   let var = {
     id: self.world_builder.global_vars_counter,
     name: None,
@@ -225,6 +233,8 @@ fn SsaBuilder::add_local_temp_var(self : SsaBuilder, typ : Type) -> Var {
     is_global: false,
     is_mut: false,
     const_value: None,
+    is_phi,
+    outcoming: None,
     size: get_type_size(typ),
   }
   self.local_temp_vars.push(var)
@@ -289,7 +299,7 @@ fn MethodBuilder::build(self : MethodBuilder, expr : @closure.Expr) -> Method {
   }
   local_vars.push_iter(self.ssa_builder.local_vars.values())
   local_vars.push_iter(self.ssa_builder.local_temp_vars.iter())
-  self.validate()
+  self.post_process()
   {
     name: self.name,
     slot: self.id,
@@ -654,7 +664,7 @@ fn MethodBuilder::visit_expr(
         true_end_block.unwrap().succ = Some(IfEnd(merge_block))
         false_end_block.unwrap().succ = Some(IfEnd(merge_block))
         self.ssa_builder.current_block = merge_block
-        let phi_var = self.ssa_builder.add_local_temp_var(if_type)
+        let phi_var = self.ssa_builder.add_local_temp_var(if_type, is_phi=true)
         let _phi_stmt = self.ssa_builder.emit(
           Definition(
             Some(phi_var),
@@ -789,7 +799,10 @@ fn MethodBuilder::visit_expr(
         }
         [return_name] => cont(Var(return_name))
         _ => {
-          let phi_var = self.ssa_builder.add_local_temp_var(loop_type)
+          let phi_var = self.ssa_builder.add_local_temp_var(
+            loop_type,
+            is_phi=true,
+          )
           let _phi_stmt = self.ssa_builder.emit(
             Definition(Some(phi_var), Phi(break_names)),
           )
