@@ -55,6 +55,8 @@ fn MethodBuilder::new(
       def.ty,
     ),
   }
+  // Local vars should not be conflict with global vars
+  builder.ssa_builder.local_vars_counter = world_builder.global_vars_counter + 1
   // Build this and free vars
   if is_closure {
     builder.ssa_builder.add_this()
