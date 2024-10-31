@@ -27,6 +27,9 @@ pub struct MachineMethod {
   // closure
   is_closure : Bool
   free_vars : Array[@ssa.FreeVar]
+
+  // ssa
+  ssa_method : @ssa.Method?
 }
 
 pub enum ConstValue {
@@ -98,6 +101,7 @@ pub enum StmtKind {
   Store((MachineVar, Int), MachineVar, PrimKind) // store _(_), _
   IfGoto(Condition, Int?, Int?)
   Goto(Int)
+  Comment(String)
   Nop
   Return(MachineVar?)
 }
