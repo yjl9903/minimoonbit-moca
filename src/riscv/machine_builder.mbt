@@ -639,8 +639,8 @@ fn Builder::build_get_var(
   var : @ssa.Var
 ) -> (MachineVar, Array[StmtKind]) {
   if var.is_const() {
-    match self.vars.get(var.id) {
-      Some(v) => (v, [])
+    match self.world.globals.get(var.id) {
+      Some((_, v)) => (v, [])
       None => @util.die("unreachable")
     }
   } else if var.is_global {
