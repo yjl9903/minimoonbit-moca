@@ -137,20 +137,19 @@ fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
       let (rest, rest_type) = self.visit_stmt(rest)
       (Knf::LetRec(funcdef, rest), rest_type)
     }
-    LetTuple(names, expr, rest) => {
-      let bindings = names.map(
-        fn { (name, typ) => (self.new_let_binding(name, typ), typ) },
-      )
+    LetTuple(names, expr, rest) =>
       self.to_let_temp(
         expr,
         fn {
           (expr, _) => {
+            let bindings = names.map(
+              fn { (name, typ) => (self.new_let_binding(name, typ), typ) },
+            )
             let (rest, rest_type) = self.visit_stmt(rest)
             (Knf::LetTuple(bindings, expr, rest), rest_type)
           }
         },
       )
-    }
     _ => self.visit_expr(syntax)
   }
 }
