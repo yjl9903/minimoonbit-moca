@@ -1,0 +1,1 @@
+pub fn remove_ssa_dead_code(method : @ssa.Method) -> Unit {}

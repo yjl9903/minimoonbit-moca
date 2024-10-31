@@ -13,5 +13,6 @@ let optimizing_manager : @optimizing.Manager = @optimizing.new().add_opt_passes(
     Pass::Knf(CopyPropagation),
     Pass::Knf(TailRecursion),
     Pass::Knf(MayTailRecursion),
+    Pass::Ssa(DeadCodeElimination),
   ],
 )
