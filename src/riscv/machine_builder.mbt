@@ -615,7 +615,16 @@ fn Builder::build_get_var(
           Some(Double(x)) => self.build_double_const(x, stmts)
           None => @util.die("unreachable")
         }
-      None => @util.die("unreachable")
+      None =>
+        match self.vars.get(var.id) {
+          Some(v) =>
+            match v.const_value {
+              Some(Int(_)) => v
+              Some(Double(x)) => self.build_double_const(x, stmts)
+              None => @util.die("unreachable")
+            }
+          None => @util.die("unreachable")
+        }
     }
   } else if var.is_global {
     match self.world.globals.get(var.id) {
@@ -651,6 +660,6 @@ fn Builder::build_double_const(
   let addr = self.add_temp_var(Ptr)
   stmts.push(Definition(Some(addr), LoadLabel(label)))
   let local_const = self.add_temp_var(Double)
-  stmts.push(Definition(Some(local_const), LoadLabel(label)))
+  stmts.push(Definition(Some(local_const), Load((addr, 0), Double)))
   local_const
 }
