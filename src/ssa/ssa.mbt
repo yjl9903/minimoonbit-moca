@@ -137,9 +137,35 @@ pub fn Stmt::update(self : Stmt, stmt : StmtKind) -> Unit {
 }
 
 fn Stmt::get_def_uses(stmt : StmtKind) -> (Var?, Array[Var]) {
-  // TODO: get def use
+  fn get_rvalue_uses(rvalue : RValue) -> Array[Var] {
+    match rvalue {
+      Unit | Int(_) | Double(_) => []
+      Neg(var, _) => [var]
+      Prim(lhs, rhs, _, _) => [lhs, rhs]
+      Var(var) => [var]
+      Tuple(els) => [..els]
+      Closure(_, fvs) => fvs.map(fn { fv => fv.1 })
+      GetTuple(base, _) => [base]
+      GetArray(recv, idx) => [recv, idx]
+      GetClosure(recv, _, _) => [recv]
+      InvokeClosure(recv, args) => [recv, ..args]
+      InvokeDirect(_, args) => [..args]
+      Phi(vs) => [..vs]
+    }
+  }
+
   match stmt {
-    Definition(lhs, _rvalue) => (lhs, [])
+    Definition(lhs, rvalue) => (lhs, get_rvalue_uses(rvalue))
+    PutArray(recv, idx, value) => (None, [recv, idx, value])
+    IfGoto(cond, _, _, _) =>
+      match cond {
+        Eq(lhs, rhs) | Le(lhs, rhs) => (None, [lhs, rhs])
+      }
+    Return(var) =>
+      match var {
+        Some(var) => (None, [var])
+        None => (None, [])
+      }
     _ => (None, [])
   }
 }
