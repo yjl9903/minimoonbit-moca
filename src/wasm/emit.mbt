@@ -283,6 +283,7 @@ fn emit_func_block(
         }
         func.stmts.push(
           match (ty, cond) {
+            (Bool, Eq(_)) => ICmp(I32, Eq)
             (Int, Eq(_)) => ICmp(I32, Eq)
             (Int, Le(_)) => ICmp(I32, Le_s)
             (Double, Eq(_)) => FCmp(F64, Eq)
