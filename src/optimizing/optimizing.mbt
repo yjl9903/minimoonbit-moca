@@ -57,8 +57,8 @@ pub fn Manager::optimize_ssa(self : Manager, world : @ssa.World) -> Unit {
   self.ssa_passes.each(
     fn {
       pass => {
-        world.methods.values().each(fn { m => pass.optimize(m) })
         pass.optimize(world.main_method)
+        world.methods.values().each(fn { m => pass.optimize(m) })
       }
     },
   )
