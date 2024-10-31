@@ -14,6 +14,7 @@ pub enum ClosureOptPass {}
 
 pub enum SsaOptPass {
   DeadCodeElimination
+  ConstProp
 }
 
 pub enum Pass {
@@ -54,5 +55,6 @@ pub fn ClosureOptPass::optimize(
 pub fn SsaOptPass::optimize(self : SsaOptPass, method : @ssa.Method) -> Unit {
   match self {
     DeadCodeElimination => @dead.remove_ssa_dead_code(method)
+    ConstProp => @const.mark_ssa_const_variable(method)
   }
 }
