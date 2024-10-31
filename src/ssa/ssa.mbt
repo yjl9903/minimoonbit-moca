@@ -33,6 +33,10 @@ pub struct Var {
   mut is_mut : Bool // is mutable, may be updated from loop
   mut const_value : RValue? // const
 
+  // phi
+  is_phi : Bool
+  mut outcoming : Var?
+
   // riscv
   size : Int
 }
