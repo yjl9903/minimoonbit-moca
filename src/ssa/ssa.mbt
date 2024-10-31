@@ -132,8 +132,7 @@ pub fn Stmt::new(slot : Int, stmt : StmtKind) -> Stmt {
 pub fn Stmt::has_side_effects(self : Stmt) -> Bool {
   match self.stmt {
     Definition(_, InvokeClosure(_) | InvokeDirect(_) | Phi(_)) => true
-    Definition(Some(_), _) => true
-    Definition(None, _) => false
+    Definition(_) => false
     _ => true
   }
 }
