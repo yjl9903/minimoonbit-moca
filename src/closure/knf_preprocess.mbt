@@ -69,7 +69,7 @@ fn KnfEnv::enter_scope(self : KnfEnv, def : MutFuncDef) -> Unit {
 
 fn KnfEnv::get_scope_path_name(self : KnfEnv, def : @knf.FuncDef) -> String {
   if self.scope_path.length() > 0 {
-    let scope = self.scope_path.map(fn { d => d.raw_name })
+    let scope = self.scope_path.map(fn { d => d.def.name.name.or("unknown") })
     let scope = scope.join("/")
     scope + "/" + def.name.name.or("?")
   } else {
