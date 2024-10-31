@@ -59,6 +59,7 @@ fn create_machine_method(
     stack_size: 0,
     is_closure: method.is_closure,
     free_vars: method.formal_free_vars,
+    ssa_method: Some(method),
   }
   let builder = Builder::new(world, machine)
   builder.build(method)
@@ -259,7 +260,13 @@ fn Builder::build(self : Builder, method : @ssa.Method) -> Unit {
 }
 
 fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
-  match stmt.stmt {
+  let stmts = []
+  match self.method.ssa_method {
+    Some(method) =>
+      stmts.push(StmtKind::Comment("SSA => " + method.print_stmt(stmt.stmt)))
+    None => ()
+  }
+  let built_stmts = match stmt.stmt {
     Definition(var, rvalue) => {
       let (rvalue, stmts) = self.build_rvalue(rvalue)
       match var {
@@ -389,6 +396,8 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
         None => [Return(None)]
       }
   }
+  stmts.push_iter(built_stmts.iter())
+  stmts
 }
 
 fn Builder::build_rvalue(
@@ -433,7 +442,10 @@ fn Builder::build_rvalue(
                   _ => Int
                 },
               ),
-              [Definition(Some(addr), LoadLabel(label))],
+              [
+                Comment("Set global var \{v}"),
+                Definition(Some(addr), LoadLabel(label)),
+              ],
             )
           } else {
             (
@@ -626,7 +638,12 @@ fn Builder::build_get_var(
   self : Builder,
   var : @ssa.Var
 ) -> (MachineVar, Array[StmtKind]) {
-  if var.is_global {
+  if var.is_const() {
+    match self.vars.get(var.id) {
+      Some(v) => (v, [])
+      None => @util.die("unreachable")
+    }
+  } else if var.is_global {
     match self.world.globals.get(var.id) {
       Some((label, g)) => {
         let addr = self.add_temp_var(Ptr)
@@ -634,6 +651,7 @@ fn Builder::build_get_var(
         (
           tmp,
           [
+            Comment("Get global var \{var}"),
             Definition(Some(addr), LoadLabel(label)),
             Definition(
               Some(tmp),

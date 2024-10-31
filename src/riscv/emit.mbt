@@ -153,7 +153,7 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
           self.emit_asm(Lw(T0, MemAccess::new(Fp, offset)))
           self.emit_asm(Sw(T0, MemAccess::new(Fp, var.offset)))
         }
-      None => @util.die("")
+      None => @util.die("unreachable")
     }
   }
 
@@ -246,6 +246,7 @@ fn AssemblyFunction::emit_method_stmt(
       }
     }
     Goto(label) => self.emit_asm(J(self.create_label(label)))
+    Comment(comment) => self.emit_asm(Comment(comment))
     Nop => ()
     Return(var) => {
       self.emit_comment("--- Return \{self.name} ---")

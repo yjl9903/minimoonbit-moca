@@ -60,7 +60,7 @@ pub fn Method::print(self : Method) -> Unit {
   println("}")
 }
 
-fn Method::print_stmt(self : Method, stmt : StmtKind) -> String {
+pub fn Method::print_stmt(self : Method, stmt : StmtKind) -> String {
   match stmt {
     Definition(Some(lhs), rvalue) =>
       "\{lhs.to_string()} : \{lhs.ty.to_string()} = \{self.print_rvalue(rvalue)}"
