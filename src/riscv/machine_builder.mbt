@@ -367,7 +367,7 @@ fn Builder::build_definition(
               } else {
                 Int
               },
-              220
+              220,
             ),
           )
           stmts
@@ -475,15 +475,18 @@ fn Builder::build_rvalue(
       match def {
         Some(def) => {
           let size = @ssa.get_free_vars_size(fvs.map(fn { fv => fv.0 }))
-          stmts.push(Definition(Some(def), Malloc(size)))
-          // 1. Store fp
-          let mut offset = @ssa.i32_size
           let addr = self.add_temp_var(Type::Ptr)
+          // 1. Malloc
+          stmts.push(Definition(Some(def), Malloc(size)))
+          stmts.push(Sanitizer(def, 155))
+          // 2. Store function label
           stmts.push(
             Definition(Some(addr), LoadLabel(create_method_label(label))),
           )
+          stmts.push(Sanitizer(def, 156))
           stmts.push(Store((def, 0), addr, Int, 250))
-          // 2. Store fields
+          // 3. Store fields
+          let mut offset = @ssa.i32_size
           fvs.sort_by_key(fn { (fv, _) => fv.slot })
           fvs.each(
             fn {

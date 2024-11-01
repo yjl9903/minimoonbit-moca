@@ -212,6 +212,7 @@ fn AssemblyFunction::emit_method_stmt(
     Store((recv, offset), expr, kind, code) => {
       self.emit_comment("--- Store \{offset}(\{recv.id}) \{expr.id} ---")
       self.emit_get_int_var(T0, recv)
+      self.emit_sanitizer(T0, code + 3)
       match kind {
         Double => {
           self.emit_get_float_var(Ft0, expr)
@@ -225,6 +226,10 @@ fn AssemblyFunction::emit_method_stmt(
         }
       }
       self.emit_comment("--- Store end ---")
+    }
+    Sanitizer(var, code) => {
+      self.emit_get_int_var(T0, var)
+      self.emit_sanitizer(T0, code)
     }
     IfGoto(cond, _true_target, false_target) => {
       match cond {
@@ -407,7 +412,7 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_asm(Call("minimbt_malloc"))
       self.emit_asm(Slli(A0, A0, 32))
       self.emit_asm(Srli(A0, A0, 32))
-      self.emit_sanitizer(A0, 252)
+      self.emit_sanitizer(A0, 142)
       self.emit_comment("--- malloc \{size} ---")
       contg(A0)
     }
