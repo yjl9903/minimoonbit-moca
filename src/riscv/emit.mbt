@@ -33,6 +33,18 @@ pub fn emit_comment(self : AssemblyFunction, comment : String) -> Unit {
   self.body.push(Comment(comment))
 }
 
+pub fn emit_sanitizer(self : AssemblyFunction, reg : Reg, code : Int) -> Unit {
+  self.body.push(Addi(Sp, Sp, -8)) // sp = sp - 8
+  self.body.push(Sw(A0, MemAccess::new(Sp, 4))) // push a0
+  self.body.push(Sw(A1, MemAccess::new(Sp, 0))) // push a1
+  self.body.push(Mv(A0, reg))
+  self.body.push(Li(A1, code.to_string()))
+  self.body.push(Call(sanitizer_label))
+  self.body.push(Lw(A1, MemAccess::new(Sp, 0))) // pop a1
+  self.body.push(Lw(A0, MemAccess::new(Sp, 4))) // pop a0
+  self.body.push(Addi(Sp, Sp, 8)) // sp = sp + 8
+}
+
 fn create_asm_func(
   world : MachineWorld,
   method : MachineMethod
@@ -203,10 +215,12 @@ fn AssemblyFunction::emit_method_stmt(
       match kind {
         Double => {
           self.emit_get_float_var(Ft0, expr)
+          self.emit_sanitizer(T0, 201)
           self.emit_asm(Fsd(Ft0, MemAccess::new(T0, offset)))
         }
         Int => {
           self.emit_get_int_var(T1, expr)
+          self.emit_sanitizer(T0, 202)
           self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
         }
       }
@@ -339,11 +353,13 @@ fn AssemblyFunction::emit_method_rvalue(
     // Load
     Load((recv, offset), Int) => {
       self.emit_get_int_var(T0, recv)
+      self.emit_sanitizer(T0, 203)
       self.emit_asm(Lw(T0, MemAccess::new(T0, offset)))
       contg(T0)
     }
     Load((recv, offset), Double) => {
       self.emit_get_int_var(T0, recv)
+      self.emit_sanitizer(T0, 204)
       self.emit_asm(Fld(Ft0, MemAccess::new(T0, offset)))
       contf(Ft0)
     }
@@ -360,6 +376,7 @@ fn AssemblyFunction::emit_method_rvalue(
       new_args.push(callee)
       let stack_size = self.emit_invoke_args(new_args)
       self.emit_get_int_var(T5, callee)
+      self.emit_sanitizer(T5, 205)
       self.emit_asm(Lw(T5, MemAccess::new(T5, 0)))
       self.emit_asm(Jalr(T5))
       if stack_size != 0 {
