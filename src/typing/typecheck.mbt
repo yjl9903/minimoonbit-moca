@@ -369,7 +369,9 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
               self.fork().inherit!(args[i], targs[i])
             }
           } else {
-            raise TypeError("Type mismatch: different args list, expect \{tsig}, found \{args}")
+            raise TypeError(
+              "Type mismatch: different args list, expect \{tsig}, found \{args}",
+            )
           }
           tret
         }
