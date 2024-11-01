@@ -17,7 +17,9 @@ pub enum SsaOptPass {
   ConstProp
 }
 
-pub enum MachineOptPass {}
+pub enum MachineOptPass {
+  InstFold
+}
 
 pub enum Pass {
   Ast(AstOptPass)
@@ -67,6 +69,6 @@ pub fn MachineOptPass::optimize(
   method : @riscv.MachineMethod
 ) -> Unit {
   match self {
-
+    InstFold => @inst.transform_inst_fold(method)
   }
 }
