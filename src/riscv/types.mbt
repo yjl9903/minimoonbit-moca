@@ -37,9 +37,9 @@ pub fn Width::to_int(self : Width) -> Int {
 
 pub let int_size : Int = 4
 
-pub let label_size : Int = 4
+pub let label_size : Int = 8
 
-pub let ptr_size : Int = 4
+pub let ptr_size : Int = 8
 
 pub let double_size : Int = 8
 
