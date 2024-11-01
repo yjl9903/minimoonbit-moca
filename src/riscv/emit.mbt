@@ -159,7 +159,12 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   // 1.3. TEMP: store the params
   for var in self.machine.params {
     match var.param_offset {
-      Some(Reg(r)) => self.emit_asm(Sw(r, MemAccess::new(Fp, var.offset)))
+      Some(Reg(r)) =>
+        match var.width {
+          Int => self.emit_asm(Sw(r, MemAccess::new(Fp, var.offset)))
+          Double => @util.die("unreachable")
+          Ptr => self.emit_asm(Sd(r, MemAccess::new(Fp, var.offset)))
+        }
       Some(FReg(r)) => self.emit_asm(Fsd(r, MemAccess::new(Fp, var.offset)))
       Some(Offset(offset)) =>
         match var.width {
@@ -233,12 +238,11 @@ fn AssemblyFunction::emit_method_stmt(
       }
       self.emit_comment("--- Store end ---")
     }
-    Sanitizer(var, code) => {
+    Sanitizer(var, code) =>
       if enable_sanitizer {
         self.emit_get_int_var(T0, var)
         self.emit_sanitizer(T0, code)
       }
-    }
     IfGoto(cond, _true_target, false_target) => {
       match cond {
         Eq(lhs, rhs, Int)
@@ -336,7 +340,20 @@ fn AssemblyFunction::emit_method_rvalue(
       contf(Ft0)
     }
     Neg(_, Ptr) => @util.die("unreachable")
-    Prim(lhs, rhs, op, Int | Ptr) => {
+    Prim(lhs, rhs, op, Int) => {
+      self.emit_get_int_var(T0, lhs)
+      self.emit_get_int_var(T1, rhs)
+      self.emit_asm(
+        match op {
+          Add => Add(T0, T0, T1)
+          Sub => Sub(T0, T0, T1)
+          Mul => Mul(T0, T0, T1)
+          Div => Div(T0, T0, T1)
+        },
+      )
+      contg(T0)
+    }
+    Prim(lhs, rhs, op, Ptr) => {
       self.emit_get_int_var(T0, lhs)
       self.emit_get_int_var(T1, rhs)
       self.emit_asm(
