@@ -5,7 +5,7 @@ pub fn type_check(
   let gamma = Gamma::new(~externals)
   match gamma.inherit?(syntax, Type::Unit) {
     Ok(_) => syntax
-    Err(TypeError(e)) => @util.die(e)
+    Err(TypeError(e)) => @util.die(e, tag=Some("Typecheck"))
   }
 }
 
@@ -364,8 +364,12 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       let tsig = self.fork().synthesis!(sig)
       match tsig {
         Fun(targs, tret) | Var({ val: Some(Fun(targs, tret)) }) => {
-          for i = 0; i < targs.length(); i = i + 1 {
-            self.fork().inherit!(args[i], targs[i])
+          if args.length() == targs.length() {
+            for i = 0; i < targs.length(); i = i + 1 {
+              self.fork().inherit!(args[i], targs[i])
+            }
+          } else {
+            raise TypeError("Type mismatch: different args list, expect \{tsig}, found \{args}")
           }
           tret
         }
