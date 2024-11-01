@@ -48,6 +48,7 @@ pub struct MachineVar {
   name : String?
   ty : Type
   size : Int
+  width : Width
 
   // Offset
   mut offset : Int
@@ -76,38 +77,35 @@ pub fn MachineVar::output(self : MachineVar, logger : Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 
-pub fn MachineVar::is_float(self : MachineVar) -> Bool {
-  match self.ty {
-    Double => true
-    _ => false
-  }
+pub fn MachineVar::width(self : MachineVar) -> Width {
+  Width::from_low_type(self.ty)
 }
 
 pub enum Condition {
-  Eq(MachineVar, MachineVar, PrimKind)
-  Ne(MachineVar, MachineVar, PrimKind)
-  Lt(MachineVar, MachineVar, PrimKind)
-  Le(MachineVar, MachineVar, PrimKind)
-  Gt(MachineVar, MachineVar, PrimKind)
-  Ge(MachineVar, MachineVar, PrimKind)
+  Eq(MachineVar, MachineVar, Width)
+  Ne(MachineVar, MachineVar, Width)
+  Lt(MachineVar, MachineVar, Width)
+  Le(MachineVar, MachineVar, Width)
+  Gt(MachineVar, MachineVar, Width)
+  Ge(MachineVar, MachineVar, Width)
 } derive(Show)
 
 pub enum RValue {
   Int(Int)
-  Neg(MachineVar, PrimKind)
-  Prim(MachineVar, MachineVar, PrimOp, PrimKind)
-  Var(MachineVar, PrimKind)
-  Load((MachineVar, Int), PrimKind) // load _, _(_)
+  Neg(MachineVar, Width)
+  Prim(MachineVar, MachineVar, PrimOp, Width)
+  Var(MachineVar, Width)
+  Load((MachineVar, Int), Width) // load _, _(_)
   LoadLabel(String)
-  InvokeClosure(MachineVar, Array[MachineVar], PrimKind)
-  InvokeDirect(String, Array[MachineVar], PrimKind)
+  InvokeClosure(MachineVar, Array[MachineVar], Width)
+  InvokeDirect(String, Array[MachineVar], Width)
   Malloc(Int)
   Phi(Array[MachineVar])
 } derive(Show)
 
 pub enum StmtKind {
   Definition(MachineVar?, RValue)
-  Store((MachineVar, Int), MachineVar, PrimKind, Int) // store _(_), _ / sanitizer error code
+  Store((MachineVar, Int), MachineVar, Width, Int) // store _(_), _ / sanitizer error code
   Sanitizer(MachineVar, Int)
   IfGoto(Condition, Int?, Int?)
   Goto(Int)
