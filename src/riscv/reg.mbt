@@ -8,7 +8,7 @@ fn MemAccess::new(
   offset : Int,
   ~loc : SourceLoc = _
 ) -> MemAccess[Reg, Int] {
-  if offset == -1 {
+  if offset == -1 || offset % 4 != 0 {
     @util.die("Unexpected offset: \{base} \{offset}", ~loc)
   }
   { base, offset }
