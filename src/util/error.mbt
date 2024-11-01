@@ -1,5 +1,7 @@
-pub fn die[T](msg : String, ~loc : SourceLoc = _) -> T {
-  println("Error: \{msg}")
-  println("Location: \{loc}")
+pub fn die[T](msg : String, ~tag : String? = None, ~loc : SourceLoc = _) -> T {
+  let tag = tag.map(fn { t => t + "Error" }).or("Error")
+  let tag = "[\{tag}]"
+  println("\{tag} \{msg}")
+  println("[Location] \{loc}")
   panic()
 }
