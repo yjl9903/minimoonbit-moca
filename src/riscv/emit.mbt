@@ -249,15 +249,22 @@ fn AssemblyFunction::emit_method_stmt(
           self.emit_get_float_var(Ft0, lhs)
           self.emit_get_float_var(Ft1, rhs)
         }
+        Eq(lhs, rhs, Ptr)
+        | Ne(lhs, rhs, Ptr)
+        | Lt(lhs, rhs, Ptr)
+        | Le(lhs, rhs, Ptr) | Gt(lhs, rhs, Ptr) | Ge(lhs, rhs, Ptr) => {
+          self.emit_get_int_var(T0, lhs)
+          self.emit_get_int_var(T1, rhs)
+        }
       }
       match cond {
-        Eq(_, _, Int) =>
+        Eq(_, _, Int | Ptr) =>
           self.emit_asm(Bne(T0, T1, self.create_label(false_target.unwrap())))
         Eq(_, _, Double) => {
           self.emit_asm(FeqD(T0, Ft0, Ft1))
           self.emit_asm(Beq(T0, Zero, self.create_label(false_target.unwrap())))
         }
-        Le(_, _, Int) =>
+        Le(_, _, Int | Ptr) =>
           self.emit_asm(Bgt(T0, T1, self.create_label(false_target.unwrap())))
         Le(_, _, Double) => {
           self.emit_asm(FleD(T0, Ft0, Ft1))
