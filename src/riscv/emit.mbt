@@ -209,18 +209,18 @@ fn AssemblyFunction::emit_method_stmt(
         _ => @util.die("unreachable")
       }
     }
-    Store((recv, offset), expr, kind) => {
+    Store((recv, offset), expr, kind, code) => {
       self.emit_comment("--- Store \{offset}(\{recv.id}) \{expr.id} ---")
       self.emit_get_int_var(T0, recv)
       match kind {
         Double => {
           self.emit_get_float_var(Ft0, expr)
-          self.emit_sanitizer(T0, 201)
+          self.emit_sanitizer(T0, code + 1)
           self.emit_asm(Fsd(Ft0, MemAccess::new(T0, offset)))
         }
         Int => {
           self.emit_get_int_var(T1, expr)
-          self.emit_sanitizer(T0, 202)
+          self.emit_sanitizer(T0, code)
           self.emit_asm(Sw(T1, MemAccess::new(T0, offset)))
         }
       }
