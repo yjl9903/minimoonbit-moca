@@ -538,8 +538,8 @@ fn Builder::build_rvalue(
       }
       let ty = @closure.extract_array_type(recv.ty)
       let width = Width::from_low_type(ty)
-      let addr = self.add_temp_var(Int)
-      let offset = self.add_temp_var(Int)
+      let addr = self.add_temp_var(Type::Ptr)
+      let offset = self.add_temp_var(Type::Int)
       let size_var = self.add_int_const_var(width.to_int())
       let idx = self.build_get_var(idx, stmts)
       stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Int)))
