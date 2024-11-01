@@ -34,17 +34,19 @@ pub fn emit_comment(self : AssemblyFunction, comment : String) -> Unit {
 }
 
 pub fn emit_sanitizer(self : AssemblyFunction, reg : Reg, code : Int) -> Unit {
-  self.body.push(Comment("--- start sanitizer ---"))
-  self.body.push(Addi(Sp, Sp, -16)) // sp = sp - 16
-  self.body.push(Sd(A0, MemAccess::new(Sp, 8))) // push a0
-  self.body.push(Sd(A1, MemAccess::new(Sp, 0))) // push a1
-  self.body.push(Mv(A0, reg))
-  self.body.push(Li(A1, code.to_string()))
-  self.body.push(Call(sanitizer_label))
-  self.body.push(Ld(A1, MemAccess::new(Sp, 0))) // pop a1
-  self.body.push(Ld(A0, MemAccess::new(Sp, 8))) // pop a0
-  self.body.push(Addi(Sp, Sp, 16)) // sp = sp + 16
-  self.body.push(Comment("--- end sanitizer ---"))
+  if enable_sanitizer {
+    self.body.push(Comment("--- start sanitizer ---"))
+    self.body.push(Addi(Sp, Sp, -16)) // sp = sp - 16
+    self.body.push(Sd(A0, MemAccess::new(Sp, 8))) // push a0
+    self.body.push(Sd(A1, MemAccess::new(Sp, 0))) // push a1
+    self.body.push(Mv(A0, reg))
+    self.body.push(Li(A1, code.to_string()))
+    self.body.push(Call(sanitizer_label))
+    self.body.push(Ld(A1, MemAccess::new(Sp, 0))) // pop a1
+    self.body.push(Ld(A0, MemAccess::new(Sp, 8))) // pop a0
+    self.body.push(Addi(Sp, Sp, 16)) // sp = sp + 16
+    self.body.push(Comment("--- end sanitizer ---"))
+  }
 }
 
 fn create_asm_func(
@@ -232,8 +234,10 @@ fn AssemblyFunction::emit_method_stmt(
       self.emit_comment("--- Store end ---")
     }
     Sanitizer(var, code) => {
-      self.emit_get_int_var(T0, var)
-      self.emit_sanitizer(T0, code)
+      if enable_sanitizer {
+        self.emit_get_int_var(T0, var)
+        self.emit_sanitizer(T0, code)
+      }
     }
     IfGoto(cond, _true_target, false_target) => {
       match cond {
@@ -332,7 +336,7 @@ fn AssemblyFunction::emit_method_rvalue(
       contf(Ft0)
     }
     Neg(_, Ptr) => @util.die("unreachable")
-    Prim(lhs, rhs, op, Int) => {
+    Prim(lhs, rhs, op, Int | Ptr) => {
       self.emit_get_int_var(T0, lhs)
       self.emit_get_int_var(T1, rhs)
       self.emit_asm(
@@ -358,7 +362,6 @@ fn AssemblyFunction::emit_method_rvalue(
       )
       contf(Ft0)
     }
-    Prim(_, _, _, Ptr) => @util.die("unreachable")
     Var(var, Int) | Var(var, Ptr) => {
       self.emit_get_int_var(T0, var)
       contg(T0)
