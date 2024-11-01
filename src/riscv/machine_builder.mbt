@@ -278,13 +278,13 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
       let ty = value.ty
       let width = Width::from_low_type(ty)
       let addr = self.add_temp_var(Ptr)
-      let offset = self.add_temp_var(Int)
+      let offset = self.add_temp_var(Ptr)
       let size_var = self.add_int_const_var(width.to_int())
       // Build put array
       let idx = self.build_get_var(idx, stmts)
-      stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Int))) // offset = idx * type_size
+      stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Ptr))) // offset = idx * type_size
       let recv = self.build_get_var(recv, stmts)
-      stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Int))) // addr = recv + offset
+      stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Ptr))) // addr = recv + offset
       let value = self.build_get_var(value, stmts)
       stmts.push(Store((addr, 0), value, width, 210)) // store value to addr
     }
@@ -539,12 +539,12 @@ fn Builder::build_rvalue(
       let ty = @closure.extract_array_type(recv.ty)
       let width = Width::from_low_type(ty)
       let addr = self.add_temp_var(Type::Ptr)
-      let offset = self.add_temp_var(Type::Int)
+      let offset = self.add_temp_var(Type::Ptr)
       let size_var = self.add_int_const_var(width.to_int())
       let idx = self.build_get_var(idx, stmts)
-      stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Int)))
+      stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Ptr)))
       let recv = self.build_get_var(recv, stmts)
-      stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Int)))
+      stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Ptr)))
       Some(Load((addr, 0), width, 206))
     }
 
