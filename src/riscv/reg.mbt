@@ -1,7 +1,7 @@
-struct MemAccess[TBase, TOff] {
+pub struct MemAccess[TBase, TOff] {
   base : TBase
   offset : TOff
-} derive(Show)
+} derive(Show, Eq)
 
 fn MemAccess::new(
   base : Reg,

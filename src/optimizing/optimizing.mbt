@@ -4,6 +4,7 @@ pub struct Manager {
   closure_passes : Array[ClosureOptPass]
   ssa_passes : Array[SsaOptPass]
   machine_passes : Array[MachineOptPass]
+  asm_passes : Array[AssemblyOptPass]
 }
 
 pub fn Manager::new() -> Manager {
@@ -13,6 +14,7 @@ pub fn Manager::new() -> Manager {
     closure_passes: [],
     ssa_passes: [],
     machine_passes: [],
+    asm_passes: [],
   }
 }
 
@@ -78,5 +80,14 @@ pub fn Manager::optimize_machine_ir(
 ) -> Unit {
   self.machine_passes.each(
     fn { pass => world.methods.each(fn { m => pass.optimize(m) }) },
+  )
+}
+
+pub fn Manager::optimize_assembly(
+  self : Manager,
+  world : @riscv.AssemblyProgram
+) -> Unit {
+  self.asm_passes.each(
+    fn { pass => world.functions.each(fn { m => pass.optimize(m) }) },
   )
 }

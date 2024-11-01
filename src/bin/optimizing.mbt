@@ -15,6 +15,6 @@ let optimizing_manager : @optimizing.Manager = @optimizing.new().add_opt_passes(
     Pass::Knf(MayTailRecursion),
     Pass::Ssa(ConstProp),
     Pass::Ssa(DeadCodeElimination),
-    Pass::Machine(InstFold),
+    Pass::Assembly(InstFold),
   ],
 )

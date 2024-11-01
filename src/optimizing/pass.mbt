@@ -17,7 +17,9 @@ pub enum SsaOptPass {
   ConstProp
 }
 
-pub enum MachineOptPass {
+pub enum MachineOptPass {}
+
+pub enum AssemblyOptPass {
   InstFold
 }
 
@@ -27,6 +29,7 @@ pub enum Pass {
   Closure(ClosureOptPass)
   Ssa(SsaOptPass)
   Machine(MachineOptPass)
+  Assembly(AssemblyOptPass)
 }
 
 pub fn AstOptPass::optimize(
@@ -49,12 +52,10 @@ pub fn KnfOptPass::optimize(self : KnfOptPass, knf : @knf.Knf) -> @knf.Knf {
 }
 
 pub fn ClosureOptPass::optimize(
-  self : ClosureOptPass,
-  _closure : @closure.Program
+  _self : ClosureOptPass,
+  closure : @closure.Program
 ) -> @closure.Program {
-  match self {
-    _ => @util.die("unimplmented")
-  }
+  closure
 }
 
 pub fn SsaOptPass::optimize(self : SsaOptPass, method : @ssa.Method) -> Unit {
@@ -65,8 +66,15 @@ pub fn SsaOptPass::optimize(self : SsaOptPass, method : @ssa.Method) -> Unit {
 }
 
 pub fn MachineOptPass::optimize(
-  self : MachineOptPass,
-  method : @riscv.MachineMethod
+  _self : MachineOptPass,
+  _method : @riscv.MachineMethod
+) -> Unit {
+  ()
+}
+
+pub fn AssemblyOptPass::optimize(
+  self : AssemblyOptPass,
+  method : @riscv.AssemblyFunction
 ) -> Unit {
   match self {
     InstFold => @inst.transform_inst_fold(method)

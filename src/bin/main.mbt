@@ -158,7 +158,9 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         RSICV => {
           let machine_world = @riscv.build_machine_world(world)
           optimizing_manager.optimize_machine_ir(machine_world)
-          self.asm = Some(@riscv.emit(machine_world))
+          let asm_program = @riscv.emit(machine_world)
+          optimizing_manager.optimize_assembly(asm_program)
+          self.asm = Some(asm_program)
         }
         JS => self.js = Some(@js.emit_js(world))
         WASM => self.wasm = Some(@wasm.emit_wasm(world))
