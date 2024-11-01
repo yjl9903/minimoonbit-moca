@@ -80,7 +80,7 @@ fn output_sanitizer(logger : Logger) -> Unit {
   logger.write_string(".type \{sanitizer_label}, @function\n")
   logger.write_string("\{sanitizer_label}:\n")
   let stmts = [
-    RvAsm::Addi(Sp, Sp, -8),
+    RvAsm::Addi(Sp, Sp, -16),
     RvAsm::Sw(T0, MemAccess::new(Sp, 4)), // Push t0
     RvAsm::Sw(T1, MemAccess::new(Sp, 0)), // Push t1
     // a0 < 4096 goto error
@@ -89,7 +89,7 @@ fn output_sanitizer(logger : Logger) -> Unit {
     // return
     RvAsm::Lw(T1, MemAccess::new(Sp, 0)), // Pop t0
     RvAsm::Lw(T0, MemAccess::new(Sp, 4)), // Pop t1
-    RvAsm::Addi(Sp, Sp, 8),
+    RvAsm::Addi(Sp, Sp, 16),
     RvAsm::Ret,
     // exit with a1
     RvAsm::Label("\{sanitizer_label}_exit"),

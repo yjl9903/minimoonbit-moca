@@ -34,7 +34,7 @@ pub fn emit_comment(self : AssemblyFunction, comment : String) -> Unit {
 }
 
 pub fn emit_sanitizer(self : AssemblyFunction, reg : Reg, code : Int) -> Unit {
-  self.body.push(Addi(Sp, Sp, -8)) // sp = sp - 8
+  self.body.push(Addi(Sp, Sp, -16)) // sp = sp - 8
   self.body.push(Sw(A0, MemAccess::new(Sp, 4))) // push a0
   self.body.push(Sw(A1, MemAccess::new(Sp, 0))) // push a1
   self.body.push(Mv(A0, reg))
@@ -42,7 +42,7 @@ pub fn emit_sanitizer(self : AssemblyFunction, reg : Reg, code : Int) -> Unit {
   self.body.push(Call(sanitizer_label))
   self.body.push(Lw(A1, MemAccess::new(Sp, 0))) // pop a1
   self.body.push(Lw(A0, MemAccess::new(Sp, 4))) // pop a0
-  self.body.push(Addi(Sp, Sp, 8)) // sp = sp + 8
+  self.body.push(Addi(Sp, Sp, 16)) // sp = sp + 8
 }
 
 fn create_asm_func(
@@ -131,7 +131,7 @@ fn AssemblyFunction::calc_stack_size(self : AssemblyFunction) -> Unit {
       None => ()
     }
   }
-  self.machine.stack_size = offset
+  self.machine.stack_size = align_to(offset, 16)
 }
 
 fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
@@ -413,6 +413,9 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_asm(Slli(A0, A0, 32))
       self.emit_asm(Srli(A0, A0, 32))
       self.emit_sanitizer(A0, 142)
+      self.emit_sanitizer(A0, 143)
+      self.emit_sanitizer(A0, 144)
+      self.emit_sanitizer(A0, 145)
       self.emit_comment("--- malloc \{size} ---")
       contg(A0)
     }
@@ -462,7 +465,7 @@ fn AssemblyFunction::emit_invoke_args(
 ) -> Int {
   let mut gp = 0
   let mut fp = 0
-  let mut stack_size = 0
+  let mut offset = 0
   let stack = []
   for i = 0; i < args.length(); i = i + 1 {
     let arg = args[i]
@@ -470,7 +473,7 @@ fn AssemblyFunction::emit_invoke_args(
       if fp < freg_arg_list.length() {
         fp += 1
       } else {
-        stack_size += arg.size
+        offset += arg.size
         stack.push(arg)
       }
       ()
@@ -478,7 +481,7 @@ fn AssemblyFunction::emit_invoke_args(
       if gp < reg_arg_list.length() {
         gp += 1
       } else {
-        stack_size += arg.size
+        offset += arg.size
         stack.push(arg)
       }
       ()
@@ -486,9 +489,12 @@ fn AssemblyFunction::emit_invoke_args(
   }
 
   // 1. Pass by stack in reverse
-  let mut offset = 0
-  if stack_size != 0 {
+  let stack_size = if offset != 0 {
+    let stack_size = align_to(offset, 16)
     self.emit_asm(Addi(Sp, Sp, -stack_size))
+    stack_size
+  } else {
+    0
   }
   stack.each(
     fn {
