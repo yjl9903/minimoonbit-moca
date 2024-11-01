@@ -1,12 +1,8 @@
-pub fn emit(world : @ssa.World) -> AssemblyProgram {
-  // 1. Build machine ir
-  let machine = build_machine_ir(world)
-  // 2. Optimizing todo
-  // 3. Generate final asm
-  let functions = machine.methods.map(
-    fn { method => create_asm_func(machine, method) },
+pub fn emit(world : MachineWorld) -> AssemblyProgram {
+  let functions = world.methods.map(
+    fn { method => create_asm_func(world, method) },
   )
-  let prog = { functions, world: machine }
+  let prog = { functions, world }
   functions.each(fn { func => func.emit_method_body() })
   prog
 }

@@ -149,13 +149,17 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       let world = builder.build(self.closure_ir.unwrap())
       self.ssa = Some(world)
       // Optimizing SSA
-      optimizing_manager.optimize_ssa(world)
+      optimizing_manager.optimize_ssa_ir(world)
     }
     Asm => {
       let world = self.ssa.unwrap()
       // Backend
       match self.backend {
-        RSICV => self.asm = Some(@riscv.emit(world))
+        RSICV => {
+          let machine_world = @riscv.build_machine_world(world)
+          optimizing_manager.optimize_machine_ir(machine_world)
+          self.asm = Some(@riscv.emit(machine_world))
+        }
         JS => self.js = Some(@js.emit_js(world))
         WASM => self.wasm = Some(@wasm.emit_wasm(world))
       }

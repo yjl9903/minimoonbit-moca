@@ -1,4 +1,4 @@
-pub fn build_machine_ir(world : @ssa.World) -> MachineWorld {
+pub fn build_machine_world(world : @ssa.World) -> MachineWorld {
   let machine = {
     globals: Map::new(),
     doubles: Map::new(),

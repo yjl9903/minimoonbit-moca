@@ -17,11 +17,14 @@ pub enum SsaOptPass {
   ConstProp
 }
 
+pub enum MachineOptPass {}
+
 pub enum Pass {
   Ast(AstOptPass)
   Knf(KnfOptPass)
   Closure(ClosureOptPass)
   Ssa(SsaOptPass)
+  Machine(MachineOptPass)
 }
 
 pub fn AstOptPass::optimize(
@@ -56,5 +59,14 @@ pub fn SsaOptPass::optimize(self : SsaOptPass, method : @ssa.Method) -> Unit {
   match self {
     DeadCodeElimination => @dead.remove_ssa_dead_code(method)
     ConstProp => @const.mark_ssa_const_variable(method)
+  }
+}
+
+pub fn MachineOptPass::optimize(
+  self : MachineOptPass,
+  method : @riscv.MachineMethod
+) -> Unit {
+  match self {
+
   }
 }
