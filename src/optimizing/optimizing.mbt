@@ -3,10 +3,17 @@ pub struct Manager {
   knf_passes : Array[KnfOptPass]
   closure_passes : Array[ClosureOptPass]
   ssa_passes : Array[SsaOptPass]
+  machine_passes : Array[MachineOptPass]
 }
 
 pub fn Manager::new() -> Manager {
-  { ast_passes: [], knf_passes: [], closure_passes: [], ssa_passes: [] }
+  {
+    ast_passes: [],
+    knf_passes: [],
+    closure_passes: [],
+    ssa_passes: [],
+    machine_passes: [],
+  }
 }
 
 pub fn Manager::add_opt_pass(self : Manager, pass : Pass) -> Manager {
@@ -15,6 +22,7 @@ pub fn Manager::add_opt_pass(self : Manager, pass : Pass) -> Manager {
     Knf(p) => self.knf_passes.push(p)
     Closure(p) => self.closure_passes.push(p)
     Ssa(p) => self.ssa_passes.push(p)
+    Machine(p) => self.machine_passes.push(p)
   }
   self
 }
@@ -46,14 +54,14 @@ pub fn Manager::optimize_knf(self : Manager, knf : @knf.Knf) -> @knf.Knf {
   self.knf_passes.fold(init=knf, fn { knf, pass => pass.optimize(knf) })
 }
 
-pub fn Manager::optimize_closure(
+pub fn Manager::optimize_closure_ir(
   _self : Manager,
   _prog : @closure.Program
 ) -> @closure.Program {
   abort("")
 }
 
-pub fn Manager::optimize_ssa(self : Manager, world : @ssa.World) -> Unit {
+pub fn Manager::optimize_ssa_ir(self : Manager, world : @ssa.World) -> Unit {
   self.ssa_passes.each(
     fn {
       pass => {
@@ -61,5 +69,14 @@ pub fn Manager::optimize_ssa(self : Manager, world : @ssa.World) -> Unit {
         world.methods.values().each(fn { m => pass.optimize(m) })
       }
     },
+  )
+}
+
+pub fn Manager::optimize_machine_ir(
+  self : Manager,
+  world : @riscv.MachineWorld
+) -> Unit {
+  self.machine_passes.each(
+    fn { pass => world.methods.each(fn { m => pass.optimize(m) }) },
   )
 }
