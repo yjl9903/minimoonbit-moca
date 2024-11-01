@@ -25,6 +25,7 @@ pub fn Manager::add_opt_pass(self : Manager, pass : Pass) -> Manager {
     Closure(p) => self.closure_passes.push(p)
     Ssa(p) => self.ssa_passes.push(p)
     Machine(p) => self.machine_passes.push(p)
+    Assembly(p) => self.asm_passes.push(p)
   }
   self
 }
