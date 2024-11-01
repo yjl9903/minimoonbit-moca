@@ -83,8 +83,8 @@ fn output_sanitizer(logger : Logger) -> Unit {
     RvAsm::Addi(Sp, Sp, -8),
     RvAsm::Sw(T0, MemAccess::new(Sp, 4)), // Push t0
     RvAsm::Sw(T1, MemAccess::new(Sp, 0)), // Push t1
-    // a0 < 1000 goto error
-    RvAsm::Li(T0, "1000"),
+    // a0 < 4096 goto error
+    RvAsm::Li(T0, "4096"),
     RvAsm::Blt(A0, T0, "\{sanitizer_label}_exit"),
     // return
     RvAsm::Lw(T1, MemAccess::new(Sp, 0)), // Pop t0

@@ -286,7 +286,7 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
       let recv = self.build_get_var(recv, stmts)
       stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Int))) // addr = recv + offset
       let value = self.build_get_var(value, stmts)
-      stmts.push(Store((addr, 0), value, kind)) // store value to addr
+      stmts.push(Store((addr, 0), value, kind, 210)) // store value to addr
     }
     IfGoto(cond, true_branch, false_branch, _) => {
       let kind = match cond {
@@ -367,6 +367,7 @@ fn Builder::build_definition(
               } else {
                 Int
               },
+              220
             ),
           )
           stmts
@@ -456,12 +457,12 @@ fn Builder::build_rvalue(
             match el.ty {
               Double => {
                 let el = self.build_get_var(el, stmts)
-                stmts.push(Store((def, offset), el, Double))
+                stmts.push(Store((def, offset), el, Double, 230))
                 offset += @ssa.f64_size
               }
               _ => {
                 let el = self.build_get_var(el, stmts)
-                stmts.push(Store((def, offset), el, Int))
+                stmts.push(Store((def, offset), el, Int, 240))
                 offset += @ssa.i32_size
               }
             }
@@ -481,7 +482,7 @@ fn Builder::build_rvalue(
           stmts.push(
             Definition(Some(addr), LoadLabel(create_method_label(label))),
           )
-          stmts.push(Store((def, 0), addr, Int))
+          stmts.push(Store((def, 0), addr, Int, 250))
           // 2. Store fields
           fvs.sort_by_key(fn { (fv, _) => fv.slot })
           fvs.each(
@@ -490,12 +491,12 @@ fn Builder::build_rvalue(
                 match fv.ty {
                   Double => {
                     let el = self.build_get_var(var, stmts)
-                    stmts.push(Store((def, offset), el, Double))
+                    stmts.push(Store((def, offset), el, Double, 190))
                     offset += @ssa.f64_size
                   }
                   _ => {
                     let el = self.build_get_var(var, stmts)
-                    stmts.push(Store((def, offset), el, Int))
+                    stmts.push(Store((def, offset), el, Int, 180))
                     offset += @ssa.i32_size
                   }
                 }
