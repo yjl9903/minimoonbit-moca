@@ -54,9 +54,10 @@ fn prog(state : State) -> Syntax!ParseError {
         _ => Syntax::Unit
       }
     }
-    return result
+    result
+  } else {
+    raise ParseError("Prog rest: \{state.peek!()}")
   }
-  raise ParseError("Prog rest: \{state.peek!()}")
 }
 
 fn top_level(state : State) -> Syntax!ParseError {
@@ -720,12 +721,12 @@ pub fn parse_minimoonbit(source_code : String) -> Syntax {
   let state = State::new(context.tokens)
   let mut result : Syntax = Syntax::Unit
   if ok == 1 {
-    @util.die("Lexer Failed")
+    @util.die("failed at \{state.cursor}", tag=Some("Lex"))
   }
   try {
     result = state.parse!(prog)
   } catch {
-    _ => @util.die("Parser Failed")
+    ParseError(e) => @util.die("\{e}", tag=Some("Parse"))
   }
   return result
 }
