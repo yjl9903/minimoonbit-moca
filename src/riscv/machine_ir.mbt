@@ -108,6 +108,7 @@ pub enum RValue {
 pub enum StmtKind {
   Definition(MachineVar?, RValue)
   Store((MachineVar, Int), MachineVar, PrimKind, Int) // store _(_), _ / sanitizer error code
+  Sanitizer(MachineVar, Int)
   IfGoto(Condition, Int?, Int?)
   Goto(Int)
   Comment(String)
