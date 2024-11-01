@@ -34,15 +34,17 @@ pub fn emit_comment(self : AssemblyFunction, comment : String) -> Unit {
 }
 
 pub fn emit_sanitizer(self : AssemblyFunction, reg : Reg, code : Int) -> Unit {
-  self.body.push(Addi(Sp, Sp, -16)) // sp = sp - 8
-  self.body.push(Sw(A0, MemAccess::new(Sp, 4))) // push a0
-  self.body.push(Sw(A1, MemAccess::new(Sp, 0))) // push a1
+  self.body.push(Comment("--- start sanitizer ---"))
+  self.body.push(Addi(Sp, Sp, -16)) // sp = sp - 16
+  self.body.push(Sd(A0, MemAccess::new(Sp, 8))) // push a0
+  self.body.push(Sd(A1, MemAccess::new(Sp, 0))) // push a1
   self.body.push(Mv(A0, reg))
   self.body.push(Li(A1, code.to_string()))
   self.body.push(Call(sanitizer_label))
-  self.body.push(Lw(A1, MemAccess::new(Sp, 0))) // pop a1
-  self.body.push(Lw(A0, MemAccess::new(Sp, 4))) // pop a0
-  self.body.push(Addi(Sp, Sp, 16)) // sp = sp + 8
+  self.body.push(Ld(A1, MemAccess::new(Sp, 0))) // pop a1
+  self.body.push(Ld(A0, MemAccess::new(Sp, 8))) // pop a0
+  self.body.push(Addi(Sp, Sp, 16)) // sp = sp + 16
+  self.body.push(Comment("--- end sanitizer ---"))
 }
 
 fn create_asm_func(
@@ -431,8 +433,6 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_comment("--- malloc \{size} ---")
       self.emit_asm(Li(A0, size.to_string()))
       self.emit_asm(Call("minimbt_malloc"))
-      self.emit_asm(Slli(A0, A0, 32))
-      self.emit_asm(Srli(A0, A0, 32))
       self.emit_sanitizer(A0, 142)
       self.emit_sanitizer(A0, 143)
       self.emit_sanitizer(A0, 144)
