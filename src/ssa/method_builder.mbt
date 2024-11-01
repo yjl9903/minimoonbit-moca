@@ -134,7 +134,7 @@ fn SsaBuilder::add_this(self : SsaBuilder) -> Unit {
       is_mut: false,
       const_value: None,
       is_phi: false,
-      outcoming: None
+      outcoming: None,
     },
   )
   self.world_builder.global_vars_counter = self.world_builder.global_vars_counter +
@@ -206,7 +206,7 @@ fn SsaBuilder::add_local_var(
             is_mut: false,
             const_value: get_const_value(name),
             is_phi: false,
-            outcoming: None
+            outcoming: None,
           }
           self.world_builder.global_vars_counter = self.world_builder.global_vars_counter +
             1
@@ -232,7 +232,7 @@ fn SsaBuilder::add_local_temp_var(
     is_mut: false,
     const_value: None,
     is_phi,
-    outcoming: None
+    outcoming: None,
   }
   self.local_temp_vars.push(var)
   self.world_builder.global_vars_counter = self.world_builder.global_vars_counter +

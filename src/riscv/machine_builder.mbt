@@ -71,7 +71,8 @@ fn MachineVar::from_ssa(var : @ssa.Var) -> MachineVar {
     id: var.id,
     name: var.name,
     ty: var.ty,
-    size: var.size,
+    width: Width::from_low_type(var.ty),
+    size: get_type_size(var.ty),
     offset: -1,
     param_offset: None,
     is_this: var.is_this,
@@ -134,7 +135,8 @@ fn Builder::add_temp_var(self : Builder, ty : Type) -> MachineVar {
     id,
     name: None,
     ty,
-    size: @ssa.get_type_size(ty),
+    width: Width::from_low_type(ty),
+    size: get_type_size(ty),
     offset: -1,
     param_offset: None,
     is_this: false,
@@ -159,7 +161,8 @@ fn Builder::add_int_const_var(self : Builder, value : Int) -> MachineVar {
     id,
     name: None,
     ty: Int,
-    size: @ssa.get_type_size(Int),
+    width: Width::from_low_type(Int),
+    size: get_type_size(Int),
     offset: -1,
     param_offset: None,
     is_this: false,
@@ -272,29 +275,22 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
       stmts.push_iter(def_stmts.iter())
     }
     PutArray(recv, idx, value) => {
-      let ty = @closure.extract_array_type(recv.ty)
-      let addr = self.add_temp_var(Int)
+      let ty = value.ty
+      let width = Width::from_low_type(ty)
+      let addr = self.add_temp_var(Ptr)
       let offset = self.add_temp_var(Int)
-      let (kind, width) = match ty {
-        Double => (PrimKind::Double, @ssa.f64_size)
-        _ => (PrimKind::Int, @ssa.i32_size)
-      }
-      let size_var = self.add_int_const_var(width)
+      let size_var = self.add_int_const_var(width.to_int())
       // Build put array
       let idx = self.build_get_var(idx, stmts)
       stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Int))) // offset = idx * type_size
       let recv = self.build_get_var(recv, stmts)
       stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Int))) // addr = recv + offset
       let value = self.build_get_var(value, stmts)
-      stmts.push(Store((addr, 0), value, kind, 210)) // store value to addr
+      stmts.push(Store((addr, 0), value, width, 210)) // store value to addr
     }
     IfGoto(cond, true_branch, false_branch, _) => {
       let kind = match cond {
-        Eq(lhs, _) | Le(lhs, _) =>
-          match lhs.ty {
-            Double => PrimKind::Double
-            _ => PrimKind::Int
-          }
+        Eq(lhs, _) | Le(lhs, _) => Width::from_low_type(lhs.ty)
       }
       let cond = match cond {
         Eq(lhs, rhs) => {
@@ -358,18 +354,7 @@ fn Builder::build_definition(
         Some(label) => {
           let addr = self.add_temp_var(Type::Ptr)
           stmts.push(Definition(Some(addr), LoadLabel(label)))
-          stmts.push(
-            Store(
-              (addr, 0),
-              local_def,
-              if local_def.is_float() {
-                Double
-              } else {
-                Int
-              },
-              220,
-            ),
-          )
+          stmts.push(Store((addr, 0), local_def, local_def.width, 220))
           stmts
         }
         None => stmts
@@ -393,7 +378,7 @@ fn Builder::build_rvalue(
         return None
       }
       let label = add_double_const(self.world, x)
-      let addr = self.add_temp_var(Ptr)
+      let addr = self.add_temp_var(Type::Ptr)
       stmts.push(Definition(Some(addr), LoadLabel(label)))
       Some(Load((addr, 0), Double))
     }
@@ -402,7 +387,11 @@ fn Builder::build_rvalue(
         return None
       }
       let v = self.build_get_var(v, stmts)
-      Some(Neg(v, kind))
+      let width = Width::from_prim_kind(kind)
+      if width == Ptr {
+        @util.die("should not be Ptr")
+      }
+      Some(Neg(v, width))
     }
     Prim(lhs, rhs, op, kind) => {
       if def.is_empty() {
@@ -410,7 +399,11 @@ fn Builder::build_rvalue(
       }
       let lhs = self.build_get_var(lhs, stmts)
       let rhs = self.build_get_var(rhs, stmts)
-      Some(Prim(lhs, rhs, op, kind))
+      let width = Width::from_prim_kind(kind)
+      if width == Ptr {
+        @util.die("should not be Ptr")
+      }
+      Some(Prim(lhs, rhs, op, width))
     }
 
     // Var
@@ -428,18 +421,15 @@ fn Builder::build_rvalue(
           Some(Load((addr, 0), Double))
         }
         None => {
-          let kind : PrimKind = match v.ty {
-            Double => Double
-            _ => Int
-          }
+          let width = Width::from_low_type(var.ty)
           if var.is_global {
             let (label, _) = self.world.globals.get(var.id).unwrap()
             let addr = self.add_temp_var(Ptr)
             stmts.push(Comment("Get global var \{v}"))
             stmts.push(Definition(Some(addr), LoadLabel(label)))
-            Some(Load((addr, 0), kind))
+            Some(Load((addr, 0), width))
           } else {
-            Some(Var(var, kind))
+            Some(Var(var, width))
           }
         }
       }
@@ -450,20 +440,26 @@ fn Builder::build_rvalue(
       match def {
         Some(def) => {
           let mut offset = 0
-          let size = @ssa.get_tuple_types_size(els)
+          let size = get_tuple_types_size(els)
           stmts.push(Definition(Some(def), Malloc(size)))
           for i = 0; i < els.length(); i = i + 1 {
             let el = els[i]
-            match el.ty {
+            let width = Width::from_low_type(el.ty)
+            match width {
+              Int => {
+                let el = self.build_get_var(el, stmts)
+                stmts.push(Store((def, offset), el, width, 240))
+                offset += width.to_int()
+              }
               Double => {
                 let el = self.build_get_var(el, stmts)
-                stmts.push(Store((def, offset), el, Double, 230))
-                offset += @ssa.f64_size
+                stmts.push(Store((def, offset), el, width, 230))
+                offset += width.to_int()
               }
-              _ => {
+              Ptr => {
                 let el = self.build_get_var(el, stmts)
-                stmts.push(Store((def, offset), el, Int, 240))
-                offset += @ssa.i32_size
+                stmts.push(Store((def, offset), el, width, 230))
+                offset += width.to_int()
               }
             }
           }
@@ -474,7 +470,7 @@ fn Builder::build_rvalue(
     Closure(label, fvs) =>
       match def {
         Some(def) => {
-          let size = @ssa.get_free_vars_size(fvs.map(fn { fv => fv.0 }))
+          let size = get_free_vars_size(fvs.map(fn { fv => fv.0 }))
           let addr = self.add_temp_var(Type::Ptr)
           // 1. Malloc
           stmts.push(Definition(Some(def), Malloc(size)))
@@ -486,23 +482,30 @@ fn Builder::build_rvalue(
           stmts.push(Sanitizer(def, 156))
           stmts.push(Store((def, 0), addr, Int, 250))
           // 3. Store fields
-          let mut offset = @ssa.i32_size
+          let mut offset = Width::Ptr.to_int()
           fvs.sort_by_key(fn { (fv, _) => fv.slot })
           fvs.each(
             fn {
-              (fv, var) =>
-                match fv.ty {
+              (fv, var) => {
+                let width = Width::from_low_type(fv.ty)
+                match width {
+                  Int => {
+                    let el = self.build_get_var(var, stmts)
+                    stmts.push(Store((def, offset), el, width, 180))
+                    offset += width.to_int()
+                  }
                   Double => {
                     let el = self.build_get_var(var, stmts)
-                    stmts.push(Store((def, offset), el, Double, 190))
-                    offset += @ssa.f64_size
+                    stmts.push(Store((def, offset), el, width, 190))
+                    offset += width.to_int()
                   }
-                  _ => {
+                  Ptr => {
                     let el = self.build_get_var(var, stmts)
-                    stmts.push(Store((def, offset), el, Int, 180))
-                    offset += @ssa.i32_size
+                    stmts.push(Store((def, offset), el, width, 190))
+                    offset += width.to_int()
                   }
                 }
+              }
             },
           )
           None
@@ -516,51 +519,33 @@ fn Builder::build_rvalue(
         return None
       }
       let types = @closure.extract_tuple_type(base.ty)
-      let offset = @ssa.get_tuple_size(types, slice=Some(idx))
+      let el_type = types[idx]
+      let offset = get_tuple_size(types, slice=Some(idx))
       let base = self.build_get_var(base, stmts)
-      Some(
-        Load(
-          (base, offset),
-          match types[idx] {
-            Double => Double
-            _ => Int
-          },
-        ),
-      )
+      Some(Load((base, offset), Width::from_low_type(el_type)))
     }
     GetClosure(recv, fv, all_fvs) => {
       if def.is_empty() {
         return None
       }
-      let offset = @ssa.get_free_vars_size(all_fvs, target=Some(fv))
+      let offset = get_free_vars_size(all_fvs, target=Some(fv))
       let recv = self.build_get_var(recv, stmts)
-      Some(
-        Load(
-          (recv, offset),
-          match fv.ty {
-            Double => Double
-            _ => Int
-          },
-        ),
-      )
+      Some(Load((recv, offset), Width::from_low_type(fv.ty)))
     }
     GetArray(recv, idx) => {
       if def.is_empty() {
         return None
       }
       let ty = @closure.extract_array_type(recv.ty)
+      let width = Width::from_low_type(ty)
       let addr = self.add_temp_var(Int)
       let offset = self.add_temp_var(Int)
-      let (kind, width) = match ty {
-        Double => (PrimKind::Double, @ssa.f64_size)
-        _ => (PrimKind::Int, @ssa.i32_size)
-      }
-      let size_var = self.add_int_const_var(width)
+      let size_var = self.add_int_const_var(width.to_int())
       let idx = self.build_get_var(idx, stmts)
       stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Int)))
       let recv = self.build_get_var(recv, stmts)
       stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Int)))
-      Some(Load((addr, 0), kind))
+      Some(Load((addr, 0), width))
     }
 
     // Invoke
@@ -570,10 +555,7 @@ fn Builder::build_rvalue(
       let invoke = InvokeDirect(
         create_method_label(label),
         args.map(fn { a => self.build_get_var(a, stmts) }),
-        match ret_type {
-          Double => Double
-          _ => Int
-        },
+        Width::from_low_type(ret_type),
       )
       if def.is_empty() {
         stmts.push(Definition(None, invoke))
@@ -588,10 +570,7 @@ fn Builder::build_rvalue(
       let invoke = InvokeClosure(
         callee,
         args.map(fn { a => self.build_get_var(a, stmts) }),
-        match ret_type {
-          Double => Double
-          _ => Int
-        },
+        Width::from_low_type(ret_type),
       )
       if def.is_empty() {
         stmts.push(Definition(None, invoke))
@@ -637,12 +616,7 @@ fn Builder::build_get_var(
         let tmp = self.add_temp_var(var.ty)
         stmts.push(Comment("Get global var \{var}"))
         stmts.push(Definition(Some(addr), LoadLabel(label)))
-        stmts.push(
-          Definition(
-            Some(tmp),
-            Load((addr, 0), if g.is_float() { Double } else { Int }),
-          ),
-        )
+        stmts.push(Definition(Some(tmp), Load((addr, 0), g.width)))
         tmp
       }
       None => @util.die("unreachable")
