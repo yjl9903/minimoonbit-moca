@@ -95,7 +95,7 @@ pub enum RValue {
   Neg(MachineVar, Width)
   Prim(MachineVar, MachineVar, PrimOp, Width)
   Var(MachineVar, Width)
-  Load((MachineVar, Int), Width) // load _, _(_)
+  Load((MachineVar, Int), Width, Int) // load _, _(_) / sanitizer error code
   LoadLabel(String)
   InvokeClosure(MachineVar, Array[MachineVar], Width)
   InvokeDirect(String, Array[MachineVar], Width)

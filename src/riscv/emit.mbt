@@ -369,21 +369,21 @@ fn AssemblyFunction::emit_method_rvalue(
     }
 
     // Load
-    Load((recv, offset), Int) => {
+    Load((recv, offset), Int, code) => {
       self.emit_get_int_var(T0, recv)
-      self.emit_sanitizer(T0, 203)
+      self.emit_sanitizer(T0, code)
       self.emit_asm(Lw(T0, MemAccess::new(T0, offset)))
       contg(T0)
     }
-    Load((recv, offset), Double) => {
+    Load((recv, offset), Double, code) => {
       self.emit_get_int_var(T0, recv)
-      self.emit_sanitizer(T0, 204)
+      self.emit_sanitizer(T0, code)
       self.emit_asm(Fld(Ft0, MemAccess::new(T0, offset)))
       contf(Ft0)
     }
-    Load((recv, offset), Ptr) => {
+    Load((recv, offset), Ptr, code) => {
       self.emit_get_int_var(T0, recv)
-      self.emit_sanitizer(T0, 205)
+      self.emit_sanitizer(T0, code)
       self.emit_asm(Ld(T0, MemAccess::new(T0, offset)))
       contg(T0)
     }
@@ -404,8 +404,9 @@ fn AssemblyFunction::emit_method_rvalue(
       new_args.push(callee)
       let stack_size = self.emit_invoke_args(new_args)
       self.emit_get_int_var(T5, callee)
-      self.emit_sanitizer(T5, 205)
+      self.emit_sanitizer(T5, 105)
       self.emit_asm(Ld(T5, MemAccess::new(T5, 0)))
+      self.emit_sanitizer(T5, 106)
       self.emit_asm(Jalr(T5))
       if stack_size != 0 {
         self.emit_asm(Addi(Sp, Sp, stack_size))

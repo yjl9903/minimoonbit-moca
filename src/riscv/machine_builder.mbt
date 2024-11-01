@@ -380,7 +380,7 @@ fn Builder::build_rvalue(
       let label = add_double_const(self.world, x)
       let addr = self.add_temp_var(Type::Ptr)
       stmts.push(Definition(Some(addr), LoadLabel(label)))
-      Some(Load((addr, 0), Double))
+      Some(Load((addr, 0), Double, 201))
     }
     Neg(v, kind) => {
       if def.is_empty() {
@@ -418,7 +418,7 @@ fn Builder::build_rvalue(
           let label = add_double_const(self.world, x)
           let addr = self.add_temp_var(Ptr)
           stmts.push(Definition(Some(addr), LoadLabel(label)))
-          Some(Load((addr, 0), Double))
+          Some(Load((addr, 0), Double, 202))
         }
         None => {
           let width = Width::from_low_type(var.ty)
@@ -427,7 +427,7 @@ fn Builder::build_rvalue(
             let addr = self.add_temp_var(Ptr)
             stmts.push(Comment("Get global var \{v}"))
             stmts.push(Definition(Some(addr), LoadLabel(label)))
-            Some(Load((addr, 0), width))
+            Some(Load((addr, 0), width, 203))
           } else {
             Some(Var(var, width))
           }
@@ -522,7 +522,7 @@ fn Builder::build_rvalue(
       let el_type = types[idx]
       let offset = get_tuple_size(types, slice=Some(idx))
       let base = self.build_get_var(base, stmts)
-      Some(Load((base, offset), Width::from_low_type(el_type)))
+      Some(Load((base, offset), Width::from_low_type(el_type), 204))
     }
     GetClosure(recv, fv, all_fvs) => {
       if def.is_empty() {
@@ -530,7 +530,7 @@ fn Builder::build_rvalue(
       }
       let offset = get_free_vars_size(all_fvs, target=Some(fv))
       let recv = self.build_get_var(recv, stmts)
-      Some(Load((recv, offset), Width::from_low_type(fv.ty)))
+      Some(Load((recv, offset), Width::from_low_type(fv.ty), 205))
     }
     GetArray(recv, idx) => {
       if def.is_empty() {
@@ -545,7 +545,7 @@ fn Builder::build_rvalue(
       stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Int)))
       let recv = self.build_get_var(recv, stmts)
       stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Int)))
-      Some(Load((addr, 0), width))
+      Some(Load((addr, 0), width, 206))
     }
 
     // Invoke
@@ -612,11 +612,11 @@ fn Builder::build_get_var(
   } else if var.is_global {
     match self.world.globals.get(var.id) {
       Some((label, g)) => {
-        let addr = self.add_temp_var(Ptr)
+        let addr = self.add_temp_var(Type::Ptr)
         let tmp = self.add_temp_var(var.ty)
         stmts.push(Comment("Get global var \{var}"))
         stmts.push(Definition(Some(addr), LoadLabel(label)))
-        stmts.push(Definition(Some(tmp), Load((addr, 0), g.width)))
+        stmts.push(Definition(Some(tmp), Load((addr, 0), g.width, 207)))
         tmp
       }
       None => @util.die("unreachable")
@@ -635,9 +635,9 @@ fn Builder::build_double_const(
   stmts : Array[StmtKind]
 ) -> MachineVar {
   let label = add_double_const(self.world, value)
-  let addr = self.add_temp_var(Ptr)
+  let addr = self.add_temp_var(Type::Ptr)
   stmts.push(Definition(Some(addr), LoadLabel(label)))
   let local_const = self.add_temp_var(Double)
-  stmts.push(Definition(Some(local_const), Load((addr, 0), Double)))
+  stmts.push(Definition(Some(local_const), Load((addr, 0), Double, 208)))
   local_const
 }
