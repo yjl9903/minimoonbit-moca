@@ -6,7 +6,9 @@ pub fn print_assembly(asm : AssemblyProgram) -> String {
     f.output(logger)
     logger.write_string("\n")
   }
-  output_sanitizer(logger)
+  if enable_sanitizer {
+    output_sanitizer(logger)
+  }
   logger.to_string()
 }
 
@@ -53,7 +55,6 @@ pub fn AssemblyFunction::output(
   let label = self.label
   if self.export {
     logger.write_string(".global \{label}\n")
-    // TODO
   } else if is_debug {
     logger.write_string(".global \{label}\n")
   } else {
