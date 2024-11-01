@@ -339,11 +339,14 @@ fn main {
 
   // Input
   let file = if file.is_empty() {
-    @util.die("no input file provided")
+    @util.die("no input file provided", tag=Some("main"))
   } else {
     file.unwrap()
   }
-  let contents = @fs.read_file_to_string?(path=file).unwrap()
+  let contents = match @fs.read_file_to_string?(path=file) {
+    Ok(text) => text
+    Err(_) => @util.die("no such file: \{file}", tag=Some("main"))
+  }
 
   // Compilation
   let status = match
