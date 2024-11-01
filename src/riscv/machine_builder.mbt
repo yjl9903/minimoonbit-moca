@@ -480,7 +480,7 @@ fn Builder::build_rvalue(
             Definition(Some(addr), LoadLabel(create_method_label(label))),
           )
           stmts.push(Sanitizer(def, 156))
-          stmts.push(Store((def, 0), addr, Int, 250))
+          stmts.push(Store((def, 0), addr, Ptr, 250))
           // 3. Store fields
           let mut offset = Width::Ptr.to_int()
           fvs.sort_by_key(fn { (fv, _) => fv.slot })

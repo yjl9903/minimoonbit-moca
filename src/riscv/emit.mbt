@@ -405,7 +405,7 @@ fn AssemblyFunction::emit_method_rvalue(
       let stack_size = self.emit_invoke_args(new_args)
       self.emit_get_int_var(T5, callee)
       self.emit_sanitizer(T5, 205)
-      self.emit_asm(Lw(T5, MemAccess::new(T5, 0)))
+      self.emit_asm(Ld(T5, MemAccess::new(T5, 0)))
       self.emit_asm(Jalr(T5))
       if stack_size != 0 {
         self.emit_asm(Addi(Sp, Sp, stack_size))

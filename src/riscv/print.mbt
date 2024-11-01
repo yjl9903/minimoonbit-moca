@@ -24,9 +24,10 @@ pub fn AssemblyProgram::output_data_section(
     let (label, var) = v
     logger.write_string(".global \{label}\n")
     logger.write_string("\{label}:\n")
-    match var.ty {
+    match var.width {
+      Int => logger.write_string("  .word 0\n")
       Double => logger.write_string("  .double 0.0\n")
-      _ => logger.write_string("  .word 0\n")
+      Ptr => logger.write_string("  .dword 0\n")
     }
   }
   for value, label in self.world.doubles {
