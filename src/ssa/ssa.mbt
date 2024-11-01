@@ -36,9 +36,6 @@ pub struct Var {
   // phi
   is_phi : Bool
   mut outcoming : Var?
-
-  // riscv
-  size : Int
 }
 
 pub fn Var::op_equal(self : Var, other : Var) -> Bool {
