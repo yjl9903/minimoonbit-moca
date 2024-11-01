@@ -405,6 +405,9 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_comment("--- malloc \{size} ---")
       self.emit_asm(Li(A0, size.to_string()))
       self.emit_asm(Call("minimbt_malloc"))
+      self.emit_asm(Slli(A0, A0, 32))
+      self.emit_asm(Srli(A0, A0, 32))
+      self.emit_sanitizer(A0, 252)
       self.emit_comment("--- malloc \{size} ---")
       contg(A0)
     }
