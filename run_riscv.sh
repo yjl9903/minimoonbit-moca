@@ -9,7 +9,7 @@ filepath=$1
 filename=$(basename "$filepath")
 filename="${filename%.*}"
 
-moon run src/bin/main.mbt -- "$filepath" -o "temp/${filename}.s" 2>/dev/null || exit $?
+moon run src/bin/main.mbt -- "$filepath" -o "temp/${filename}.s" || exit $?
 
 zig build-exe -target riscv64-linux "-femit-bin=temp/${filename}" \
   "temp/${filename}.s" "riscv_rt/zig-out/lib/libmincaml.a" \
