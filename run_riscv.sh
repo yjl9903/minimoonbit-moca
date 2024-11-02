@@ -18,5 +18,6 @@ zig build-exe -target riscv64-linux "-femit-bin=temp/${filename}" \
 if [ "$2" == "-o" ]; then
   ./rvlinux -n "temp/${filename}" > "temp/${filename}.out"
 else
-  ./rvlinux -n "temp/${filename}"
+  shift
+  ./rvlinux -n "temp/${filename}" "$@"
 fi
