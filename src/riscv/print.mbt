@@ -88,7 +88,7 @@ fn output_sanitizer(logger : Logger) -> Unit {
     // a0 < 4096 goto error
     RvAsm::Li(T0, "4096"),
     RvAsm::Blt(A0, T0, "\{sanitizer_label}_exit"),
-    RvAsm::Li(T0, "0x1000000000000000"),
+    RvAsm::Li(T0, "0x0000004F00000000"),
     RvAsm::Bge(A0, T0, "\{sanitizer_label}_exit"),
     // return
     RvAsm::Ld(T1, MemAccess::new(Sp, 0)), // Pop t0
