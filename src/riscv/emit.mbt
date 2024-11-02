@@ -343,8 +343,8 @@ fn AssemblyFunction::emit_method_rvalue(
         match op {
           Add => Add(T0, T0, T1)
           Sub => Sub(T0, T0, T1)
-          Mul => Mul(T0, T0, T1)
-          Div => Div(T0, T0, T1)
+          Mul => Mulw(T0, T0, T1)
+          Div => Divw(T0, T0, T1)
         },
       )
       contg(T0)
