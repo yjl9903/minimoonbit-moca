@@ -125,7 +125,49 @@ pub struct Stmt {
 }
 
 pub fn Stmt::new(slot : Int, stmt : StmtKind, ssa : @ssa.Stmt) -> Stmt {
-  { slot, stmt, def: None, uses: [], ssa }
+  let stmt = { slot, stmt, def: None, uses: [], ssa }
+  stmt.update_def_uses()
+  stmt
+}
+
+pub fn Stmt::update(self : Stmt, stmt : StmtKind) -> Stmt {
+  self.stmt = stmt
+  self.update_def_uses()
+  self
+}
+
+fn Stmt::update_def_uses(self : Stmt) -> Unit {
+  self.def = None
+  match self.stmt {
+    Definition(def, rvalue) => {
+      self.def = def
+      let uses = match rvalue {
+        Int(_) => []
+        Neg(v, _) => [v]
+        Prim(lhs, rhs, _, _) => [lhs, rhs]
+        Var(v, _) => [v]
+        Load((recv, _), _, _) => [recv]
+        LoadLabel(_) => []
+        InvokeClosure(callee, args, _) => [callee, ..args]
+        InvokeDirect(_, args, _) => [..args]
+        Malloc(_) => []
+        Phi(els) => [..els]
+      }
+      self.uses = uses
+    }
+    Store((recv, _), value, _, _) => self.uses = [recv, value]
+    Sanitizer(v, _) => self.uses = [v]
+    IfGoto(cond, _, _) =>
+      match cond {
+        Eq(lhs, rhs, _)
+        | Ne(lhs, rhs, _)
+        | Lt(lhs, rhs, _) | Le(lhs, rhs, _) | Gt(lhs, rhs, _) | Ge(lhs, rhs, _) =>
+          self.uses = [lhs, rhs]
+      }
+    Goto(_) | Comment(_) | Nop => self.uses = []
+    Return(Some(v)) => self.uses = [v]
+    Return(None) => self.uses = []
+  }
 }
 
 pub struct IR {

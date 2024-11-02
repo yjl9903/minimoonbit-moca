@@ -19,6 +19,7 @@ pub struct AssemblyFunction {
   body : Array[RvAsm]
   machine : MachineMethod
   world : MachineWorld
+  allocator : LinearAllocator
 }
 
 pub fn emit_asm(self : AssemblyFunction, asm : RvAsm) -> Unit {
@@ -56,8 +57,10 @@ fn create_asm_func(
     body: [],
     machine: method,
     world,
+    allocator: LinearAllocator::new(method),
   }
   asm_func.calc_stack_size()
+  asm_func.allocator.allocate_registor()
   asm_func
 }
 
