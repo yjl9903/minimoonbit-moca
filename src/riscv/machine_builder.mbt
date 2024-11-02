@@ -474,12 +474,16 @@ fn Builder::build_rvalue(
           let addr = self.add_temp_var(Type::Ptr)
           // 1. Malloc
           stmts.push(Definition(Some(def), Malloc(size)))
-          stmts.push(Sanitizer(def, 155))
+          if enable_sanitizer {
+            stmts.push(Sanitizer(def, 155))
+          }
           // 2. Store function label
           stmts.push(
             Definition(Some(addr), LoadLabel(create_method_label(label))),
           )
-          stmts.push(Sanitizer(def, 156))
+          if enable_sanitizer {
+            stmts.push(Sanitizer(def, 156))
+          }
           stmts.push(Store((def, 0), addr, Ptr, 250))
           // 3. Store fields
           let mut offset = Width::Ptr.to_int()
