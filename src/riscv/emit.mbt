@@ -213,8 +213,9 @@ fn AssemblyFunction::emit_method_stmt(
       )
     Store((recv, offset), expr, width, code) => {
       self.emit_comment("--- Store \{offset}(\{recv.id}) \{expr.id} ---")
+      assert_ptr(recv.width)
       self.emit_get_int_var(T0, recv)
-      self.emit_sanitizer(T0, code + 3)
+      self.emit_sanitizer(T0, code)
       match width {
         Int => {
           self.emit_get_int_var(T1, expr)
@@ -223,12 +224,12 @@ fn AssemblyFunction::emit_method_stmt(
         }
         Double => {
           self.emit_get_float_var(Ft0, expr)
-          self.emit_sanitizer(T0, code + 1)
+          self.emit_sanitizer(T0, code)
           self.emit_asm(Fsd(Ft0, MemAccess::new(T0, offset)))
         }
         Ptr => {
           self.emit_get_int_var(T1, expr)
-          self.emit_sanitizer(T0, code + 2)
+          self.emit_sanitizer(T0, code)
           self.emit_asm(Sd(T1, MemAccess::new(T0, offset)))
         }
       }
@@ -386,18 +387,21 @@ fn AssemblyFunction::emit_method_rvalue(
 
     // Load
     Load((recv, offset), Int, code) => {
+      assert_ptr(recv.width)
       self.emit_get_int_var(T0, recv)
       self.emit_sanitizer(T0, code)
       self.emit_asm(Lw(T0, MemAccess::new(T0, offset)))
       contg(T0)
     }
     Load((recv, offset), Double, code) => {
+      assert_ptr(recv.width)
       self.emit_get_int_var(T0, recv)
       self.emit_sanitizer(T0, code)
       self.emit_asm(Fld(Ft0, MemAccess::new(T0, offset)))
       contf(Ft0)
     }
     Load((recv, offset), Ptr, code) => {
+      assert_ptr(recv.width)
       self.emit_get_int_var(T0, recv)
       self.emit_sanitizer(T0, code)
       self.emit_asm(Ld(T0, MemAccess::new(T0, offset)))
@@ -414,6 +418,7 @@ fn AssemblyFunction::emit_method_rvalue(
 
     // Invoke
     InvokeClosure(callee, args, width) => {
+      assert_ptr(callee.width)
       self.emit_comment("--- invoke_closure \{callee.id} ---")
       let new_args = []
       new_args.push_iter(args.iter())
@@ -451,9 +456,6 @@ fn AssemblyFunction::emit_method_rvalue(
       self.emit_asm(Li(A0, size.to_string()))
       self.emit_asm(Call("minimbt_malloc"))
       self.emit_sanitizer(A0, 142)
-      self.emit_sanitizer(A0, 143)
-      self.emit_sanitizer(A0, 144)
-      self.emit_sanitizer(A0, 145)
       self.emit_comment("--- malloc \{size} ---")
       contg(A0)
     }
