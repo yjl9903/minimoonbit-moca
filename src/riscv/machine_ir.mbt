@@ -180,3 +180,24 @@ pub struct Block {
   stmts : Array[Stmt]
   // mut succ : BlockEdge?
 }
+
+pub fn IR::get_next_stmts(self : IR, i : Int) -> Array[Int] {
+  let stmt = self.stmts[i]
+  match stmt.stmt {
+    IfGoto(_, true_branch, false_branch) => {
+      let next = []
+      match true_branch {
+        Some(t) => next.push(t)
+        None => ()
+      }
+      match false_branch {
+        Some(t) => next.push(t)
+        None => ()
+      }
+      next
+    }
+    Goto(next) => [next]
+    Return(_) => []
+    _ => if i + 1 < self.stmts.length() { [i + 1] } else { [] }
+  }
+}
