@@ -36,7 +36,9 @@ pub fn AssemblyProgram::output_data_section(
     logger.write_string("\n")
     logger.write_string(".global \{label}\n")
     logger.write_string("\{label}:\n")
-    logger.write_string("  .dword \{value.reinterpret_as_i64().to_string()}\n")
+    logger.write_string(
+      "  .dword \{@util.i64_to_hex(value.reinterpret_as_i64())}\n",
+    )
   }
   // ---
   if is_debug {
