@@ -1,6 +1,6 @@
 let is_debug = true
 
-let enable_sanitizer = false
+let enable_sanitizer = true
 
 fn create_method_label(name : String) -> String {
   name.replace_all(old="/", new="_")
