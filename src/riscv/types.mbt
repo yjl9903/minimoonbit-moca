@@ -47,6 +47,13 @@ pub fn get_type_size(ty : Type) -> Int {
   Width::from_low_type(ty).to_int()
 }
 
+pub fn assert_ptr(width : Width) -> Unit {
+  match width {
+    Ptr => ()
+    _ => @util.die("should be ptr")
+  }
+}
+
 pub fn get_tuple_types_size(
   vars : Array[@ssa.Var],
   ~slice : Int? = None
