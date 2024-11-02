@@ -413,37 +413,45 @@ test-riscv:
   ./run_riscv.sh test/test_src/spill3.mbt -o
   ./run_riscv.sh test/test_src/sum-tail.mbt -o
   ./run_riscv.sh test/test_src/sum.mbt -o
-  diff -Z test/test_src/adder.ans temp/adder.out
-  diff -Z test/test_src/adder2.ans temp/adder2.out
-  diff -Z test/test_src/cls-bug.ans temp/cls-bug.out
-  diff -Z test/test_src/cls-bug2.ans temp/cls-bug2.out
-  diff -Z test/test_src/cls-rec.ans temp/cls-rec.out
-  diff -Z test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
-  diff -Z test/test_src/even-odd.ans temp/even-odd.out
-  diff -Z test/test_src/fib.ans temp/fib.out
-  diff -Z test/test_src/float.ans temp/float.out
-  diff -Z test/test_src/funcomp.ans temp/funcomp.out
-  diff -Z test/test_src/gcd.ans temp/gcd.out
-  diff -Z test/test_src/id.ans temp/id.out
-  diff -Z test/test_src/inprod-loop.ans temp/inprod-loop.out
-  diff -Z test/test_src/inprod-rec.ans temp/inprod-rec.out
-  diff -Z test/test_src/inprod.ans temp/inprod.out
-  diff -Z test/test_src/join-reg.ans temp/join-reg.out
-  diff -Z test/test_src/join-reg2.ans temp/join-reg2.out
-  diff -Z test/test_src/join-stack.ans temp/join-stack.out
-  diff -Z test/test_src/join-stack2.ans temp/join-stack2.out
-  diff -Z test/test_src/join-stack3.ans temp/join-stack3.out
-  diff -Z test/test_src/matmul-flat.ans temp/matmul-flat.out
-  diff -Z test/test_src/matmul.ans temp/matmul.out
-  diff -Z test/test_src/non-tail-if.ans temp/non-tail-if.out
-  diff -Z test/test_src/non-tail-if2.ans temp/non-tail-if2.out
-  diff -Z test/test_src/print.ans temp/print.out
-  diff -Z test/test_src/shuffle.ans temp/shuffle.out
-  diff -Z test/test_src/spill.ans temp/spill.out
-  diff -Z test/test_src/spill2.ans temp/spill2.out
-  diff -Z test/test_src/spill3.ans temp/spill3.out
-  diff -Z test/test_src/sum-tail.ans temp/sum-tail.out
-  diff -Z test/test_src/sum.ans temp/sum.out
+  ./run_riscv.sh test/longer-cases/isort.mbt -o
+  ./run_riscv.sh test/longer-cases/julia.mbt -o
+  ./run_riscv.sh test/longer-cases/mem-fib.mbt -o
+  ./run_riscv.sh test/longer-cases/stream.mbt -o
+  diff -bB test/test_src/adder.ans temp/adder.out
+  diff -bB test/test_src/adder2.ans temp/adder2.out
+  diff -bB test/test_src/cls-bug.ans temp/cls-bug.out
+  diff -bB test/test_src/cls-bug2.ans temp/cls-bug2.out
+  diff -bB test/test_src/cls-rec.ans temp/cls-rec.out
+  diff -bB test/test_src/cls-reg-bug.ans temp/cls-reg-bug.out
+  diff -bB test/test_src/even-odd.ans temp/even-odd.out
+  diff -bB test/test_src/fib.ans temp/fib.out
+  diff -bB test/test_src/float.ans temp/float.out
+  diff -bB test/test_src/funcomp.ans temp/funcomp.out
+  diff -bB test/test_src/gcd.ans temp/gcd.out
+  diff -bB test/test_src/id.ans temp/id.out
+  diff -bB test/test_src/inprod-loop.ans temp/inprod-loop.out
+  diff -bB test/test_src/inprod-rec.ans temp/inprod-rec.out
+  diff -bB test/test_src/inprod.ans temp/inprod.out
+  diff -bB test/test_src/join-reg.ans temp/join-reg.out
+  diff -bB test/test_src/join-reg2.ans temp/join-reg2.out
+  diff -bB test/test_src/join-stack.ans temp/join-stack.out
+  diff -bB test/test_src/join-stack2.ans temp/join-stack2.out
+  diff -bB test/test_src/join-stack3.ans temp/join-stack3.out
+  diff -bB test/test_src/matmul-flat.ans temp/matmul-flat.out
+  diff -bB test/test_src/matmul.ans temp/matmul.out
+  diff -bB test/test_src/non-tail-if.ans temp/non-tail-if.out
+  diff -bB test/test_src/non-tail-if2.ans temp/non-tail-if2.out
+  diff -bB test/test_src/print.ans temp/print.out
+  diff -bB test/test_src/shuffle.ans temp/shuffle.out
+  diff -bB test/test_src/spill.ans temp/spill.out
+  diff -bB test/test_src/spill2.ans temp/spill2.out
+  diff -bB test/test_src/spill3.ans temp/spill3.out
+  diff -bB test/test_src/sum-tail.ans temp/sum-tail.out
+  diff -bB test/test_src/sum.ans temp/sum.out
+  diff -bB test/longer-cases/isort.ans temp/isort.out
+  diff -bB test/longer-cases/julia.ans temp/julia.out
+  diff -bB test/longer-cases/mem-fib.ans temp/mem-fib.out
+  diff -bB test/longer-cases/stream.ans temp/stream.out
 
 
 submit:

@@ -30,7 +30,8 @@ fn fib(n: Int) -> Int {
 };
 
 fn main {
-  let n = read_int();
+  // let n = read_int();
+  let n = 40;
   let _ = print_int(fib(n));
   let _ = print_char(10);
   ()

@@ -64,7 +64,8 @@ fn print_loop(w: Int, h: Int, x: Int, y: Int, ret: Array[Int]) -> Unit {
 };
     
 fn main {
-  let h = read_int();
+  // let h = read_int();
+  let h = 50;
   let w = h*2;
   let ret = Array::make(w * h, 0);
   let _ = main_loop(w, h, 0, 0, ret);
