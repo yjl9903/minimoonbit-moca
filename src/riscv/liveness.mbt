@@ -34,7 +34,7 @@ fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
       }
       let live_in = liveness.live_in[i]
       let def_id = match stmt.def {
-        Some(def) => def.id
+        Some(def) => def.memory_id()
         None => -1
       }
       // IN[i] = use(i) U (OUT[i] - def(i))
@@ -46,9 +46,9 @@ fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
       }
       if first_iter {
         for v in stmt.uses {
-          if not(live_in.contains(v.id)) {
+          if not(live_in.contains(v.memory_id())) {
             changed = true
-            live_in.insert(v.id)
+            live_in.insert(v.memory_id())
           }
         }
       }
@@ -61,10 +61,18 @@ fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
   liveness
 }
 
+fn LivenessState::is_live_before(
+  self : LivenessState,
+  i : Int,
+  vid : Int
+) -> Bool {
+  self.live_in[i].contains(vid)
+}
+
 fn LivenessState::is_live_after(
   self : LivenessState,
   i : Int,
-  v : MachineVar
+  vid : Int
 ) -> Bool {
-  self.live_out[i].contains(v.id)
+  self.live_out[i].contains(vid)
 }
