@@ -142,6 +142,7 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   // ------------- sp
 
   // 1. Prologue
+  self.emit_sanitizer(Sp, 100)
   self.emit_asm(Addi(Sp, Sp, -16))
   self.emit_asm(Sd(Ra, MemAccess::new(Sp, 8)))
   self.emit_asm(Sd(Fp, MemAccess::new(Sp, 0)))
@@ -533,6 +534,7 @@ fn AssemblyFunction::emit_invoke_args(
   // 1. Pass by stack in reverse
   let stack_size = if offset != 0 {
     let stack_size = align_to(offset, 16)
+    self.emit_sanitizer(Sp, 101)
     self.emit_asm(Addi(Sp, Sp, -stack_size))
     stack_size
   } else {
