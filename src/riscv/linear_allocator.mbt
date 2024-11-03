@@ -2,8 +2,8 @@ struct LinearAllocator {
   liveness : LivenessState
   method : MachineMethod
   results : Array[AllocationResult]
-  allocated_reg : Map[Int, Reg] // var id -> reg
-  allocated_freg : Map[Int, FReg] // var id -> freg
+  allocated_reg : Map[Int, (MachineVar, Reg)] // var id -> reg
+  allocated_freg : Map[Int, (MachineVar, FReg)] // var id -> freg
   spilled : @hashset.T[Int] // var id
 }
 
@@ -69,6 +69,9 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
   let active_reg : Array[(Reg, LifeCycle?)] = {
     let mp = []
     for r in reg_caller_saved_list {
+      if r == A0 {
+        continue
+      }
       mp.push((r, None))
     }
     for r in reg_callee_saved_list {
@@ -91,21 +94,7 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
     self.release_register(active_freg, i)
     self.release_register(active_reg, i)
 
-    // 2. Allocate register
-    if p < lifes.length() && i == lifes[p].from + 1 {
-      let life = lifes[p]
-      let var = lifes[p].var
-      if var.width.is_float() {
-        let idx = allocate_registor_or_spill(self, active_freg, life)
-        self.allocated_freg[var.memory_id()] = active_freg[idx].0
-      } else {
-        let idx = allocate_registor_or_spill(self, active_reg, life)
-        self.allocated_reg[var.memory_id()] = active_reg[idx].0
-      }
-      p = p + 1
-    }
-
-    // 3. Set allocation info
+    // 2. Set allocation info
     let allocation = AllocationResult::new()
     for item in active_freg {
       let (freg, life) = item
@@ -121,7 +110,23 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
         None => ()
       }
     }
+    self.results.push(allocation)
     current = allocation
+
+    // 3. Allocate register
+    while p < lifes.length() && i == lifes[p].from {
+      let life = lifes[p]
+      let var = lifes[p].var
+      if var.width.is_float() {
+        let idx = allocate_registor_or_spill(self, active_freg, life)
+        self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
+      } else {
+        let idx = allocate_registor_or_spill(self, active_reg, life)
+        @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
+        self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
+      }
+      p = p + 1
+    }
   }
 }
 
@@ -151,7 +156,10 @@ fn LinearAllocator::allocate_registor_or_spill[TReg](
     let (_, v) = item
     match v {
       Some(_) => ()
-      None => found = Some(idx)
+      None => {
+        found = Some(idx)
+        break
+      }
     }
   }
   match found {
@@ -228,6 +236,7 @@ fn LifeCycle::new(var : MachineVar, from : Int, to : Int) -> LifeCycle {
 fn LinearAllocator::get_life_cycles(
   self : LinearAllocator
 ) -> Map[Int, LifeCycle] {
+  @shared.debug("get life \{self.method.name}")
   let map = Map::new()
   let active = Map::new()
   let body = self.method.body
@@ -235,18 +244,103 @@ fn LinearAllocator::get_life_cycles(
     match body.stmts[i].def {
       Some(def) =>
         if not(active.contains(def.memory_id())) {
-          active.set(def.memory_id(), (i, def))
+          active.set(def.memory_id(), (i + 1, def))
         }
       None => ()
     }
+    for used in body.stmts[i].uses {
+      if not(used.const_value.is_empty()) || used.is_param {
+        if not(active.contains(used.memory_id())) {
+          active.set(used.memory_id(), (i, used))
+        }
+      }
+    }
+  }
+  for i = body.stmts.length() - 1; i >= 0; i = i - 1 {
+    let lived = []
     active.each(
       fn {
-        vid, (from, var) =>
-          if not(self.liveness.is_live_after(i, vid)) {
-            map.set(vid, LifeCycle::new(var, from, i))
+        vid, info =>
+          if self.liveness.is_live_before(i, vid) {
+            lived.push((vid, info))
           }
       },
     )
+    for item in lived {
+      let (vid, (from, var)) = item
+      active.remove(vid)
+      let life = LifeCycle::new(var, from, i)
+      map.set(vid, life)
+      @shared.debug("life \{vid} : (\{life.from}, \{life.to}]")
+    }
   }
   map
+}
+
+// --- Query ---
+
+fn LinearAllocator::collect_saved_reg(
+  self : LinearAllocator
+) -> (Array[Reg], Array[FReg]) {
+  let regs = @hashset.from_iter(
+    self.allocated_reg.values().map(fn { v => v.1 }),
+  )
+  let fregs = @hashset.from_iter(
+    self.allocated_freg.values().map(fn { v => v.1 }),
+  )
+  (regs.iter().to_array(), fregs.iter().to_array())
+}
+
+fn LinearAllocator::get_global_allocated_int_var(
+  self : LinearAllocator,
+  var : Int
+) -> MachineVar {
+  match self.allocated_reg.get(var) {
+    Some(r) => r.0
+    None => @util.die("shoulde allocate reg")
+  }
+}
+
+fn LinearAllocator::get_global_allocated_float_var(
+  self : LinearAllocator,
+  var : Int
+) -> MachineVar {
+  match self.allocated_freg.get(var) {
+    Some(r) => r.0
+    None => @util.die("shoulde allocate reg")
+  }
+}
+
+fn LinearAllocator::get_global_allocated_reg(
+  self : LinearAllocator,
+  var : MachineVar,
+  ~loc : SourceLoc = _
+) -> Reg {
+  if var.width.is_float() {
+    @util.die("shoulde not be Double")
+  }
+  match self.allocated_reg.get(var.memory_id()) {
+    Some(r) => r.1
+    None => @util.die("shoulde allocate reg \{var.name} \{var.id}", ~loc)
+  }
+}
+
+fn LinearAllocator::get_global_allocated_freg(
+  self : LinearAllocator,
+  var : MachineVar
+) -> FReg {
+  if not(var.width.is_float()) {
+    @util.die("shoulde be Double")
+  }
+  match self.allocated_freg.get(var.memory_id()) {
+    Some(r) => r.1
+    None => @util.die("shoulde allocate reg")
+  }
+}
+
+fn LinearAllocator::is_spilled(
+  self : LinearAllocator,
+  var : MachineVar
+) -> Bool {
+  self.spilled.contains(var.memory_id())
 }
