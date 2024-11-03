@@ -1,13 +1,252 @@
 struct LinearAllocator {
   liveness : LivenessState
   method : MachineMethod
+  results : Array[AllocationResult]
+  allocated_reg : Map[Int, Reg] // var id -> reg
+  allocated_freg : Map[Int, FReg] // var id -> freg
+  spilled : @hashset.T[Int] // var id
+}
+
+struct AllocationResult {
+  store_regs_before : Array[(Reg, MachineVar)]
+  store_fregs_before : Array[(FReg, MachineVar)]
+  load_regs : Array[(MachineVar, Reg)]
+  load_fregs : Array[(MachineVar, FReg)]
+  reg_map : Map[Int, Reg] // Var -> Reg
+  freg_map : Map[Int, FReg] // Var -> FReg
 }
 
 fn LinearAllocator::new(method : MachineMethod) -> LinearAllocator {
   let liveness = LivenessState::analyze(method)
-  { liveness, method }
+  {
+    liveness,
+    method,
+    results: [],
+    spilled: @hashset.new(),
+    allocated_freg: Map::new(),
+    allocated_reg: Map::new(),
+  }
+}
+
+fn AllocationResult::new() -> AllocationResult {
+  {
+    store_regs_before: [],
+    store_fregs_before: [],
+    load_regs: [],
+    load_fregs: [],
+    reg_map: Map::new(),
+    freg_map: Map::new(),
+  }
+}
+
+fn AllocationResult::fork(self : AllocationResult) -> AllocationResult {
+  {
+    store_regs_before: [],
+    store_fregs_before: [],
+    load_regs: [],
+    load_fregs: [],
+    reg_map: Map::from_iter(self.reg_map.iter()),
+    freg_map: Map::from_iter(self.freg_map.iter()),
+  }
 }
 
 fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
+  let body = self.method.body
+  let lifes_map = self.get_life_cycles()
+  let lifes = lifes_map.values().to_array()
+  lifes.sort_by(
+    fn {
+      lhs, rhs =>
+        if lhs.from != rhs.from {
+          lhs.from - rhs.from
+        } else {
+          lhs.to - rhs.to
+        }
+    },
+  )
+  let mut p = 0
+  let mut current = self.allocate_initial_state()
+  let active_reg : Array[(Reg, LifeCycle?)] = {
+    let mp = []
+    for r in reg_caller_saved_list {
+      mp.push((r, None))
+    }
+    for r in reg_callee_saved_list {
+      mp.push((r, None))
+    }
+    mp
+  }
+  let active_freg : Array[(FReg, LifeCycle?)] = {
+    let mp = []
+    for r in freg_caller_saved_list {
+      mp.push((r, None))
+    }
+    for r in freg_callee_saved_list {
+      mp.push((r, None))
+    }
+    mp
+  }
+  for i = 0; i < body.stmts.length(); i = i + 1 {
+    // 1. Release outdated
+    self.release_register(active_freg, i)
+    self.release_register(active_reg, i)
 
+    // 2. Allocate register
+    if p < lifes.length() && i == lifes[p].from + 1 {
+      let life = lifes[p]
+      let var = lifes[p].var
+      if var.width.is_float() {
+        let idx = allocate_registor_or_spill(self, active_freg, life)
+        self.allocated_freg[var.memory_id()] = active_freg[idx].0
+      } else {
+        let idx = allocate_registor_or_spill(self, active_reg, life)
+        self.allocated_reg[var.memory_id()] = active_reg[idx].0
+      }
+      p = p + 1
+    }
+
+    // 3. Set allocation info
+    let allocation = AllocationResult::new()
+    for item in active_freg {
+      let (freg, life) = item
+      match life {
+        Some(life) => allocation.freg_map.set(life.var.memory_id(), freg)
+        None => ()
+      }
+    }
+    for item in active_reg {
+      let (reg, life) = item
+      match life {
+        Some(life) => allocation.reg_map.set(life.var.memory_id(), reg)
+        None => ()
+      }
+    }
+    current = allocation
+  }
+}
+
+fn LinearAllocator::release_register[TReg](
+  _self : LinearAllocator,
+  active : Array[(TReg, LifeCycle?)],
+  current : Int
+) -> Unit {
+  let removed = []
+  for idx, item in active {
+    let (_, life) = item
+    match life {
+      Some(life) => if life.to < current { removed.push(idx) }
+      None => ()
+    }
+  }
+  removed.each(fn { idx => active[idx] = (active[idx].0, None) })
+}
+
+fn LinearAllocator::allocate_registor_or_spill[TReg](
+  self : LinearAllocator,
+  active : Array[(TReg, LifeCycle?)],
+  life : LifeCycle
+) -> Int {
+  let mut found = None
+  for idx, item in active {
+    let (_, v) = item
+    match v {
+      Some(_) => ()
+      None => found = Some(idx)
+    }
+  }
+  match found {
+    Some(idx) => {
+      active[idx] = (active[idx].0, Some(life))
+      idx
+    }
+    None => {
+      // spill
+      let mut spilled_idx = None
+      let mut min_from = self.method.body.stmts.length() + 1
+      active.eachi(
+        fn {
+          idx, (_, v) =>
+            match v {
+              Some(life) =>
+                if life.from < min_from {
+                  min_from = life.from
+                  spilled_idx = Some(idx)
+                }
+              None => ()
+            }
+        },
+      )
+      match spilled_idx {
+        Some(idx) => {
+          let spilled = active[idx]
+          let var = spilled.1.unwrap().var
+          self.spilled.insert(var.memory_id())
+          active[idx] = (active[idx].0, Some(life))
+          idx
+        }
+        None => @util.die("unreachable")
+      }
+    }
+  }
+}
+
+fn LinearAllocator::allocate_initial_state(
+  _self : LinearAllocator
+) -> AllocationResult {
+  let initial = AllocationResult::new()
+  // let active_reg = @hashset.new()
+  // let active_freg = @hashset.new()
+  // self.method.params.each(
+  //   fn {
+  //     p =>
+  //       match p.param_offset {
+  //         Some(Reg(reg)) => {
+  //           initial.reg_map.set(p.id, reg)
+  //           active_reg.insert(reg)
+  //         }
+  //         Some(FReg(freg)) => {
+  //           initial.freg_map.set(p.id, freg)
+  //           active_freg.insert(freg)
+  //         }
+  //         _ => ()
+  //       }
+  //   },
+  // )
+  initial
+}
+
+struct LifeCycle {
+  var : MachineVar
+  from : Int
+  to : Int
+}
+
+fn LifeCycle::new(var : MachineVar, from : Int, to : Int) -> LifeCycle {
+  { var, from, to }
+}
+
+fn LinearAllocator::get_life_cycles(
+  self : LinearAllocator
+) -> Map[Int, LifeCycle] {
+  let map = Map::new()
+  let active = Map::new()
+  let body = self.method.body
+  for i = 0; i < body.stmts.length(); i = i + 1 {
+    match body.stmts[i].def {
+      Some(def) =>
+        if not(active.contains(def.memory_id())) {
+          active.set(def.memory_id(), (i, def))
+        }
+      None => ()
+    }
+    active.each(
+      fn {
+        vid, (from, var) =>
+          if not(self.liveness.is_live_after(i, vid)) {
+            map.set(vid, LifeCycle::new(var, from, i))
+          }
+      },
+    )
+  }
+  map
 }

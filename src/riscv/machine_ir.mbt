@@ -77,8 +77,8 @@ pub fn MachineVar::output(self : MachineVar, logger : Logger) -> Unit {
   logger.write_string(self.to_string())
 }
 
-pub fn MachineVar::width(self : MachineVar) -> Width {
-  Width::from_low_type(self.ty)
+pub fn MachineVar::memory_id(self : MachineVar) -> Int {
+  self.outcoming_var.map(fn { v => v.id }).or(self.id)
 }
 
 pub enum Condition {
