@@ -283,10 +283,16 @@ fn LinearAllocator::collect_saved_reg(
   self : LinearAllocator
 ) -> (Array[Reg], Array[FReg]) {
   let regs = @hashset.from_iter(
-    self.allocated_reg.values().map(fn { v => v.1 }),
+    self.allocated_reg
+    .values()
+    .map(fn { v => v.1 })
+    .filter(fn { v => reg_callee_saved_list.contains(v) }),
   )
   let fregs = @hashset.from_iter(
-    self.allocated_freg.values().map(fn { v => v.1 }),
+    self.allocated_freg
+    .values()
+    .map(fn { v => v.1 })
+    .filter(fn { v => freg_callee_saved_list.contains(v) }),
   )
   (regs.iter().to_array(), fregs.iter().to_array())
 }
