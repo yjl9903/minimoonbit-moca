@@ -25,7 +25,8 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
             if r1 == r2 {
               stmts[j] = Nop
             } else {
-              stmts[j] = Mv(r2, r1)
+              stmts[i] = Mv(r2, r1)
+              stmts[j] = Sw(r1, mem1)
             }
           }
         (Sd(r1, mem1), Ld(r2, mem2)) =>
@@ -33,7 +34,8 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
             if r1 == r2 {
               stmts[j] = Nop
             } else {
-              stmts[j] = Mv(r2, r1)
+              stmts[i] = Mv(r2, r1)
+              stmts[j] = Sd(r1, mem1)
             }
           }
         (Fsd(r1, mem1), Fld(r2, mem2)) =>
@@ -42,6 +44,7 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
               stmts[j] = Nop
             } else {
               stmts[j] = FmvD(r2, r1)
+              stmts[j] = Fsd(r1, mem1)
             }
           }
         (Li(r, value), Add(r1, r2, r3)) => {
