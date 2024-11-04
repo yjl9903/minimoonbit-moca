@@ -60,7 +60,7 @@ fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
     first_iter = false
   }
   for i = 0; i < stmts.length(); i = i + 1 {
-    println("  - out \{i} : \{liveness.live_out[i]}")
+    @shared.debug("  - out \{i} : \{liveness.live_out[i]}")
   }
   liveness
 }

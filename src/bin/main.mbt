@@ -225,6 +225,7 @@ fn main {
   let out_file = Ref::new("-")
   let print = Ref::new([])
   let emit_ssa = Ref::new(false)
+  let emit_machine = Ref::new(false)
 
   // 
   @ArgParser.parse(
@@ -268,6 +269,7 @@ fn main {
         "Run with closure interpreter",
       ),
       ("--emit-ssa", "", @ArgParser.Set(emit_ssa), "Dump SSA"),
+      ("--emit-machine", "", @ArgParser.Set(emit_machine), "Dump Machine IR"),
       (
         "--out-file",
         "-o",
@@ -333,6 +335,11 @@ fn main {
   }
   if emit_ssa.val {
     end_stage.val = Stages::Ssa
+  }
+  if emit_machine.val {
+    end_stage.val = Stages::Asm
+    js_backend.val = false
+    wasm_backend.val = false
   }
   let stages_to_print = print.val.map(
     fn(s) {
@@ -407,6 +414,8 @@ fn main {
     }
   } else if emit_ssa.val {
     @ssa.get_world().print()
+  } else if emit_machine.val {
+    @riscv.get_world().print()
   } else {
     let out_string = status.output(json.val)
     if out_file.val == "-" {

@@ -22,6 +22,7 @@ pub fn build_machine_world(world : @ssa.World) -> MachineWorld {
   world.methods
   .values()
   .each(fn { m => machine.methods.push(create_machine_method(machine, m)) })
+  cached_world.val = Some(machine)
   machine
 }
 
