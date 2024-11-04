@@ -497,9 +497,7 @@ fn AssemblyFunction::emit_get_int_var(
           }
           None => {
             let reg = self.allocator.get_global_allocated_reg(var)
-            if self.allocator.is_spilled(var) || var.is_param {
-              self.emit_asm(Li(reg, x.to_string()))
-            }
+            self.emit_asm(Li(reg, x.to_string()))
             reg
           }
         }
@@ -551,16 +549,14 @@ fn AssemblyFunction::emit_get_float_var(
       let label = add_double_const(self.world, x)
       match force {
         Some(force) => {
-          self.emit_asm(La(T0, label))
-          self.emit_asm(Fld(force, MemAccess::new(T0, 0)))
+          self.emit_asm(La(A0, label))
+          self.emit_asm(Fld(force, MemAccess::new(A0, 0)))
           force
         }
         None => {
           let freg = self.allocator.get_global_allocated_freg(var)
-          if self.allocator.is_spilled(var) {
-            self.emit_asm(La(T0, label))
-            self.emit_asm(Fld(freg, MemAccess::new(T0, 0)))
-          }
+          self.emit_asm(La(A0, label))
+          self.emit_asm(Fld(freg, MemAccess::new(A0, 0)))
           freg
         }
       }
