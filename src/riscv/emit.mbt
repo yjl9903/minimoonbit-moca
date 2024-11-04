@@ -246,17 +246,17 @@ fn AssemblyFunction::emit_method_stmt(
       match width {
         Int => {
           let expr_reg = self.emit_get_int_var(expr)
-          // self.emit_sanitizer(T0, code)
+          // self.emit_sanitizer(expr_reg, code)
           self.emit_asm(Sw(expr_reg, MemAccess::new(recv_reg, offset)))
         }
         Double => {
           let expr_reg = self.emit_get_float_var(expr)
-          // self.emit_sanitizer(T0, code)
+          // self.emit_sanitizer(expr_reg, code)
           self.emit_asm(Fsd(expr_reg, MemAccess::new(recv_reg, offset)))
         }
         Ptr => {
           let expr_reg = self.emit_get_int_var(expr)
-          // self.emit_sanitizer(T0, code)
+          // self.emit_sanitizer(expr_reg, code)
           self.emit_asm(Sd(expr_reg, MemAccess::new(recv_reg, offset)))
         }
       }
@@ -667,7 +667,7 @@ fn AssemblyFunction::emit_invoke_save_register(
   slot : Int
 ) -> Unit {
   let result = self.allocator.results[slot]
-  for vid, reg in result.reg_map {
+  for vid, reg in result.reg_map_before {
     if reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
@@ -679,7 +679,7 @@ fn AssemblyFunction::emit_invoke_save_register(
       }
     }
   }
-  for vid, freg in result.freg_map {
+  for vid, freg in result.freg_map_before {
     if freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {
@@ -694,7 +694,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
   slot : Int
 ) -> Unit {
   let result = self.allocator.results[slot]
-  for vid, reg in result.reg_map {
+  for vid, reg in result.reg_map_after {
     if reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
@@ -706,7 +706,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
       }
     }
   }
-  for vid, freg in result.freg_map {
+  for vid, freg in result.freg_map_after {
     if freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {

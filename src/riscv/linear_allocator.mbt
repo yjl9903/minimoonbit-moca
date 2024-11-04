@@ -12,8 +12,10 @@ struct AllocationResult {
   store_fregs_before : Array[(FReg, MachineVar)]
   load_regs : Array[(MachineVar, Reg)]
   load_fregs : Array[(MachineVar, FReg)]
-  reg_map : Map[Int, Reg] // Var -> Reg
-  freg_map : Map[Int, FReg] // Var -> FReg
+  reg_map_before : Map[Int, Reg] // Before this inst, Var -> Reg
+  freg_map_before : Map[Int, FReg] // Before this inst, Var -> FReg
+  reg_map_after : Map[Int, Reg] // After this inst, Var -> Reg
+  freg_map_after : Map[Int, FReg] // After this inst, Var -> FReg
 }
 
 fn LinearAllocator::new(method : MachineMethod) -> LinearAllocator {
@@ -34,21 +36,23 @@ fn AllocationResult::new() -> AllocationResult {
     store_fregs_before: [],
     load_regs: [],
     load_fregs: [],
-    reg_map: Map::new(),
-    freg_map: Map::new(),
+    reg_map_before: Map::new(),
+    freg_map_before: Map::new(),
+    reg_map_after: Map::new(),
+    freg_map_after: Map::new(),
   }
 }
 
-fn AllocationResult::fork(self : AllocationResult) -> AllocationResult {
-  {
-    store_regs_before: [],
-    store_fregs_before: [],
-    load_regs: [],
-    load_fregs: [],
-    reg_map: Map::from_iter(self.reg_map.iter()),
-    freg_map: Map::from_iter(self.freg_map.iter()),
-  }
-}
+// fn AllocationResult::fork(self : AllocationResult) -> AllocationResult {
+//   {
+//     store_regs_before: [],
+//     store_fregs_before: [],
+//     load_regs: [],
+//     load_fregs: [],
+//     reg_map: Map::from_iter(self.reg_map.iter()),
+//     freg_map: Map::from_iter(self.freg_map.iter()),
+//   }
+// }
 
 fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
   let body = self.method.body
@@ -119,14 +123,14 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
     for item in active_freg {
       let (freg, life) = item
       match life {
-        Some(life) => allocation.freg_map.set(life.var.memory_id(), freg)
+        Some(life) => allocation.freg_map_before.set(life.var.memory_id(), freg)
         None => ()
       }
     }
     for item in active_reg {
       let (reg, life) = item
       match life {
-        Some(life) => allocation.reg_map.set(life.var.memory_id(), reg)
+        Some(life) => allocation.reg_map_before.set(life.var.memory_id(), reg)
         None => ()
       }
     }
@@ -147,6 +151,22 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
         self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
       }
       p = p + 1
+    }
+
+    // 4.
+    for item in active_freg {
+      let (freg, life) = item
+      match life {
+        Some(life) => allocation.freg_map_after.set(life.var.memory_id(), freg)
+        None => ()
+      }
+    }
+    for item in active_reg {
+      let (reg, life) = item
+      match life {
+        Some(life) => allocation.reg_map_after.set(life.var.memory_id(), reg)
+        None => ()
+      }
     }
   }
 }
