@@ -229,10 +229,20 @@ impl Show for RvAsm with output(self, logger) {
     FmvDX(rd, rs1) => write2(logger, "fmv.d.x", rd, rs1)
     Nop => logger.write_string("nop")
     La(rd, label) => {
-      logger.write_string("la ")
+      logger.write_string("lui ")
       Show::output(rd, logger)
       logger.write_string(", ")
-      logger.write_string(label.0)
+      logger.write_string("%hi(\{label.0})\n")
+      logger.write_string("  addi ")
+      Show::output(rd, logger)
+      logger.write_string(", ")
+      Show::output(rd, logger)
+      logger.write_string(", ")
+      logger.write_string("%lo(\{label.0})")
+      // logger.write_string("la ")
+      // Show::output(rd, logger)
+      // logger.write_string(", ")
+      // logger.write_string(label.0)
     }
     Li(rd, imm) => {
       logger.write_string("li ")
