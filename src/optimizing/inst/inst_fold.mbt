@@ -24,7 +24,7 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
           if r1 != mem1.base && mem1 == mem2 {
             if r1 == r2 {
               stmts[j] = Nop
-            } else {
+            } else if r2 != mem1.base {
               stmts[i] = Mv(r2, r1)
               stmts[j] = Sw(r1, mem1)
             }
@@ -33,7 +33,7 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
           if r1 != mem1.base && mem1 == mem2 {
             if r1 == r2 {
               stmts[j] = Nop
-            } else {
+            } else if r2 != mem1.base {
               stmts[i] = Mv(r2, r1)
               stmts[j] = Sd(r1, mem1)
             }
