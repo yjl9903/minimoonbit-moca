@@ -7,6 +7,7 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
     while j < stmts.length() {
       let found = match stmts[j] {
         Comment(_) => false
+        Nop => false
         _ => true
       }
       if found {
@@ -28,6 +29,26 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
         (Fsd(r1, mem1), Fld(r2, mem2)) =>
           if r1 == r2 && mem1 == mem2 {
             stmts[j] = Nop
+          }
+        (Li(r, value), Add(r1, r2, r3)) =>
+          if r == r3 {
+            stmts[j] = Addi(r1, r2, @strconv.parse_int?(value).unwrap())
+          } else if r == r2 {
+            stmts[j] = Addi(r1, r3, @strconv.parse_int?(value).unwrap())
+          }
+        (Li(r, value), Mul(r1, r2, r3)) =>
+          if r == r3 {
+            if value == "4" {
+              stmts[j] = Slli(r1, r2, 2)
+            } else if value == "8" {
+              stmts[j] = Slli(r1, r2, 3)
+            }
+          } else if r == r2 {
+            if value == "4" {
+              stmts[j] = Slli(r1, r3, 2)
+            } else if value == "8" {
+              stmts[j] = Slli(r1, r3, 3)
+            }
           }
         _ => ()
       }
