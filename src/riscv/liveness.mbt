@@ -4,7 +4,7 @@ struct LivenessState {
 }
 
 fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
-  @shared.debug("liveness \{method.name}")
+  // @shared.debug("liveness \{method.name}")
   let stmts = method.body.stmts
   let rev_stmts = stmts.iter2().to_array().rev()
   let liveness = {
@@ -59,9 +59,9 @@ fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
     }
     first_iter = false
   }
-  for i = 0; i < stmts.length(); i = i + 1 {
-    @shared.debug("  - out \{i} : \{liveness.live_out[i]}")
-  }
+  // for i = 0; i < stmts.length(); i = i + 1 {
+  //   @shared.debug("  - out \{i} : \{liveness.live_out[i]}")
+  // }
   liveness
 }
 

@@ -60,10 +60,30 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
         if lhs.from != rhs.from {
           lhs.from - rhs.from
         } else {
-          lhs.to - rhs.to
+          lhs.from - rhs.from
         }
     },
   )
+  // Sort is wrong
+  lifes.sort_by(
+    fn {
+      lhs, rhs =>
+        if lhs.from != rhs.from {
+          lhs.from - rhs.from
+        } else {
+          lhs.from - rhs.from
+        }
+    },
+  )
+  // for i = 1; i < lifes.length(); i = i + 1 {
+  //   if lifes[i - 1].from > lifes[i].from {
+  //     @util.die("????")
+  //   }
+  // }
+  @shared.debug("Allocate \{self.method.name}:")
+  for life in lifes {
+    @shared.debug("Life \{life.var.memory_id()}: [\{life.from}, \{life.to}]")
+  }
   let mut p = 0
   let mut current = self.allocate_initial_state()
   let active_reg : Array[(Reg, LifeCycle?)] = {
@@ -119,6 +139,7 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
       let var = lifes[p].var
       if var.width.is_float() {
         let idx = allocate_registor_or_spill(self, active_freg, life)
+        @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
         self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
       } else {
         let idx = allocate_registor_or_spill(self, active_reg, life)
@@ -236,7 +257,6 @@ fn LifeCycle::new(var : MachineVar, from : Int, to : Int) -> LifeCycle {
 fn LinearAllocator::get_life_cycles(
   self : LinearAllocator
 ) -> Map[Int, LifeCycle] {
-  @shared.debug("get life \{self.method.name}")
   let map = Map::new()
   let active = Map::new()
   let body = self.method.body
@@ -271,7 +291,6 @@ fn LinearAllocator::get_life_cycles(
       active.remove(vid)
       let life = LifeCycle::new(var, from, i)
       map.set(vid, life)
-      @shared.debug("life \{vid} : (\{life.from}, \{life.to}]")
     }
   }
   map

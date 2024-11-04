@@ -1,4 +1,7 @@
+let vars_counter : Ref[Int] = { val: 0 }
+
 pub fn build_machine_world(world : @ssa.World) -> MachineWorld {
+  vars_counter.val = @ssa.global_vars_counter.val + 1
   let machine = {
     globals: Map::new(),
     doubles: Map::new(),
@@ -95,7 +98,6 @@ fn MachineVar::from_ssa(var : @ssa.Var) -> MachineVar {
 struct Builder {
   method : MachineMethod
   vars : Map[Int, MachineVar]
-  mut vars_counter : Int
 
   // for global vars
   world : MachineWorld
@@ -109,10 +111,7 @@ fn Builder::new(world : MachineWorld, method : MachineMethod) -> Builder {
   }
   method.params.each(fn { p => vars.set(p.id, p) })
   method.local_vars.each(fn { v => vars.set(v.id, v) })
-  let max_id = vars
-    .values()
-    .fold(fn { acc, var => @math.maximum(acc, var.id + 1) }, init=0)
-  Builder::{ method, vars, vars_counter: max_id + 1, world }
+  Builder::{ method, vars, world }
 }
 
 fn Builder::get_var(self : Builder, var : @ssa.Var) -> MachineVar {
@@ -130,8 +129,8 @@ fn Builder::get_var(self : Builder, var : @ssa.Var) -> MachineVar {
 }
 
 fn Builder::add_temp_var(self : Builder, ty : Type) -> MachineVar {
-  let id = self.vars_counter
-  self.vars_counter = self.vars_counter + 1
+  let id = vars_counter.val
+  vars_counter.val = vars_counter.val + 1
   let var = {
     id,
     name: None,
@@ -156,8 +155,8 @@ fn Builder::add_temp_var(self : Builder, ty : Type) -> MachineVar {
 }
 
 fn Builder::add_int_const_var(self : Builder, value : Int) -> MachineVar {
-  let id = self.vars_counter
-  self.vars_counter = self.vars_counter + 1
+  let id = vars_counter.val
+  vars_counter.val = vars_counter.val + 1
   let var = {
     id,
     name: None,
