@@ -645,7 +645,7 @@ fn AssemblyFunction::emit_get_float_var(
           force
         }
         None =>
-          if self.allocator.is_spilled(var) {
+          if self.allocator.is_spilled(var) || var.is_param {
             self.emit_asm(Fld(fallback, MemAccess::new(Fp, var.offset)))
             fallback
           } else {
