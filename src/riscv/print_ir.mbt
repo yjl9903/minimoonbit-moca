@@ -100,7 +100,9 @@ fn MachineWorld::print_method(
           }
         }
         Store((recv, offset), var, width, _) =>
-          logger.write_string("  store \{recv} offset=\{offset} = \{var}, \{width};\n")
+          logger.write_string(
+            "  store \{recv} offset=\{offset} = \{var}, \{width};\n",
+          )
         IfGoto(cond, Some(true_target), Some(false_target)) => {
           let cond = match cond {
             Eq(lhs, rhs, width) => "\{lhs} == \{rhs}, \{width}"
