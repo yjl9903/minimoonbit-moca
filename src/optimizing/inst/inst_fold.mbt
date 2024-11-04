@@ -16,24 +16,21 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
         j = j + 1
       }
     }
-
     let changed = match cur {
-      (Mv(r1, r2)) => {
+      Mv(r1, r2) =>
         if r1 == r2 {
           stmts[i] = Nop
           true
         } else {
           false
         }
-      }
-      (FmvD(r1,r2)) => {
+      FmvD(r1, r2) =>
         if r1 == r2 {
           stmts[i] = Nop
           true
         } else {
           false
         }
-      }
       _ => false
     }
     if changed {
