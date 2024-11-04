@@ -165,6 +165,7 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
       i += 8
       self.emit_asm(Fsd(freg, MemAccess::new(Sp, -i)))
     }
+    i = align_to(i, 16)
     self.emit_asm(Addi(Sp, Sp, -i))
   }
 
@@ -332,8 +333,10 @@ fn AssemblyFunction::emit_method_stmt(
       // TODO: restore reg
       let (saved_reg, saved_freg) = self.allocator.collect_saved_reg()
       if saved_reg.length() > 0 || saved_freg.length() > 0 {
+        let stack_size = 8 * (saved_reg.length() + saved_freg.length())
+        let stack_size = align_to(stack_size, 16)
         self.emit_asm(
-          Addi(Sp, Sp, 8 * (saved_reg.length() + saved_freg.length())),
+          Addi(Sp, Sp, stack_size),
         )
         let mut i = 0
         for reg in saved_reg {
