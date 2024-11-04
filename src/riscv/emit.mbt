@@ -670,15 +670,19 @@ fn AssemblyFunction::emit_invoke_save_register(
   for vid, reg in result.reg_map {
     if reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
-      if var.offset != -1 {
-        self.emit_asm(Sd(reg, MemAccess::new(Fp, var.offset)))
+      if var.const_value.is_empty() {
+        match var.width {
+          Int => self.emit_asm(Sw(reg, MemAccess::new(Fp, var.offset)))
+          Double => @util.die("unreachable")
+          Ptr => self.emit_asm(Sd(reg, MemAccess::new(Fp, var.offset)))
+        }
       }
     }
   }
   for vid, freg in result.freg_map {
     if freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
-      if var.offset != -1 {
+      if var.const_value.is_empty() {
         self.emit_asm(Fsd(freg, MemAccess::new(Fp, var.offset)))
       }
     }
@@ -693,15 +697,19 @@ fn AssemblyFunction::emit_invoke_restore_register(
   for vid, reg in result.reg_map {
     if reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
-      if var.offset != -1 {
-        self.emit_asm(Ld(reg, MemAccess::new(Fp, var.offset)))
+      if var.const_value.is_empty() {
+        match var.width {
+          Int => self.emit_asm(Lw(reg, MemAccess::new(Fp, var.offset)))
+          Double => @util.die("unreachable")
+          Ptr => self.emit_asm(Ld(reg, MemAccess::new(Fp, var.offset)))
+        }
       }
     }
   }
   for vid, freg in result.freg_map {
     if freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
-      if var.offset != -1 {
+      if var.const_value.is_empty() {
         self.emit_asm(Fld(freg, MemAccess::new(Fp, var.offset)))
       }
     }
