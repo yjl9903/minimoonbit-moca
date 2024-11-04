@@ -193,16 +193,16 @@ pub fn IR::get_next_stmts(self : IR, i : Int) -> Array[Int] {
     IfGoto(_, true_branch, false_branch) => {
       let next = []
       match true_branch {
-        Some(t) => next.push(t)
+        Some(t) => next.push(self.blocks[t].stmts[0].slot)
         None => ()
       }
       match false_branch {
-        Some(t) => next.push(t)
+        Some(t) => next.push(self.blocks[t].stmts[0].slot)
         None => ()
       }
       next
     }
-    Goto(next) => [next]
+    Goto(next) => [self.blocks[next].stmts[0].slot]
     Return(_) => []
     _ => if i + 1 < self.stmts.length() { [i + 1] } else { [] }
   }

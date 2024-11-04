@@ -49,6 +49,22 @@ fn MachineWorld::print_method(
     logger.write_string("B\{block.label}:\n")
     for i = 0; i < block.stmts.length(); i = i + 1 {
       let stmt = block.stmts[i]
+      // Print liveness in
+      // match stmt.stmt {
+      //   Comment(_) | Nop | Return(_) => ()
+      //   _ => {
+      //     let live_in = liveness.live_in[stmt.slot]
+      //     let live_in = live_in
+      //       .iter()
+      //       .map(fn { v => v.to_string() })
+      //       .to_array()
+      //       .join(", ")
+      //     logger.write_string(
+      //       "    # liveness L\{stmt.slot} = { \{live_in} }\n",
+      //     )
+      //   }
+      // }
+      // Print stmt
       match stmt.stmt {
         Definition(def, rvalue) => {
           let rvalue_text = print_rvalue(method, rvalue)
@@ -79,7 +95,7 @@ fn MachineWorld::print_method(
           logger.write_string("  return \{var.to_string()}, \{var.width};\n")
         Return(None) => logger.write_string("  return;\n")
       }
-      // Print liveness
+      // Print liveness out
       match stmt.stmt {
         Comment(_) | Nop | Return(_) => ()
         _ => {
