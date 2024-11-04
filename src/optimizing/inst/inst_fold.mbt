@@ -16,6 +16,8 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
         j = j + 1
       }
     }
+
+    // (i, j)
     if j < stmts.length() {
       match (cur, stmts[j]) {
         (Sw(r1, mem1), Lw(r2, mem2)) =>
@@ -34,8 +36,10 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
           let value = @strconv.parse_int?(value).unwrap()
           if -2048 <= value && value < 2048 {
             if r == r3 {
+              // stmts[i] = Nop
               stmts[j] = Addi(r1, r2, value)
             } else if r == r2 {
+              // stmts[i] = Nop
               stmts[j] = Addi(r1, r3, value)
             }
           }
@@ -43,14 +47,18 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
         (Li(r, value), Mul(r1, r2, r3)) =>
           if r == r3 {
             if value == "4" {
+              // stmts[i] = Nop
               stmts[j] = Slli(r1, r2, 2)
             } else if value == "8" {
+              // stmts[i] = Nop
               stmts[j] = Slli(r1, r2, 3)
             }
           } else if r == r2 {
             if value == "4" {
+              // stmts[i] = Nop
               stmts[j] = Slli(r1, r3, 2)
             } else if value == "8" {
+              // stmts[i] = Nop
               stmts[j] = Slli(r1, r3, 3)
             }
           }
