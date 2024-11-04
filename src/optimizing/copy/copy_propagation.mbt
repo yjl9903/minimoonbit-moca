@@ -123,8 +123,7 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
       LetTuple(binding, expr, self.transform(rest))
     }
     LetRec(def, rest) => {
-      let new_ctx = Context::new()
-      let def = { ..def, body: new_ctx.transform(def.body) }
+      let def = { ..def, body: self.transform(def.body) }
       LetRec(def, self.transform(rest))
     }
 

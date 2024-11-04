@@ -175,10 +175,17 @@ fn WorldBuilder::build_top_level(
       closure.actual_free_vars.eachi(
         fn { i, name => self.add_global_var(name, def.formal_free_vars[i].1) },
       )
+      closure.top_level_vars.each(
+        fn { name => self.add_global_var(name.0, name.1) },
+      )
       self.add_global_fun(name, closure)
       MakeClosure(
         (name, typ),
-        { name: closure.name, actual_free_vars: [] },
+        {
+          name: closure.name,
+          top_level_vars: closure.top_level_vars,
+          actual_free_vars: [],
+        },
         self.build_top_level(rest),
       )
     }

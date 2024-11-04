@@ -40,6 +40,7 @@ pub enum Expr {
 
 pub struct Closure {
   name : Label
+  top_level_vars : Array[(Name, LowType)]
   actual_free_vars : Array[Name]
 } derive(Show)
 
@@ -54,6 +55,7 @@ pub struct FuncDef {
   /// true if the function is a closure function, and the closure will be available at `s11` on 
   /// function entry.
   mut is_closure : Bool
+  mut top_level_vars : Array[(Name, LowType)]
   mut formal_free_vars : Array[(Name, LowType)]
 } derive(Show)
 

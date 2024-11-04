@@ -197,7 +197,11 @@ pub fn Closure::from_json(json : Json) -> Closure! {
       for n in actual_free_vars {
         actual_free_vars_res.push(Name::from_json!(n))
       }
-      { name: Label(name), actual_free_vars: actual_free_vars_res }
+      {
+        name: Label(name),
+        top_level_vars: [],
+        actual_free_vars: actual_free_vars_res,
+      }
     }
     _ => fail!("invalid json")
   }
@@ -269,6 +273,7 @@ pub fn FuncDef::from_json(json : Json) -> FuncDef! {
         is_closure: @json.from_json!(b),
         ty: LowType::from_json!(t),
         args: args_res,
+        top_level_vars: [],
         formal_free_vars: formal_free_vars_res,
         body: Expr::from_json!(body),
       }
