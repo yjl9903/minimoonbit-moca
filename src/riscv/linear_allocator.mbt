@@ -74,6 +74,10 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
       lhs, rhs =>
         if lhs.from != rhs.from {
           lhs.from - rhs.from
+        } else if lhs.def != rhs.def {
+          let lhs = if lhs.def { 1 } else { 0 }
+          let rhs = if rhs.def { 1 } else { 0 }
+          lhs - rhs
         } else {
           lhs.from - rhs.from
         }
@@ -118,7 +122,23 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
     self.release_register(active_freg, i)
     self.release_register(active_reg, i)
 
-    // 2. Set allocation info
+    // 2. Allocate before def
+    while p < lifes.length() && i == lifes[p].from && not(lifes[p].def) {
+      let life = lifes[p]
+      let var = lifes[p].var
+      if var.width.is_float() {
+        let idx = allocate_registor_or_spill(self, active_freg, life)
+        @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
+        self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
+      } else {
+        let idx = allocate_registor_or_spill(self, active_reg, life)
+        @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
+        self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
+      }
+      p = p + 1
+    }
+
+    // 3. Set allocation info
     let allocation = AllocationResult::new()
     for item in active_freg {
       let (freg, life) = item
@@ -137,7 +157,7 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
     self.results.push(allocation)
     current = allocation
 
-    // 3. Allocate register
+    // 4. Allocate defined register
     while p < lifes.length() && i == lifes[p].from {
       let life = lifes[p]
       let var = lifes[p].var
@@ -153,7 +173,7 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
       p = p + 1
     }
 
-    // 4.
+    // 5.
     for item in active_freg {
       let (freg, life) = item
       match life {
@@ -267,11 +287,12 @@ fn LinearAllocator::allocate_initial_state(
 struct LifeCycle {
   var : MachineVar
   from : Int
+  def : Bool
   to : Int
 }
 
-fn LifeCycle::new(var : MachineVar, from : Int, to : Int) -> LifeCycle {
-  { var, from, to }
+fn LifeCycle::new(var : MachineVar, from : (Int, Bool), to : Int) -> LifeCycle {
+  { var, from: from.0, def: from.1, to }
 }
 
 fn LinearAllocator::get_life_cycles(
@@ -284,14 +305,14 @@ fn LinearAllocator::get_life_cycles(
     match body.stmts[i].def {
       Some(def) =>
         if not(active.contains(def.memory_id())) {
-          active.set(def.memory_id(), (i + 1, def))
+          active.set(def.memory_id(), ((i, true), def))
         }
       None => ()
     }
     for used in body.stmts[i].uses {
       if not(used.const_value.is_empty()) || used.is_param {
         if not(active.contains(used.memory_id())) {
-          active.set(used.memory_id(), (i, used))
+          active.set(used.memory_id(), ((i, false), used))
         }
       }
     }

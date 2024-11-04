@@ -600,7 +600,7 @@ fn AssemblyFunction::emit_invoke_closure(
   if stack_size != 0 {
     self.emit_asm(Addi(Sp, Sp, stack_size))
   }
-  self.emit_invoke_restore_register(stmt_slot)
+  self.emit_invoke_restore_register(stmt_slot, def)
   match def {
     Some(def) =>
       if width.is_float() {
@@ -630,7 +630,7 @@ fn AssemblyFunction::emit_invoke_direct(
   if stack_size != 0 {
     self.emit_asm(Addi(Sp, Sp, stack_size))
   }
-  self.emit_invoke_restore_register(stmt_slot)
+  self.emit_invoke_restore_register(stmt_slot, def)
   match def {
     Some(def) =>
       if width.is_float() {
@@ -657,7 +657,7 @@ fn AssemblyFunction::emit_invoke_malloc(
   self.emit_asm(Call("minimbt_malloc"))
   self.emit_sanitizer(A0, 142)
   let def_reg = self.allocator.get_global_allocated_reg(def)
-  self.emit_invoke_restore_register(stmt_slot)
+  self.emit_invoke_restore_register(stmt_slot, Some(def))
   self.emit_asm(Mv(def_reg, A0))
   self.emit_comment("--- malloc \{size} ---")
 }
@@ -670,7 +670,7 @@ fn AssemblyFunction::emit_invoke_save_register(
   for vid, reg in result.reg_map_before {
     if reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
-      if var.const_value.is_empty() {
+      if var.const_value.is_empty() && not(var.is_param) {
         match var.width {
           Int => self.emit_asm(Sw(reg, MemAccess::new(Fp, var.offset)))
           Double => @util.die("unreachable")
@@ -691,13 +691,15 @@ fn AssemblyFunction::emit_invoke_save_register(
 
 fn AssemblyFunction::emit_invoke_restore_register(
   self : AssemblyFunction,
-  slot : Int
+  slot : Int,
+  def : MachineVar?
 ) -> Unit {
+  let def_id = def.map(fn { d => d.memory_id() }).or(-1)
   let result = self.allocator.results[slot]
   for vid, reg in result.reg_map_after {
-    if reg_caller_saved_list.contains(reg) {
+    if vid != def_id && reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
-      if var.const_value.is_empty() {
+      if var.const_value.is_empty() && not(var.is_param) {
         match var.width {
           Int => self.emit_asm(Lw(reg, MemAccess::new(Fp, var.offset)))
           Double => @util.die("unreachable")
@@ -707,7 +709,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
     }
   }
   for vid, freg in result.freg_map_after {
-    if freg_caller_saved_list.contains(freg) {
+    if vid != def_id && freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {
         self.emit_asm(Fld(freg, MemAccess::new(Fp, var.offset)))
