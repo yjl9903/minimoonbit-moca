@@ -79,6 +79,21 @@ fn MachineWorld::print_method(
           logger.write_string("  return \{var.to_string()}, \{var.width};\n")
         Return(None) => logger.write_string("  return;\n")
       }
+      // Print liveness
+      match stmt.stmt {
+        Comment(_) | Nop | Return(_) => ()
+        _ => {
+          let live_out = liveness.live_out[stmt.slot]
+          let live_out = live_out
+            .iter()
+            .map(fn { v => v.to_string() })
+            .to_array()
+            .join(", ")
+          logger.write_string(
+            "    # liveness L\{stmt.slot} = { \{live_out} }\n",
+          )
+        }
+      }
     }
   }
   logger.write_string("}\n\n")
