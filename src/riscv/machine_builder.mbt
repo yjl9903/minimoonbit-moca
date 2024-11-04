@@ -99,6 +99,7 @@ fn MachineVar::from_ssa(var : @ssa.Var) -> MachineVar {
 struct Builder {
   method : MachineMethod
   vars : Map[Int, MachineVar]
+  imported_global_vars : Map[String, MachineVar]
 
   // for global vars
   world : MachineWorld
@@ -112,7 +113,7 @@ fn Builder::new(world : MachineWorld, method : MachineMethod) -> Builder {
   }
   method.params.each(fn { p => vars.set(p.id, p) })
   method.local_vars.each(fn { v => vars.set(v.id, v) })
-  Builder::{ method, vars, world }
+  Builder::{ method, vars, imported_global_vars: Map::new(), world }
 }
 
 fn Builder::get_var(self : Builder, var : @ssa.Var) -> MachineVar {
@@ -436,18 +437,28 @@ fn Builder::build_rvalue(
         Some(Int(x)) => Some(Int(x))
         Some(Double(x)) => {
           let label = add_double_const(self.world, x)
-          let addr = self.add_temp_var(Ptr)
-          stmts.push(Definition(Some(addr), LoadLabel(label)))
-          Some(Load((addr, 0), Double, 202))
+          match self.imported_global_vars.get(label) {
+            Some(tmp) => Some(Var(tmp, Double))
+            None => {
+              let addr = self.add_temp_var(Ptr)
+              stmts.push(Definition(Some(addr), LoadLabel(label)))
+              Some(Load((addr, 0), Double, 202))
+            }
+          }
         }
         None => {
           let width = Width::from_low_type(var.ty)
           if var.is_global {
             let (label, _) = self.world.globals.get(var.id).unwrap()
-            let addr = self.add_temp_var(Ptr)
-            stmts.push(Comment("Get global var \{v}"))
-            stmts.push(Definition(Some(addr), LoadLabel(label)))
-            Some(Load((addr, 0), width, 203))
+            match self.imported_global_vars.get(label) {
+              Some(tmp) => Some(Var(tmp, width))
+              None => {
+                let addr = self.add_temp_var(Ptr)
+                stmts.push(Comment("Get global var \{v}"))
+                stmts.push(Definition(Some(addr), LoadLabel(label)))
+                Some(Load((addr, 0), width, 203))
+              }
+            }
           } else {
             Some(Var(var, width))
           }
@@ -653,14 +664,19 @@ fn Builder::build_get_var(
     }
   } else if var.is_global {
     match self.world.globals.get(var.id) {
-      Some((label, g)) => {
-        let addr = self.add_temp_var(Type::Ptr)
-        let tmp = self.add_temp_var(var.ty)
-        stmts.push(Comment("Get global var \{var}"))
-        stmts.push(Definition(Some(addr), LoadLabel(label)))
-        stmts.push(Definition(Some(tmp), Load((addr, 0), g.width, 207)))
-        tmp
-      }
+      Some((label, g)) =>
+        match self.imported_global_vars.get(label) {
+          Some(tmp) => tmp
+          None => {
+            let addr = self.add_temp_var(Type::Ptr)
+            let tmp = self.add_temp_var(var.ty)
+            stmts.push(Comment("Get global var \{var}"))
+            stmts.push(Definition(Some(addr), LoadLabel(label)))
+            stmts.push(Definition(Some(tmp), Load((addr, 0), g.width, 207)))
+            self.imported_global_vars.set(label, tmp)
+            tmp
+          }
+        }
       None => @util.die("unreachable")
     }
   } else {
@@ -677,9 +693,15 @@ fn Builder::build_double_const(
   stmts : Array[StmtKind]
 ) -> MachineVar {
   let label = add_double_const(self.world, value)
-  let addr = self.add_temp_var(Type::Ptr)
-  stmts.push(Definition(Some(addr), LoadLabel(label)))
-  let local_const = self.add_temp_var(Double)
-  stmts.push(Definition(Some(local_const), Load((addr, 0), Double, 208)))
-  local_const
+  match self.imported_global_vars.get(label) {
+    Some(tmp) => tmp
+    None => {
+      let addr = self.add_temp_var(Type::Ptr)
+      stmts.push(Definition(Some(addr), LoadLabel(label)))
+      let local_const = self.add_temp_var(Double)
+      stmts.push(Definition(Some(local_const), Load((addr, 0), Double, 208)))
+      self.imported_global_vars.set(label, local_const)
+      local_const
+    }
+  }
 }
