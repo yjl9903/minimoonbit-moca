@@ -30,12 +30,16 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
           if r1 == r2 && mem1 == mem2 {
             stmts[j] = Nop
           }
-        (Li(r, value), Add(r1, r2, r3)) =>
-          if r == r3 {
-            stmts[j] = Addi(r1, r2, @strconv.parse_int?(value).unwrap())
-          } else if r == r2 {
-            stmts[j] = Addi(r1, r3, @strconv.parse_int?(value).unwrap())
+        (Li(r, value), Add(r1, r2, r3)) => {
+          let value = @strconv.parse_int?(value).unwrap()
+          if -2048 <= value && value < 2048 {
+            if r == r3 {
+              stmts[j] = Addi(r1, r2, value)
+            } else if r == r2 {
+              stmts[j] = Addi(r1, r3, value)
+            }
           }
+        }
         (Li(r, value), Mul(r1, r2, r3)) =>
           if r == r3 {
             if value == "4" {
