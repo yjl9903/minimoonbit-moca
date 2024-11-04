@@ -36,7 +36,11 @@ fn MachineWorld::print_method(
   method : MachineMethod,
   logger : Logger
 ) -> Unit {
-  let liveness = LivenessState::analyze(method)
+  let allocator = LinearAllocator::new(method)
+  allocator.allocate_registor()
+  // let liveness = allocator.liveness
+
+  // Signature
   let args = method.params
     .map(fn { p => "\{p.to_string()} : \{p.ty}" })
     .join(", ")
@@ -64,6 +68,28 @@ fn MachineWorld::print_method(
       //     )
       //   }
       // }
+
+      // Print reg
+      match stmt.stmt {
+        Comment(_) | Nop | Return(_) => ()
+        _ => {
+          let result = allocator.results[stmt.slot]
+          let regs = result.reg_map_before
+            .iter()
+            .map(fn { (reg, v) => "\{v} -> \{reg}" })
+            .collect()
+            .join(", ")
+          let fregs = result.freg_map_before
+            .iter()
+            .map(fn { (reg, v) => "\{v} -> \{reg}" })
+            .collect()
+            .join(", ")
+          logger.write_string(
+            "    # register L\{stmt.slot} = { \{regs}, \{fregs} }\n",
+          )
+        }
+      }
+
       // Print stmt
       match stmt.stmt {
         Definition(def, rvalue) => {
@@ -74,7 +100,7 @@ fn MachineWorld::print_method(
           }
         }
         Store((recv, offset), var, width, _) =>
-          logger.write_string("  \{recv} [\{offset}] = \{var}, \{width};\n")
+          logger.write_string("  store \{recv} offset=\{offset} = \{var}, \{width};\n")
         IfGoto(cond, Some(true_target), Some(false_target)) => {
           let cond = match cond {
             Eq(lhs, rhs, width) => "\{lhs} == \{rhs}, \{width}"
@@ -96,20 +122,20 @@ fn MachineWorld::print_method(
         Return(None) => logger.write_string("  return;\n")
       }
       // Print liveness out
-      match stmt.stmt {
-        Comment(_) | Nop | Return(_) => ()
-        _ => {
-          let live_out = liveness.live_out[stmt.slot]
-          let live_out = live_out
-            .iter()
-            .map(fn { v => v.to_string() })
-            .to_array()
-            .join(", ")
-          logger.write_string(
-            "    # liveness L\{stmt.slot} = { \{live_out} }\n",
-          )
-        }
-      }
+      // match stmt.stmt {
+      //   Comment(_) | Nop | Return(_) => ()
+      //   _ => {
+      //     let live_out = liveness.live_out[stmt.slot]
+      //     let live_out = live_out
+      //       .iter()
+      //       .map(fn { v => v.to_string() })
+      //       .to_array()
+      //       .join(", ")
+      //     logger.write_string(
+      //       "    # liveness L\{stmt.slot} = { \{live_out} }\n",
+      //     )
+      //   }
+      // }
     }
   }
   logger.write_string("}\n\n")
@@ -123,7 +149,7 @@ fn MachineWorld::print_rvalue(
     Int(x) => "(Int) \{x}, Int"
     Neg(x, width) => "- \{x}, \{width}"
     Prim(lhs, rhs, op, width) => "\{lhs} \{op} \{rhs}, \{width}"
-    Load((recv, offset), width, _) => "\{recv} [\{offset}], \{width}"
+    Load((recv, offset), width, _) => "load \{recv}, offset=\{offset}, \{width}"
     LoadLabel(label) => "load_label \{label}, Ptr"
     Var(v, width) =>
       match v.const_value {
