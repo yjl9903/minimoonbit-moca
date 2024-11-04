@@ -317,12 +317,12 @@ fn LinearAllocator::get_life_cycles(
       }
     }
   }
-  for i = body.stmts.length() - 1; i >= 0; i = i - 1 {
+  for i = body.stmts.length() - 1; i >= -1; i = i - 1 {
     let lived = []
     active.each(
       fn {
         vid, info =>
-          if self.liveness.is_live_before(i, vid) {
+          if i == -1 || self.liveness.is_live_before(i, vid) {
             lived.push((vid, info))
           }
       },
@@ -330,7 +330,11 @@ fn LinearAllocator::get_life_cycles(
     for item in lived {
       let (vid, (from, var)) = item
       active.remove(vid)
-      let life = LifeCycle::new(var, from, i)
+      let life = if i == -1 {
+        LifeCycle::new(var, from, from.0 + 1)
+      } else {
+        LifeCycle::new(var, from, i)
+      }
       map.set(vid, life)
     }
   }
