@@ -97,7 +97,7 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
   let active_reg : Array[(Reg, LifeCycle?)] = {
     let mp = []
     for r in reg_caller_saved_list {
-      if r == A0 {
+      if r == A0 || r == A1 {
         continue
       }
       mp.push((r, None))
