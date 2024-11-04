@@ -5,6 +5,12 @@ pub struct MachineWorld {
   ssa : @ssa.World
 }
 
+let cached_world : Ref[MachineWorld?] = { val: None }
+
+pub fn get_world() -> MachineWorld {
+  cached_world.val.unwrap()
+}
+
 pub struct MachineMethod {
   id : Int
   name : String
