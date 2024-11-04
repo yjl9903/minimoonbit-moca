@@ -277,16 +277,32 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
     PutArray(recv, idx, value) => {
       let ty = value.ty
       let width = Width::from_low_type(ty)
-      let addr = self.add_temp_var(Ptr)
-      let offset = self.add_temp_var(Ptr)
-      let size_var = self.add_int_const_var(width.to_int())
-      // Build put array
-      let idx = self.build_get_var(idx, stmts)
-      stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Ptr))) // offset = idx * type_size
-      let recv = self.build_get_var(recv, stmts)
-      stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Ptr))) // addr = recv + offset
+      let pos = match idx.const_value {
+        Some(Int(x)) => {
+          let recv = self.build_get_var(recv, stmts)
+          if width.to_int() * x < 2048 {
+            Some((recv, width.to_int() * x))
+          } else {
+            None
+          }
+        }
+        _ => None
+      }
+      let (addr, offset) = match pos {
+        Some(pos) => pos
+        None => {
+          let addr = self.add_temp_var(Type::Ptr)
+          let offset = self.add_temp_var(Type::Ptr)
+          let recv = self.build_get_var(recv, stmts)
+          let size_var = self.add_int_const_var(width.to_int())
+          let idx = self.build_get_var(idx, stmts)
+          stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Ptr)))
+          stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Ptr)))
+          (addr, 0)
+        }
+      }
       let value = self.build_get_var(value, stmts)
-      stmts.push(Store((addr, 0), value, width, 210)) // store value to addr
+      stmts.push(Store((addr, offset), value, width, 210)) // store value to addr
     }
     IfGoto(cond, true_branch, false_branch, _) => {
       let kind = match cond {
@@ -542,14 +558,31 @@ fn Builder::build_rvalue(
       }
       let ty = @closure.extract_array_type(recv.ty)
       let width = Width::from_low_type(ty)
-      let addr = self.add_temp_var(Type::Ptr)
-      let offset = self.add_temp_var(Type::Ptr)
-      let size_var = self.add_int_const_var(width.to_int())
-      let idx = self.build_get_var(idx, stmts)
-      stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Ptr)))
-      let recv = self.build_get_var(recv, stmts)
-      stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Ptr)))
-      Some(Load((addr, 0), width, 206))
+      let pos = match idx.const_value {
+        Some(Int(x)) => {
+          let recv = self.build_get_var(recv, stmts)
+          if width.to_int() * x < 2048 {
+            Some((recv, width.to_int() * x))
+          } else {
+            None
+          }
+        }
+        _ => None
+      }
+      let (addr, offset) = match pos {
+        Some(pos) => pos
+        None => {
+          let addr = self.add_temp_var(Type::Ptr)
+          let offset = self.add_temp_var(Type::Ptr)
+          let recv = self.build_get_var(recv, stmts)
+          let size_var = self.add_int_const_var(width.to_int())
+          let idx = self.build_get_var(idx, stmts)
+          stmts.push(Definition(Some(offset), Prim(idx, size_var, Mul, Ptr)))
+          stmts.push(Definition(Some(addr), Prim(recv, offset, Add, Ptr)))
+          (addr, 0)
+        }
+      }
+      Some(Load((addr, offset), width, 206))
     }
 
     // Invoke
