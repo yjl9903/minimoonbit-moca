@@ -110,6 +110,9 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
   let active_freg : Array[(FReg, LifeCycle?)] = {
     let mp = []
     for r in freg_caller_saved_list {
+      if r == Fa0 || r == Fa1 {
+        continue
+      }
       mp.push((r, None))
     }
     for r in freg_callee_saved_list {
