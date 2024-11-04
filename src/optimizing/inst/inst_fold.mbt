@@ -17,6 +17,30 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
       }
     }
 
+    let changed = match cur {
+      (Mv(r1, r2)) => {
+        if r1 == r2 {
+          stmts[i] = Nop
+          true
+        } else {
+          false
+        }
+      }
+      (FmvD(r1,r2)) => {
+        if r1 == r2 {
+          stmts[i] = Nop
+          true
+        } else {
+          false
+        }
+      }
+      _ => false
+    }
+    if changed {
+      i = j
+      continue
+    }
+
     // (i, j)
     if j < stmts.length() {
       match (cur, stmts[j]) {
