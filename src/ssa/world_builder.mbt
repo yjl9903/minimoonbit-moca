@@ -12,6 +12,8 @@ struct WorldBuilder {
   mut global_vars_counter : Int
 }
 
+pub let global_vars_counter : Ref[Int] = { val: 0 }
+
 pub fn WorldBuilder::new(
   externals : @immut/hashmap.T[String, @types.Type]
 ) -> WorldBuilder {
@@ -111,6 +113,7 @@ pub fn WorldBuilder::build(
     main_method,
   }
   set_world(world)
+  global_vars_counter.val = self.global_vars_counter
   world
 }
 
