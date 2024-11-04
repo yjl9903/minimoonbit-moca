@@ -380,8 +380,22 @@ fn AssemblyFunction::emit_stmt_rvalue(
       }
     Neg(expr, Int) => {
       let def = self.allocator.get_global_allocated_reg(def)
-      let reg = self.emit_get_int_var(expr, fallback=A0)
-      self.emit_asm(Sub(def, Zero, reg))
+      let optimized = match expr.const_value {
+        Some(Int(x)) =>
+          if -2048 <= -x && -x < 2048 {
+            Some(Li(def, (-x).to_string()))
+          } else {
+            None
+          }
+        _ => None
+      }
+      match optimized {
+        Some(opt) => self.emit_asm(opt)
+        None => {
+          let reg = self.emit_get_int_var(expr, fallback=A0)
+          self.emit_asm(Sub(def, Zero, reg))
+        }
+      }
     }
     Neg(expr, Double) => {
       let def = self.allocator.get_global_allocated_freg(def)
@@ -391,27 +405,86 @@ fn AssemblyFunction::emit_stmt_rvalue(
     Neg(_, Ptr) => @util.die("unreachable")
     Prim(lhs, rhs, op, Int) => {
       let def = self.allocator.get_global_allocated_reg(def)
-      let r1 = self.emit_get_int_var(lhs, fallback=A0)
-      let r2 = self.emit_get_int_var(rhs, fallback=A1)
+      let optimized = match (lhs.const_value, rhs.const_value) {
+        (Some(Int(x)), Some(Int(y))) =>
+          if op == Add && -2048 <= x + y && x + y < 2048 {
+            Some(Li(def, (x + y).to_string()))
+          } else {
+            None
+          }
+        (_, Some(Int(x))) =>
+          if op == Add && -2048 <= x && x < 2048 {
+            let r1 = self.emit_get_int_var(lhs, fallback=A0)
+            Some(Addi(def, r1, x))
+          } else {
+            None
+          }
+        (Some(Int(x)), _) =>
+          if op == Add && -2048 <= x && x < 2048 {
+            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            Some(Addi(def, r2, x))
+          } else {
+            None
+          }
+        _ => None
+      }
       self.emit_asm(
-        match op {
-          Add => Add(def, r1, r2)
-          Sub => Sub(def, r1, r2)
-          Mul => Mulw(def, r1, r2)
-          Div => Divw(def, r1, r2)
+        match optimized {
+          Some(opt) => opt
+          None => {
+            let r1 = self.emit_get_int_var(lhs, fallback=A0)
+            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            match op {
+              Add => Add(def, r1, r2)
+              Sub => Sub(def, r1, r2)
+              Mul => Mulw(def, r1, r2)
+              Div => Divw(def, r1, r2)
+            }
+          }
         },
       )
     }
     Prim(lhs, rhs, op, Ptr) => {
       let def = self.allocator.get_global_allocated_reg(def)
-      let r1 = self.emit_get_int_var(lhs, fallback=A0)
-      let r2 = self.emit_get_int_var(rhs, fallback=A1)
+      let optimized = match (lhs.const_value, rhs.const_value) {
+        (Some(Int(x)), Some(Int(y))) =>
+          if op == Add && -2048 <= x + y && x + y < 2048 {
+            @shared.debug("?1")
+            Some(Li(def, (x + y).to_string()))
+          } else {
+            None
+          }
+        (_, Some(Int(x))) =>
+          if op == Add && -2048 <= x && x < 2048 {
+            let r1 = self.emit_get_int_var(lhs, fallback=A0)
+            @shared.debug("?2")
+            Some(Addi(def, r1, x))
+          } else {
+            None
+          }
+        (Some(Int(x)), _) =>
+          if op == Add && -2048 <= x && x < 2048 {
+            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            @shared.debug("?3")
+            Some(Addi(def, r2, x))
+          } else {
+            None
+          }
+        _ => None
+      }
       self.emit_asm(
-        match op {
-          Add => Add(def, r1, r2)
-          Sub => Sub(def, r1, r2)
-          Mul => Mul(def, r1, r2)
-          Div => Div(def, r2, r2)
+        match optimized {
+          Some(opt) => opt
+          None => {
+            let r1 = self.emit_get_int_var(lhs, fallback=A0)
+            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            match op {
+              Add => Add(def, r1, r2)
+              Sub => Sub(def, r1, r2)
+              Mul => Mul(def, r1, r2)
+              Div => Div(def, r2, r2)
+            }
+          }
         },
       )
     }
