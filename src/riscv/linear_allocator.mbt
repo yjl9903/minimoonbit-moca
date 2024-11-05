@@ -332,6 +332,11 @@ fn LinearAllocator::get_life_cycles(
     )
     for item in lived {
       let (vid, (from, var)) = item
+      // Const value should not have register
+      if not(var.const_value.is_empty()) {
+        continue
+      }
+      // Get lifecycle
       active.remove(vid)
       let life = if i == -1 {
         LifeCycle::new(var, from, from.0 + 1)
@@ -342,6 +347,81 @@ fn LinearAllocator::get_life_cycles(
     }
   }
   map
+}
+
+fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
+  let vars_map = Map::new()
+  for var in self.method.local_vars {
+    if var.is_param {
+      var.is_stack = true
+    } else if not(var.const_value.is_empty()) {
+      var.is_stack = false
+    } else {
+      var.is_stack = false
+    }
+    vars_map.set(var.id, var)
+  }
+  // Spilled var should have stack slot
+  for vid in self.spilled {
+    match vars_map.get(vid) {
+      Some(var) => var.is_stack = true
+      None => ()
+    }
+  }
+  // Saved invoke var should have stack slot
+  for i = 0; i < self.method.body.stmts.length(); i = i + 1 {
+    let stmt = self.method.body.stmts[i]
+    match stmt.stmt {
+      Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_)) => {
+        let result = self.results[i]
+        for vid, reg in result.reg_map_before {
+          if reg_caller_saved_list.contains(reg) {
+            let var = self.get_global_allocated_int_var(vid)
+            if var.const_value.is_empty() && not(var.is_param) {
+              match var.outcoming_var {
+                Some(outcoming_var) => outcoming_var.is_stack = true
+                None => var.is_stack = true
+              }
+            }
+          }
+        }
+        for vid, freg in result.freg_map_before {
+          if freg_caller_saved_list.contains(freg) {
+            let var = self.get_global_allocated_float_var(vid)
+            if var.const_value.is_empty() && not(var.is_param) {
+              match var.outcoming_var {
+                Some(outcoming_var) => outcoming_var.is_stack = true
+                None => var.is_stack = true
+              }
+            }
+          }
+        }
+        for vid, reg in result.reg_map_after {
+          if reg_caller_saved_list.contains(reg) {
+            let var = self.get_global_allocated_int_var(vid)
+            if var.const_value.is_empty() && not(var.is_param) {
+              match var.outcoming_var {
+                Some(outcoming_var) => outcoming_var.is_stack = true
+                None => var.is_stack = true
+              }
+            }
+          }
+        }
+        for vid, freg in result.freg_map_after {
+          if freg_caller_saved_list.contains(freg) {
+            let var = self.get_global_allocated_float_var(vid)
+            if var.const_value.is_empty() && not(var.is_param) {
+              match var.outcoming_var {
+                Some(outcoming_var) => outcoming_var.is_stack = true
+                None => var.is_stack = true
+              }
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
 }
 
 // --- Query ---

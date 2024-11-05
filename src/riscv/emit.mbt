@@ -59,8 +59,9 @@ fn create_asm_func(
     world,
     allocator: LinearAllocator::new(method),
   }
-  asm_func.calc_stack_size()
   asm_func.allocator.allocate_registor()
+  asm_func.allocator.allocate_stack_vars()
+  asm_func.calc_stack_size()
   asm_func
 }
 
@@ -119,7 +120,7 @@ fn AssemblyFunction::calc_stack_size(self : AssemblyFunction) -> Unit {
   let mut offset = 0
   for _, var in self.machine.local_vars {
     // Not a const value
-    if not(var.const_value.is_empty()) || not(var.is_live) {
+    if not(var.is_stack) || not(var.is_live) {
       continue
     }
     offset = offset + var.size
