@@ -35,11 +35,14 @@ You will have `rvlinux` linked in the project root directory.
 
 ## Run
 
-You can use the following scripts to run our MiniMoonbit implementation.
+You can directly use the following scripts to run our MiniMoonbit implementation.
 
 ```bash
 ./run_riscv.sh test/test_src/print.mbt
 ./run_wasm.sh test/test_src/print.mbt
+./run_js.sh test/test_src/print.mbt
+./run_ssa.sh test/test_src/print.mbt
+./run_machine_ir.sh test/test_src/print.mbt
 ```
 
 Run with RSIC-V backend manually.
@@ -76,6 +79,9 @@ just test-parse
 just test-typecheck
 just test-knf
 just test-closure
+just test-js
+just test-wasm
+just test-riscv
 ```
 
 ## Reference
