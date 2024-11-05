@@ -211,7 +211,7 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
       knf
 
     // Loop
-    Loop(label, args, body) => Loop(label, args, self.transform(body))
+    Loop(label, args, body) => Loop(label, args, self.fork().transform(body))
     Continue(_) => knf
 
     // If
@@ -219,16 +219,16 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
       IfEq(
         lhs,
         rhs,
-        self.transform(true_branch),
-        self.transform(false_branch),
+        self.fork().transform(true_branch),
+        self.fork().transform(false_branch),
         ty,
       )
     IfLe(lhs, rhs, true_branch, false_branch, ty) =>
       IfLe(
         lhs,
         rhs,
-        self.transform(true_branch),
-        self.transform(false_branch),
+        self.fork().transform(true_branch),
+        self.fork().transform(false_branch),
         ty,
       )
 
@@ -262,7 +262,7 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
 
     // Let
     Let(binding, expr, rest) =>
-      Let(binding, self.transform(expr), self.transform(rest))
+      Let(binding, self.fork().transform(expr), self.transform(rest))
     LetTuple(binding, expr, rest) =>
       LetTuple(binding, expr, self.transform(rest))
     LetRec(def, rest) =>
