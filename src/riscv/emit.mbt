@@ -407,15 +407,26 @@ fn AssemblyFunction::emit_stmt_rvalue(
       let def = self.allocator.get_global_allocated_reg(def)
       let optimized = match (lhs.const_value, rhs.const_value) {
         (Some(Int(x)), Some(Int(y))) =>
-          if op == Add && -2048 <= x + y && x + y < 2048 {
-            Some(Li(def, (x + y).to_string()))
-          } else {
-            None
+          match eval_int_bin_op(x, op, y) {
+            Some(val) => Some(Li(def, val.to_string()))
+            None => None
           }
         (_, Some(Int(x))) =>
           if op == Add && -2048 <= x && x < 2048 {
             let r1 = self.emit_get_int_var(lhs, fallback=A0)
             Some(Addi(def, r1, x))
+          } else if op == Mul {
+            match is_power_of_two(x) {
+              Some(log) => {
+                let r1 = self.emit_get_int_var(lhs, fallback=A0)
+                if log == 0 {
+                  Some(Mv(def, r1))
+                } else {
+                  Some(Slli(def, r1, log))
+                }
+              }
+              None => None
+            }
           } else {
             None
           }
@@ -449,7 +460,6 @@ fn AssemblyFunction::emit_stmt_rvalue(
       let optimized = match (lhs.const_value, rhs.const_value) {
         (Some(Int(x)), Some(Int(y))) =>
           if op == Add && -2048 <= x + y && x + y < 2048 {
-            @shared.debug("?1")
             Some(Li(def, (x + y).to_string()))
           } else {
             None
@@ -457,16 +467,38 @@ fn AssemblyFunction::emit_stmt_rvalue(
         (_, Some(Int(x))) =>
           if op == Add && -2048 <= x && x < 2048 {
             let r1 = self.emit_get_int_var(lhs, fallback=A0)
-            @shared.debug("?2")
             Some(Addi(def, r1, x))
+          } else if op == Mul {
+            match is_power_of_two(x) {
+              Some(log) => {
+                let r1 = self.emit_get_int_var(lhs, fallback=A0)
+                if log == 0 {
+                  Some(Mv(def, r1))
+                } else {
+                  Some(Slli(def, r1, log))
+                }
+              }
+              None => None
+            }
           } else {
             None
           }
         (Some(Int(x)), _) =>
           if op == Add && -2048 <= x && x < 2048 {
             let r2 = self.emit_get_int_var(rhs, fallback=A1)
-            @shared.debug("?3")
             Some(Addi(def, r2, x))
+          } else if op == Mul {
+            match is_power_of_two(x) {
+              Some(log) => {
+                let r2 = self.emit_get_int_var(rhs, fallback=A1)
+                if log == 0 {
+                  Some(Mv(def, r2))
+                } else {
+                  Some(Slli(def, r2, log))
+                }
+              }
+              None => None
+            }
           } else {
             None
           }
