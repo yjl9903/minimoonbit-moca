@@ -1,7 +1,8 @@
 pub fn transform_method_inline(knf : Knf) -> Knf {
   let context = { funcs: Map::new(), path: [], local: @immut/hashmap.new() }
   context.collect_knf(knf)
-  context.transform(knf)
+  let knf = context.transform(knf)
+  context.cleanup(knf)
 }
 
 struct InlineContext {
@@ -273,6 +274,58 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
           info.def = def
           LetRec(def, self.transform(rest))
         }
+        None => @util.die("unreachable")
+      }
+
+    // Unused
+    ExternalArray(_) => knf
+  }
+}
+
+fn InlineContext::cleanup(self : InlineContext, knf : Knf) -> Knf {
+  match knf {
+    Unit
+    | Int(_)
+    | Double(_)
+    | Neg(_)
+    | Add(_)
+    | Sub(_) | Mul(_) | Div(_) | FNeg(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
+      knf
+
+    // Loop
+    Loop(label, args, body) => Loop(label, args, self.cleanup(body))
+    Continue(_) => knf
+
+    // If
+    IfEq(lhs, rhs, true_branch, false_branch, ty) =>
+      IfEq(lhs, rhs, self.cleanup(true_branch), self.cleanup(false_branch), ty)
+    IfLe(lhs, rhs, true_branch, false_branch, ty) =>
+      IfLe(lhs, rhs, self.cleanup(true_branch), self.cleanup(false_branch), ty)
+
+    // Var
+    Var(_) | Tuple(_) => knf
+
+    // Array
+    Get(_) | Put(_) => knf
+
+    // Apply
+    Apply(_) => knf
+    ExternalFunctionApplication(_) => knf
+
+    // Let
+    Let(binding, expr, rest) =>
+      Let(binding, self.cleanup(expr), self.cleanup(rest))
+    LetTuple(binding, expr, rest) => LetTuple(binding, expr, self.cleanup(rest))
+    LetRec(def, rest) =>
+      match self.funcs.get(def.name) {
+        Some(info) =>
+          if info.applied == 0 && info.count == 0 {
+            self.cleanup(rest)
+          } else {
+            let body = self.cleanup(def.body)
+            let def = { ..def, body, }
+            LetRec(def, self.cleanup(rest))
+          }
         None => @util.die("unreachable")
       }
 
