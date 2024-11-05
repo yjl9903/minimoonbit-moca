@@ -67,6 +67,7 @@ struct CompileStatus {
   mut asm : @riscv.AssemblyProgram?
   mut js : @js.JsResult?
   mut wasm : @wasm.WasmResult?
+  mut optimizing_manager : @optimizing.Manager?
 }
 
 fn CompileStatus::initialize(
@@ -89,6 +90,7 @@ fn CompileStatus::initialize(
     asm: None,
     js: None,
     wasm: None,
+    optimizing_manager: None,
   }
   match start_stage {
     Parse => v.source_code = Some(file)
@@ -120,7 +122,9 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     }
     Typecheck => {
       let typechecked = @typing.type_check(self.ast.unwrap(), externals())
-      let typechecked = optimizing_manager.optimize_ast(typechecked)
+      let typechecked = self.optimizing_manager
+        .unwrap()
+        .optimize_ast(typechecked)
       self.typechecked = Some(typechecked)
     }
     Knf => {
@@ -133,7 +137,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     }
     KnfOpt => {
       let knf = self.knf.unwrap()
-      let knf = optimizing_manager.optimize_knf(knf)
+      let knf = self.optimizing_manager.unwrap().optimize_knf(knf)
       self.opt_knf = Some(knf)
     }
     Closure => {
@@ -149,7 +153,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       let world = builder.build(self.closure_ir.unwrap())
       self.ssa = Some(world)
       // Optimizing SSA
-      optimizing_manager.optimize_ssa_ir(world)
+      self.optimizing_manager.unwrap().optimize_ssa_ir(world)
     }
     Asm => {
       let world = self.ssa.unwrap()
@@ -157,9 +161,9 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       match self.backend {
         RSICV => {
           let machine_world = @riscv.build_machine_world(world)
-          optimizing_manager.optimize_machine_ir(machine_world)
+          self.optimizing_manager.unwrap().optimize_machine_ir(machine_world)
           let asm_program = @riscv.emit(machine_world)
-          optimizing_manager.optimize_assembly(asm_program)
+          self.optimizing_manager.unwrap().optimize_assembly(asm_program)
           self.asm = Some(asm_program)
         }
         JS => self.js = Some(@js.emit_js(world))
@@ -367,8 +371,12 @@ fn main {
     Ok(status) => {
       if js_backend.val {
         status.backend = JS
+        status.optimizing_manager = Some(get_optimizing_manager(JS))
       } else if wasm_backend.val {
         status.backend = WASM
+        status.optimizing_manager = Some(get_optimizing_manager(WASM))
+      } else {
+        status.optimizing_manager = Some(get_optimizing_manager(RSICV))
       }
       status
     }
