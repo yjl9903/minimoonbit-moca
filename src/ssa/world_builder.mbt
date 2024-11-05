@@ -72,10 +72,12 @@ fn WorldBuilder::add_global_fun(
   closure : @closure.Closure
 ) -> Unit {
   let def = self.get_func_def(closure.name)
-  def.is_closure = false
-  def.formal_free_vars = []
+  // def.is_closure = false
+  // def.formal_free_vars = []
   self.global_funs.set(closure.name._, def)
-  self.direct_closure.set(name, def)
+  if not(def.is_closure) {
+    self.direct_closure.set(name, def)
+  }
 }
 
 pub fn WorldBuilder::build(
@@ -85,8 +87,8 @@ pub fn WorldBuilder::build(
   // Collect all functions
   prog.fundefs.each(fn { f => self.all_funs.set(f.name._, f) })
   // 1. Build top-level expr
-  // let main_expr = self.build_top_level(prog.body)
-  let main_expr = prog.body
+  let main_expr = self.build_top_level(prog.body)
+  // let main_expr = prog.body
   // 2. Prepare all the method builders
   let main_method_builder = self.create_main_method_builder()
   let method_builders = prog.fundefs.map(
@@ -172,14 +174,14 @@ fn WorldBuilder::build_top_level(
 
     // Let
     MakeClosure((name, typ), closure, rest) => {
-      let def = self.get_func_def(closure.name)
-      closure.actual_free_vars.eachi(
-        fn { i, name => self.add_global_var(name, def.formal_free_vars[i].1) },
-      )
+      // let def = self.get_func_def(closure.name)
+      // closure.actual_free_vars.eachi(
+      //   fn { i, name => self.add_global_var(name, def.formal_free_vars[i].1) },
+      // )
       self.add_global_fun(name, closure)
       MakeClosure(
         (name, typ),
-        { name: closure.name, actual_free_vars: [] },
+        { name: closure.name, actual_free_vars: closure.actual_free_vars },
         self.build_top_level(rest),
       )
     }
