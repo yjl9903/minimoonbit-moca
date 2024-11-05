@@ -124,6 +124,9 @@ fn AssemblyFunction::calc_stack_size(self : AssemblyFunction) -> Unit {
       continue
     }
     offset = offset + var.size
+    if var.width == Ptr || var.width == Double {
+      offset = align_to(offset, 8)
+    }
     var.offset = -offset
     self.machine.stack_vars.set(var.id, var)
   }
