@@ -1,6 +1,7 @@
 struct ClosureInterpreter {
   extern_fns : Map[String, (Array[Value]) -> Value]
   functions : Map[String, @closure.FuncDef]
+  mut global_env : InterpreterLocalVars
 }
 
 pub typealias Name = @types.Name
@@ -32,7 +33,11 @@ pub fn Value::op_equal(self : Value, other : Value) -> Bool {
 }
 
 pub fn ClosureInterpreter::new() -> ClosureInterpreter {
-  { extern_fns: Map::new(), functions: Map::new() }
+  {
+    extern_fns: Map::new(),
+    global_env: @immut/hashmap.new(),
+    functions: Map::new(),
+  }
 }
 
 pub fn ClosureInterpreter::add_extern_fn(
@@ -55,13 +60,14 @@ pub fn ClosureInterpreter::eval_full(
     self.functions.set(f.name._, f)
   }
   let env = InterpreterLocalVars::new()
-  self.eval!(env, expr.body)
+  self.eval!(env, expr.body, top_level=true)
 }
 
 pub fn ClosureInterpreter::eval(
   self : ClosureInterpreter,
   env : InterpreterLocalVars,
-  expr : @closure.Expr
+  expr : @closure.Expr,
+  ~top_level : Bool
 ) -> Value!Failure {
   match expr {
     Unit => Unit
@@ -152,15 +158,15 @@ pub fn ClosureInterpreter::eval(
       match (x, y) {
         (Int(x), Int(y)) =>
           if x == y {
-            self.eval!(env, e1)
+            self.eval!(env, e1, top_level=false)
           } else {
-            self.eval!(env, e2)
+            self.eval!(env, e2, top_level=false)
           }
         (Double(x), Double(y)) =>
           if x == y {
-            self.eval!(env, e1)
+            self.eval!(env, e1, top_level=false)
           } else {
-            self.eval!(env, e2)
+            self.eval!(env, e2, top_level=false)
           }
         _ => fail!("type mismatch, ifeq expects Int or Double")
       }
@@ -171,15 +177,15 @@ pub fn ClosureInterpreter::eval(
       match (x, y) {
         (Int(x), Int(y)) =>
           if x <= y {
-            self.eval!(env, e1)
+            self.eval!(env, e1, top_level=false)
           } else {
-            self.eval!(env, e2)
+            self.eval!(env, e2, top_level=false)
           }
         (Double(x), Double(y)) =>
           if x <= y {
-            self.eval!(env, e1)
+            self.eval!(env, e1, top_level=false)
           } else {
-            self.eval!(env, e2)
+            self.eval!(env, e2, top_level=false)
           }
         _ => fail!("type mismatch, ifle expects Int or Double")
       }
@@ -187,7 +193,7 @@ pub fn ClosureInterpreter::eval(
     // Interperter for loop
     Loop((label, _), args, body) => {
       let new_env = env.add(label, Loop(args.map(fn { a => a.0 }), body))
-      self.eval!(new_env, body)
+      self.eval!(new_env, body, top_level=false)
     }
     Continue(label, args) => {
       let tail_loop = find!(env, label)
@@ -200,16 +206,19 @@ pub fn ClosureInterpreter::eval(
           for i = 0; i < params.length(); i = i + 1 {
             new_env = new_env.add(params[i], find!(env, args[i]))
           }
-          self.eval!(new_env, body)
+          self.eval!(new_env, body, top_level=false)
         }
         _ => fail!("type mismatch, continue expects Loop")
       }
     }
     // --------------------
     Let((x, _), e1, e2) => {
-      let v = self.eval!(env, e1)
+      let v = self.eval!(env, e1, top_level=false)
       let new_env = env.add(x, v)
-      self.eval!(new_env, e2)
+      if top_level {
+        self.global_env = self.global_env.add(x, v)
+      }
+      self.eval!(new_env, e2, ~top_level)
     }
     MakeClosure((n, _), c, e) => {
       let closure = self.functions
@@ -220,7 +229,10 @@ pub fn ClosureInterpreter::eval(
         fv.push(find!(env, x))
       }
       let new_env = env.add(n, Closure(closure, fv))
-      self.eval!(new_env, e)
+      if top_level {
+        self.global_env = env.add(n, Closure(closure, fv))
+      }
+      self.eval!(new_env, e, ~top_level)
     }
     CallDirect(l, xs) => {
       let args = []
@@ -275,7 +287,7 @@ pub fn ClosureInterpreter::eval(
         }
         _ => fail!("type mismatch, lettuple expects Tuple")
       }
-      self.eval!(new_env, e)
+      self.eval!(new_env, e, ~top_level)
     }
     ArrayGet(arr, idx) => {
       let arr = find!(env, arr)
@@ -310,10 +322,15 @@ pub fn ClosureInterpreter::eval_fn(
     let (x, _) = func.args[i]
     env = env.add(x, args[i])
   }
+  for i = 0; i < func.top_level_vars.length(); i = i + 1 {
+    let (x, _) = func.top_level_vars[i]
+    let value = self.global_env.find(x).unwrap()
+    env = env.add(x, value)
+  }
   for i = 0; i < func.formal_free_vars.length(); i = i + 1 {
     let (x, _) = func.formal_free_vars[i]
     env = env.add(x, fv[i])
   }
   env = env.add(func.old_name, Closure(func, fv))
-  self.eval!(env, func.body)
+  self.eval!(env, func.body, top_level=false)
 }

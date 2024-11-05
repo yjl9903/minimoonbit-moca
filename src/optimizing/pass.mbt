@@ -8,6 +8,7 @@ pub enum KnfOptPass {
   TailRecursion
   MayTailRecursion
   CopyPropagation
+  MethodInline
 }
 
 pub enum ClosureOptPass {}
@@ -48,6 +49,7 @@ pub fn KnfOptPass::optimize(self : KnfOptPass, knf : @knf.Knf) -> @knf.Knf {
     TailRecursion => @tail.transform_tail_recursion(knf)
     MayTailRecursion => @tail.transform_may_tail_recursion(knf)
     CopyPropagation => @copy.transform_copy_propagation(knf)
+    MethodInline => @inline.transform_method_inline(knf)
   }
 }
 

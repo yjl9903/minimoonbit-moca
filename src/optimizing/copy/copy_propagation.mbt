@@ -67,9 +67,10 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
     }
 
     // Loop
-    Loop(label, args, body) =>
-      Loop(label, self.replace_many_with_type(args), self.transform(body))
-    Continue(label, args) => Continue(label, self.replace_many(args))
+    Loop(_) => @util.die("unimplementd")
+    // Loop(label, self.replace_many_with_type(args), self.transform(body))
+    Continue(_) => @util.die("unimplementd")
+    // Continue(label, self.replace_many(args))
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch, ty) => {
@@ -122,8 +123,7 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
       LetTuple(binding, expr, self.transform(rest))
     }
     LetRec(def, rest) => {
-      let new_ctx = Context::new()
-      let def = { ..def, body: new_ctx.transform(def.body) }
+      let def = { ..def, body: self.transform(def.body) }
       LetRec(def, self.transform(rest))
     }
 

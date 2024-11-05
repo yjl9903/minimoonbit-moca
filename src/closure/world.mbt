@@ -7,6 +7,8 @@ struct MutFuncDef {
   force_closure : Bool
   /// Collected free variables
   mut free_vars : @immut/hashset.T[Name]
+  /// Top level
+  mut top_level_free_vars : @immut/hashmap.T[Name, LowType]
 }
 
 fn MutFuncDef::new(env : KnfEnv, def : @knf.FuncDef) -> MutFuncDef {
@@ -16,6 +18,7 @@ fn MutFuncDef::new(env : KnfEnv, def : @knf.FuncDef) -> MutFuncDef {
     def,
     force_closure: false,
     free_vars: @immut/hashset.new(),
+    top_level_free_vars: @immut/hashmap.new(),
   }
   env.world.func_defs.set(def.id, mutdef)
   mutdef

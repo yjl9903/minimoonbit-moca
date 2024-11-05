@@ -205,6 +205,7 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
         is_closure,
         ty: func_type,
         args: def.args.mapi(fn { i, a => (a.0, args_type[i]) }),
+        top_level_vars: mutdef.top_level_free_vars.iter().collect(),
         formal_free_vars: mutdef.free_vars
         .iter()
         .map(fn { fv => (fv, self.get_low_type_of(fv)) })
@@ -221,6 +222,7 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
           (name, func_type),
           Closure::{
             name: mutdef.to_label(),
+            top_level_vars: mutdef.top_level_free_vars.iter().collect(),
             actual_free_vars: mutdef.free_vars.iter().collect(),
           },
           rest,
@@ -230,6 +232,7 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
           (name, func_type),
           Closure::{
             name: mutdef.to_label(),
+            top_level_vars: mutdef.top_level_free_vars.iter().collect(),
             actual_free_vars: mutdef.free_vars.iter().collect(),
           },
           rest,
