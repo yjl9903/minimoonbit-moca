@@ -578,7 +578,7 @@ fn WasmFunc::emit_get_var(
       let var = merged.or(var)
       if var.is_this {
         match self.this_var {
-          Some(var) => self.stmts.push(LocalSet(var))
+          Some(var) => self.stmts.push(LocalGet(var))
           None => {
             let this_var = add_local_var(self)
             self.this_var = Some(this_var)
