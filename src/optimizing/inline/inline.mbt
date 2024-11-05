@@ -1,3 +1,290 @@
 pub fn transform_method_inline(knf : Knf) -> Knf {
-  knf
+  let context = { funcs: Map::new(), path: [], local: @immut/hashmap.new() }
+  context.collect_knf(knf)
+  context.transform(knf)
+}
+
+struct InlineContext {
+  funcs : Map[Name, FuncDefInfo]
+  path : Array[@knf.FuncDef]
+  mut local : @immut/hashmap.T[Name, FuncDefInfo]
+}
+
+fn InlineContext::fork(
+  self : InlineContext,
+  ~func : @knf.FuncDef? = None
+) -> InlineContext {
+  let path = [..self.path]
+  match func {
+    Some(func) => path.push(func)
+    None => ()
+  }
+  { funcs: self.funcs, path, local: self.local }
+}
+
+fn InlineContext::add_local(self : InlineContext, name : Name) -> Unit {
+  match self.funcs.get(name) {
+    Some(info) => self.local = self.local.add(name, info)
+    None => @util.die("unreachable")
+  }
+}
+
+struct FuncDefInfo {
+  def : @knf.FuncDef
+  mut applied : Int // Small function
+  mut size : Int // Small function
+  // mut applied : Int // count that it is applied
+  mut count : Int // count that it is referrenced
+}
+
+fn FuncDefInfo::should_be_all_inlined(self : FuncDefInfo) -> Bool {
+  if self.count > 0 {
+    false
+  } else if self.applied <= max_inline_applied {
+    true
+  } else if self.size <= max_inline_size &&
+    self.applied <= max_inline_size_applied {
+    true
+  } else {
+    false
+  }
+}
+
+fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
+  match knf {
+    Unit
+    | Int(_)
+    | Double(_)
+    | Neg(_)
+    | Add(_)
+    | Sub(_) | Mul(_) | Div(_) | FNeg(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
+      ()
+
+    // Loop
+    Loop(_, args, body) => {
+      args.each(
+        fn {
+          var =>
+            match self.funcs.get(var.0) {
+              Some(def) => def.count += 1
+              None => ()
+            }
+        },
+      )
+      self.collect_knf(body)
+    }
+    Continue(_, args) =>
+      args.each(
+        fn {
+          var =>
+            match self.funcs.get(var) {
+              Some(def) => def.count += 1
+              None => ()
+            }
+        },
+      )
+
+    // If
+    IfEq(_, _, true_branch, false_branch, _)
+    | IfLe(_, _, true_branch, false_branch, _) => {
+      self.collect_knf(true_branch)
+      self.collect_knf(false_branch)
+    }
+
+    // Var
+    Var(var) =>
+      match self.funcs.get(var) {
+        Some(def) => def.count += 1
+        None => ()
+      }
+    Tuple(els) =>
+      els.each(
+        fn {
+          var =>
+            match self.funcs.get(var) {
+              Some(def) => def.count += 1
+              None => ()
+            }
+        },
+      )
+
+    // Array
+    Get(_) => ()
+    Put(_, _, expr) =>
+      match self.funcs.get(expr) {
+        Some(def) => def.count += 1
+        None => ()
+      }
+
+    // Apply
+    Apply(callee, args) => {
+      match self.funcs.get(callee) {
+        Some(def) => def.applied += 1
+        None => ()
+      }
+      args.each(
+        fn {
+          var =>
+            match self.funcs.get(var) {
+              Some(def) => def.count += 1
+              None => ()
+            }
+        },
+      )
+    }
+    ExternalFunctionApplication(_, args) =>
+      args.each(
+        fn {
+          var =>
+            match self.funcs.get(var) {
+              Some(def) => def.count += 1
+              None => ()
+            }
+        },
+      )
+
+    // Let
+    Let(_, expr, rest) => {
+      self.collect_knf(expr)
+      self.collect_knf(rest)
+    }
+    LetTuple(_, _, rest) => self.collect_knf(rest)
+    LetRec(def, rest) => {
+      let info = { def, applied: 0, size: 0, count: 0 }
+      info.size = info.calc_size(def.body)
+      self.funcs.set(def.name, info)
+      self.collect_knf(def.body)
+      self.collect_knf(rest)
+    }
+
+    // Unused
+    ExternalArray(_) => ()
+  }
+}
+
+fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
+  match knf {
+    Unit | Int(_) | Double(_) => 1
+    Neg(_) | FNeg(_) => 2
+    Add(_) | Sub(_) | Mul(_) | Div(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
+      3
+
+    // Loop
+    Loop(_, _, body) => self.calc_size(body)
+    Continue(_, args) => args.length() + 1
+
+    // If
+    IfEq(_, _, true_branch, false_branch, _)
+    | IfLe(_, _, true_branch, false_branch, _) =>
+      3 + self.calc_size(true_branch) + self.calc_size(false_branch)
+
+    // Array
+    Get(_) => 3
+    Put(_) => 4
+
+    // Var
+    Var(_) => 1
+    Tuple(els) => 1 + els.length()
+
+    // Apply
+    Apply(_, args) => 1 + 1 + args.length()
+    ExternalFunctionApplication(_, args) => 1 + args.length()
+
+    // Let
+    Let(_, expr, rest) => 1 + self.calc_size(expr) + self.calc_size(rest)
+    LetTuple(els, _, rest) => els.length() + self.calc_size(rest)
+    LetRec(_, rest) => 1 + self.calc_size(rest)
+
+    // Unused
+    ExternalArray(_) => @util.die("unreachable")
+  }
+}
+
+fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
+  match knf {
+    Unit
+    | Int(_)
+    | Double(_)
+    | Neg(_)
+    | Add(_)
+    | Sub(_) | Mul(_) | Div(_) | FNeg(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
+      knf
+
+    // Loop
+    Loop(label, args, body) => Loop(label, args, self.fork().transform(body))
+    Continue(_) => knf
+
+    // If
+    IfEq(lhs, rhs, true_branch, false_branch, ty) =>
+      IfEq(
+        lhs,
+        rhs,
+        self.fork().transform(true_branch),
+        self.fork().transform(false_branch),
+        ty,
+      )
+    IfLe(lhs, rhs, true_branch, false_branch, ty) =>
+      IfLe(
+        lhs,
+        rhs,
+        self.fork().transform(true_branch),
+        self.fork().transform(false_branch),
+        ty,
+      )
+
+    // Var
+    Var(_) | Tuple(_) => knf
+
+    // Array
+    Get(_) | Put(_) => knf
+
+    // Apply
+    Apply(callee, args) =>
+      match self.local.find(callee) {
+        Some(info) =>
+          if info.should_be_all_inlined() {
+            if args.length() != info.def.args.length() {
+              @util.die("Inline mismatch")
+            }
+            if self.path.search_by(fn { f => f.id == info.def.id }).is_empty() {
+              @shared.debug("Transform inline: \{knf}")
+              let body = info.def.body
+              let params = info.def.args
+              // Inline method
+              args.rev_foldi(
+                fn {
+                  i, body, arg =>
+                    Let(params[args.length() - 1 - i], Var(arg), body)
+                },
+                init=body,
+              )
+            } else {
+              knf
+            }
+          } else {
+            knf
+          }
+        None => knf
+      }
+    ExternalFunctionApplication(_) => knf
+
+    // Let
+    Let(binding, expr, rest) =>
+      Let(binding, self.fork().transform(expr), self.transform(rest))
+    LetTuple(binding, expr, rest) =>
+      LetTuple(binding, expr, self.transform(rest))
+    LetRec(def, rest) =>
+      match self.funcs.get(def.name) {
+        Some(_) => {
+          self.add_local(def.name)
+          let body = self.fork(func=Some(def)).transform(def.body)
+          let def = { ..def, body, }
+          LetRec(def, self.transform(rest))
+        }
+        None => @util.die("unreachable")
+      }
+
+    // Unused
+    ExternalArray(_) => knf
+  }
 }
