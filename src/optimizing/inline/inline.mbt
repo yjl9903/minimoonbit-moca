@@ -30,10 +30,9 @@ fn InlineContext::add_local(self : InlineContext, name : Name) -> Unit {
 }
 
 struct FuncDefInfo {
-  def : @knf.FuncDef
-  mut applied : Int // Small function
+  mut def : @knf.FuncDef
   mut size : Int // Small function
-  // mut applied : Int // count that it is applied
+  mut applied : Int // count this it is applied
   mut count : Int // count that it is referrenced
 }
 
@@ -211,7 +210,7 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
       knf
 
     // Loop
-    Loop(label, args, body) => Loop(label, args, self.fork().transform(body))
+    Loop(label, args, body) => Loop(label, args, self.transform(body))
     Continue(_) => knf
 
     // If
@@ -219,16 +218,16 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
       IfEq(
         lhs,
         rhs,
-        self.fork().transform(true_branch),
-        self.fork().transform(false_branch),
+        self.transform(true_branch),
+        self.transform(false_branch),
         ty,
       )
     IfLe(lhs, rhs, true_branch, false_branch, ty) =>
       IfLe(
         lhs,
         rhs,
-        self.fork().transform(true_branch),
-        self.fork().transform(false_branch),
+        self.transform(true_branch),
+        self.transform(false_branch),
         ty,
       )
 
@@ -248,16 +247,8 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
             }
             if self.path.search_by(fn { f => f.id == info.def.id }).is_empty() {
               @shared.debug("Transform inline: \{knf}")
-              let body = info.def.body
-              let params = info.def.args
-              // Inline method
-              args.rev_foldi(
-                fn {
-                  i, body, arg =>
-                    Let(params[args.length() - 1 - i], Var(arg), body)
-                },
-                init=body,
-              )
+              info.applied -= 1
+              copy_func_body(info.def, args)
             } else {
               knf
             }
@@ -270,15 +261,16 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
 
     // Let
     Let(binding, expr, rest) =>
-      Let(binding, self.fork().transform(expr), self.transform(rest))
+      Let(binding, self.transform(expr), self.transform(rest))
     LetTuple(binding, expr, rest) =>
       LetTuple(binding, expr, self.transform(rest))
     LetRec(def, rest) =>
       match self.funcs.get(def.name) {
-        Some(_) => {
+        Some(info) => {
           self.add_local(def.name)
           let body = self.fork(func=Some(def)).transform(def.body)
           let def = { ..def, body, }
+          info.def = def
           LetRec(def, self.transform(rest))
         }
         None => @util.die("unreachable")
