@@ -702,11 +702,22 @@ fn AssemblyFunction::emit_invoke_closure(
   let new_args = []
   new_args.push_iter(args.iter())
   new_args.push(callee)
-  let stack_size = self.emit_invoke_args(new_args)
-  let _ = self.emit_get_int_var(callee, fallback=T6, force=Some(T6))
-  self.emit_sanitizer(T6, 105)
-  self.emit_asm(Ld(T6, MemAccess::new(T6, 0)))
-  self.emit_sanitizer(T6, 106)
+  let (stack_size, this_reg) = self.emit_invoke_args(new_args)
+  match this_reg {
+    // Pass this by reg
+    Some(this_reg) => {
+      self.emit_sanitizer(this_reg, 105)
+      self.emit_asm(Ld(T6, MemAccess::new(this_reg, 0)))
+      self.emit_sanitizer(T6, 106)
+    }
+    // Load this var
+    None => {
+      let _ = self.emit_get_int_var(callee, fallback=T6, force=Some(T6))
+      self.emit_sanitizer(T6, 105)
+      self.emit_asm(Ld(T6, MemAccess::new(T6, 0)))
+      self.emit_sanitizer(T6, 106)
+    }
+  }
   self.emit_asm(Jalr(T6))
   if stack_size != 0 {
     self.emit_asm(Addi(Sp, Sp, stack_size))
@@ -736,7 +747,7 @@ fn AssemblyFunction::emit_invoke_direct(
 ) -> Unit {
   self.emit_comment("--- invoke_direct \{label} ---")
   self.emit_invoke_save_register(stmt_slot)
-  let stack_size = self.emit_invoke_args(args)
+  let (stack_size, _) = self.emit_invoke_args(args)
   self.emit_asm(Call(label))
   if stack_size != 0 {
     self.emit_asm(Addi(Sp, Sp, stack_size))
@@ -832,11 +843,12 @@ fn AssemblyFunction::emit_invoke_restore_register(
 fn AssemblyFunction::emit_invoke_args(
   self : AssemblyFunction,
   args : Array[MachineVar]
-) -> Int {
+) -> (Int, Reg?) {
   // Calc stack
   let mut gp = 0
   let mut fp = 0
   let mut offset = 0
+  let mut this_reg = None
   let stack = []
   for i = 0; i < args.length(); i = i + 1 {
     let arg = args[i]
@@ -907,6 +919,9 @@ fn AssemblyFunction::emit_invoke_args(
       if gp < reg_arg_list.length() {
         let reg = reg_arg_list[gp]
         let _ = self.emit_get_int_var(arg, fallback=reg, force=Some(reg))
+        if arg.is_this && i + 1 == args.length() {
+          this_reg = Some(reg)
+        }
         gp += 1
       } else {
         ()
@@ -914,5 +929,5 @@ fn AssemblyFunction::emit_invoke_args(
       ()
     }
   }
-  stack_size
+  (stack_size, this_reg)
 }
