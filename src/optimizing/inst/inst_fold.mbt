@@ -31,6 +31,13 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
         } else {
           false
         }
+      Addi(r1, r2, x) =>
+        if x == 0 && r1 == r2 {
+          stmts[i] = Nop
+          true
+        } else {
+          false
+        }
       _ => false
     }
     if changed {
