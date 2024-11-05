@@ -14,6 +14,7 @@
     "moonbitlang/minimbt/optimizing/copy",
     "moonbitlang/minimbt/optimizing/liveness",
     "moonbitlang/minimbt/optimizing/tail",
+    "moonbitlang/minimbt/optimizing/inline",
     "moonbitlang/minimbt/optimizing/dead",
     "moonbitlang/minimbt/optimizing/inst"
   ]
