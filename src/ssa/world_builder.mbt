@@ -85,7 +85,8 @@ pub fn WorldBuilder::build(
   // Collect all functions
   prog.fundefs.each(fn { f => self.all_funs.set(f.name._, f) })
   // 1. Build top-level expr
-  let main_expr = self.build_top_level(prog.body)
+  // let main_expr = self.build_top_level(prog.body)
+  let main_expr = prog.body
   // 2. Prepare all the method builders
   let main_method_builder = self.create_main_method_builder()
   let method_builders = prog.fundefs.map(
