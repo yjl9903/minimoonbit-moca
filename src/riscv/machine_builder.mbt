@@ -280,8 +280,9 @@ fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
       let pos = match idx.const_value {
         Some(Int(x)) => {
           let recv = self.build_get_var(recv, stmts)
-          if width.to_int() * x < 2048 {
-            Some((recv, width.to_int() * x))
+          let offset = width.to_int() * x
+          if -2048 <= offset && offset < 2048 {
+            Some((recv, offset))
           } else {
             None
           }
@@ -561,8 +562,9 @@ fn Builder::build_rvalue(
       let pos = match idx.const_value {
         Some(Int(x)) => {
           let recv = self.build_get_var(recv, stmts)
-          if width.to_int() * x < 2048 {
-            Some((recv, width.to_int() * x))
+          let offset = width.to_int() * x
+          if -2048 <= offset && offset < 2048 {
+            Some((recv, offset))
           } else {
             None
           }
