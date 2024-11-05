@@ -61,12 +61,13 @@ pub struct MachineVar {
   mut param_offset : ParamOffset?
 
   // Flags
-  mut is_live : Bool
   is_this : Bool // this
   is_param : Bool // param
   is_global : Bool // from global
   is_mut : Bool // is mutable, may be updated from loop
   const_value : ConstValue? // const value
+  mut is_live : Bool
+  mut is_stack : Bool // should have stack slots
 
   // phi
   mut is_phi : Bool // phi node

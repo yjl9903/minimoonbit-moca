@@ -84,6 +84,7 @@ fn MachineVar::from_ssa(var : @ssa.Var) -> MachineVar {
     is_global: var.is_global,
     is_mut: var.is_mut,
     is_live: true,
+    is_stack: not(var.is_const()),
     const_value: match var.const_value {
       Some(Int(x)) => Some(Int(x))
       Some(Double(x)) => Some(Double(x))
@@ -144,6 +145,7 @@ fn Builder::add_temp_var(self : Builder, ty : Type) -> MachineVar {
     is_global: false,
     is_mut: false,
     is_phi: false,
+    is_stack: true,
     is_live: true,
     const_value: None,
     incoming_vars: [],
@@ -170,6 +172,7 @@ fn Builder::add_int_const_var(self : Builder, value : Int) -> MachineVar {
     is_global: false,
     is_mut: false,
     is_live: true,
+    is_stack: false,
     is_phi: false,
     const_value: Some(Int(value)),
     incoming_vars: [],
