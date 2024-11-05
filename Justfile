@@ -417,6 +417,7 @@ test-riscv:
   ./run_riscv.sh test/longer-cases/julia.mbt -o
   ./run_riscv.sh test/longer-cases/mem-fib.mbt -o
   ./run_riscv.sh test/longer-cases/stream.mbt -o
+  ./run_riscv.sh test/longer-cases/interp.mbt -o
   diff -bB test/test_src/adder.ans temp/adder.out
   diff -bB test/test_src/adder2.ans temp/adder2.out
   diff -bB test/test_src/cls-bug.ans temp/cls-bug.out
@@ -452,6 +453,7 @@ test-riscv:
   diff -bB test/longer-cases/julia.ans temp/julia.out
   diff -bB test/longer-cases/mem-fib.ans temp/mem-fib.out
   diff -bB test/longer-cases/stream.ans temp/stream.out
+  diff -bB test/longer-cases/interp.ans temp/interp.out
 
 
 submit:
