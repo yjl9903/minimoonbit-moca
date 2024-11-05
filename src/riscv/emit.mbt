@@ -760,7 +760,7 @@ fn AssemblyFunction::emit_invoke_save_register(
   for vid, freg in result.freg_map_before {
     if freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
-      if var.const_value.is_empty() {
+      if var.const_value.is_empty() && not(var.is_param) {
         self.emit_asm(Fsd(freg, MemAccess::new(Fp, var.offset)))
       }
     }
@@ -789,7 +789,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
   for vid, freg in result.freg_map_after {
     if vid != def_id && freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
-      if var.const_value.is_empty() {
+      if var.const_value.is_empty() && not(var.is_param) {
         self.emit_asm(Fld(freg, MemAccess::new(Fp, var.offset)))
       }
     }
