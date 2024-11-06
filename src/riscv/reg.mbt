@@ -14,7 +14,7 @@ fn MemAccess::new(
   { base, offset }
 }
 
-type Label String derive(Show, Eq, Hash)
+pub type Label String derive(Show, Eq, Hash)
 
 /// RISC-V register
 pub enum Reg {
