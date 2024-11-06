@@ -372,7 +372,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
   for i = 0; i < self.method.body.stmts.length(); i = i + 1 {
     let stmt = self.method.body.stmts[i]
     match stmt.stmt {
-      Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_)) => {
+      Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_) as rvalue) => {
         let result = self.results[i]
         for vid, reg in result.reg_map_before {
           if reg_caller_saved_list.contains(reg) {
@@ -417,6 +417,21 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
               }
             }
           }
+        }
+        match rvalue {
+          InvokeClosure(_, args, _) | InvokeDirect(_, args, _) =>
+            args.each(
+              fn {
+                arg =>
+                  if not(arg.is_const()) && not(arg.is_param) {
+                    match arg.outcoming_var {
+                      Some(outcoming_var) => outcoming_var.is_stack = true
+                      None => arg.is_stack = true
+                    }
+                  }
+              },
+            )
+          _ => ()
         }
       }
       _ => ()

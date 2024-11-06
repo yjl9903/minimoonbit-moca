@@ -88,6 +88,10 @@ pub fn MachineVar::memory_id(self : MachineVar) -> Int {
   self.outcoming_var.map(fn { v => v.id }).or(self.id)
 }
 
+pub fn MachineVar::is_const(self : MachineVar) -> Bool {
+  not(self.const_value.is_empty())
+}
+
 pub enum Condition {
   Eq(MachineVar, MachineVar, Width)
   Ne(MachineVar, MachineVar, Width)

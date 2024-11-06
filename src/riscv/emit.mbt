@@ -588,7 +588,8 @@ fn AssemblyFunction::emit_get_int_var(
   self : AssemblyFunction,
   var : MachineVar,
   ~fallback : Reg,
-  ~force : Reg? = None
+  ~force : Reg? = None,
+  ~loc : SourceLoc = _
 ) -> Reg {
   match var.const_value {
     Some(Int(x)) =>
@@ -618,12 +619,14 @@ fn AssemblyFunction::emit_get_int_var(
         Int =>
           match force {
             Some(force) => {
-              self.emit_asm(Lw(force, MemAccess::new(Fp, var.offset)))
+              self.emit_asm(Lw(force, MemAccess::new(Fp, var.offset, ~loc)))
               force
             }
             None =>
               if self.allocator.is_spilled(var) || var.is_param {
-                self.emit_asm(Lw(fallback, MemAccess::new(Fp, var.offset)))
+                self.emit_asm(
+                  Lw(fallback, MemAccess::new(Fp, var.offset, ~loc)),
+                )
                 fallback
               } else {
                 let reg = self.allocator.get_global_allocated_reg(var)
