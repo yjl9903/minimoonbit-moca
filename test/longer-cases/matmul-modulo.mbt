@@ -71,8 +71,7 @@ fn mat_mul(A : (Int, Int, Array[Array[Int]]), B : (Int, Int, Array[Array[Int]]))
           fn loop3(k: Int) -> Unit {
             if 0 <= k {
               c[i][j] = c[i][j] + a[i][k] * b[k][j];
-              let tmp = modulo(c[i][j],10000);
-              c[i][j] = tmp;
+              c[i][j] = modulo(c[i][j],10000);
               loop3(k - 1)
             } else {
               ()
