@@ -204,7 +204,9 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
 
   // 2. Build stmts
   for block in self.machine.body.blocks {
-    self.emit_asm(Label(self.create_label(block.label)))
+    if self.machine.body.blocks.length() > 1 {
+      self.emit_asm(Label(self.create_label(block.label)))
+    }
     for stmt in block.stmts {
       self.emit_method_stmt(stmt)
     }
@@ -708,12 +710,15 @@ fn AssemblyFunction::emit_invoke_closure(
   let new_args = []
   new_args.push_iter(args.iter())
   new_args.push(callee)
-  let (stack_size, this_reg) = self.emit_invoke_args(new_args)
-  match this_reg {
+  let (stack_size, callee_reg) = self.emit_invoke_args(
+    new_args,
+    callee=Some(callee),
+  )
+  match callee_reg {
     // Pass this by reg
-    Some(this_reg) => {
-      self.emit_sanitizer(this_reg, 105)
-      self.emit_asm(Ld(T6, MemAccess::new(this_reg, 0)))
+    Some(callee_reg) => {
+      self.emit_sanitizer(callee_reg, 105)
+      self.emit_asm(Ld(T6, MemAccess::new(callee_reg, 0)))
       self.emit_sanitizer(T6, 106)
     }
     // Load this var
@@ -851,8 +856,11 @@ fn AssemblyFunction::emit_invoke_restore_register(
 
 fn AssemblyFunction::emit_invoke_args(
   self : AssemblyFunction,
-  args : Array[MachineVar]
+  args : Array[MachineVar],
+  ~callee : MachineVar? = None
 ) -> (Int, Reg?) {
+  let callee_id = callee.map(fn { c => c.memory_id() }).or(-1)
+
   // Calc stack
   let mut gp = 0
   let mut fp = 0
@@ -928,7 +936,7 @@ fn AssemblyFunction::emit_invoke_args(
       if gp < reg_arg_list.length() {
         let reg = reg_arg_list[gp]
         let _ = self.emit_get_int_var(arg, fallback=reg, force=Some(reg))
-        if arg.is_this && i + 1 == args.length() {
+        if i + 1 == args.length() && arg.memory_id() == callee_id {
           this_reg = Some(reg)
         }
         gp += 1
