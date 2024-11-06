@@ -148,6 +148,15 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   // / --- fp ---/
   // ------------- sp
 
+  if self.machine.is_main {
+    // self.emit_asm(Li(A0, "1"))
+    // self.emit_asm(Slli(A0, A0, 22))
+    // self.emit_asm(Sub(Sp, Sp, A0))
+    // self.emit_asm(Ld(A0, MemAccess::new(Sp, 0)))
+    self.emit_asm(La(A0, sanitizer_stack))
+    self.emit_asm(Sd(Sp, MemAccess::new(A0, 0)))
+  }
+
   // 1. Prologue
   self.emit_asm(Addi(Sp, Sp, -16))
   self.emit_asm(Sd(Ra, MemAccess::new(Sp, 8)))
@@ -156,6 +165,21 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
 
   // 1.1. Calc stack size
   self.emit_asm(Addi(Sp, Sp, -self.machine.stack_size))
+  self.emit_asm(La(T0, sanitizer_stack))
+  self.emit_asm(Ld(T0, MemAccess::new(T0, 0)))
+  self.emit_asm(Sub(T0, T0, Sp))
+  self.emit_asm(Li(T1, "1"))
+  self.emit_asm(Slli(T1, T1, 24))
+  self.emit_asm(Bge(T0, T1, "\{sanitizer_label}_exit_2"))
+
+  // RvAsm::Li(A0, "4"), // Return a1
+  // RvAsm::Li(A7, "93"),
+  // RvAsm::Ecall,
+  // self.emit_asm(Mv(A0, Sp)) // 256
+  // self.emit_asm(Li(A7, "93"))
+  // self.emit_asm(Ecall)
+  // self.emit_asm(Li(T0, "4096"))
+  // self.emit_asm(Ble(Sp, T0, "\{sanitizer_label}_exit_2"))
 
   // 1.2. Save reg
   let (saved_reg, saved_freg) = self.allocator.collect_saved_reg()

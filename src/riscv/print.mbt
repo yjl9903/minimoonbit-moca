@@ -6,9 +6,9 @@ pub fn print_assembly(asm : AssemblyProgram) -> String {
     f.output(logger)
     logger.write_string("\n")
   }
-  if enable_sanitizer {
-    output_sanitizer(logger)
-  }
+  // if enable_sanitizer {
+  // }
+  output_sanitizer(logger)
   logger.to_string()
 }
 
@@ -45,6 +45,12 @@ pub fn AssemblyProgram::output_data_section(
       "  .dword \{@util.i64_to_hex(value.reinterpret_as_i64())}\n",
     )
   }
+  logger.write_string("\n")
+  logger.write_string(".global \{sanitizer_stack}\n")
+  logger.write_string("\{sanitizer_stack}:\n")
+  logger.write_string(
+    "  .dword 0x0\n",
+  )
   // ---
   if is_debug {
     logger.write_string("# --- global variables ---\n\n")
@@ -82,6 +88,8 @@ pub fn AssemblyFunction::output(
 
 let sanitizer_label = "minimoonbit.address_sanitizer"
 
+let sanitizer_stack = "minimoonbit.address_sanitizer_global_var"
+
 fn output_sanitizer(logger : Logger) -> Unit {
   logger.write_string("# --- address sanitizer ---\n")
   logger.write_string(".global \{sanitizer_label}\n")
@@ -105,6 +113,11 @@ fn output_sanitizer(logger : Logger) -> Unit {
     // exit with a1
     RvAsm::Label("\{sanitizer_label}_exit"),
     RvAsm::Mv(A0, A1), // Return a1
+    RvAsm::Li(A7, "93"),
+    RvAsm::Ecall,
+    // exit 
+    RvAsm::Label("\{sanitizer_label}_exit_2"),
+    RvAsm::Li(A0, "4"), // Return a1
     RvAsm::Li(A7, "93"),
     RvAsm::Ecall,
   ]
