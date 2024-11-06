@@ -173,32 +173,34 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
     self.emit_asm(Addi(Sp, Sp, -i))
   }
 
-  // 1.3. TEMP: store the params
+  // 1.3. store the spilled params
   for var in self.machine.params {
-    match var.param_offset {
-      Some(Reg(r)) =>
-        match var.width {
-          Int => self.emit_asm(Sw(r, MemAccess::new(Fp, var.offset)))
-          Double => @util.die("unreachable")
-          Ptr => self.emit_asm(Sd(r, MemAccess::new(Fp, var.offset)))
-        }
-      Some(FReg(r)) => self.emit_asm(Fsd(r, MemAccess::new(Fp, var.offset)))
-      Some(Offset(offset)) =>
-        match var.width {
-          Int => {
-            self.emit_asm(Lw(T0, MemAccess::new(Fp, offset)))
-            self.emit_asm(Sw(T0, MemAccess::new(Fp, var.offset)))
+    if self.allocator.is_spilled(var) {
+      match var.param_offset {
+        Some(Reg(r)) =>
+          match var.width {
+            Int => self.emit_asm(Sw(r, MemAccess::new(Fp, var.offset)))
+            Double => @util.die("unreachable")
+            Ptr => self.emit_asm(Sd(r, MemAccess::new(Fp, var.offset)))
           }
-          Double => {
-            self.emit_asm(Fld(Ft0, MemAccess::new(Fp, offset)))
-            self.emit_asm(Fsd(Ft0, MemAccess::new(Fp, var.offset)))
+        Some(FReg(r)) => self.emit_asm(Fsd(r, MemAccess::new(Fp, var.offset)))
+        Some(Offset(offset)) =>
+          match var.width {
+            Int => {
+              self.emit_asm(Lw(T0, MemAccess::new(Fp, offset)))
+              self.emit_asm(Sw(T0, MemAccess::new(Fp, var.offset)))
+            }
+            Double => {
+              self.emit_asm(Fld(Ft0, MemAccess::new(Fp, offset)))
+              self.emit_asm(Fsd(Ft0, MemAccess::new(Fp, var.offset)))
+            }
+            Ptr => {
+              self.emit_asm(Ld(T0, MemAccess::new(Fp, offset)))
+              self.emit_asm(Sd(T0, MemAccess::new(Fp, var.offset)))
+            }
           }
-          Ptr => {
-            self.emit_asm(Ld(T0, MemAccess::new(Fp, offset)))
-            self.emit_asm(Sd(T0, MemAccess::new(Fp, var.offset)))
-          }
-        }
-      None => @util.die("unreachable")
+        None => @util.die("unreachable")
+      }
     }
   }
 
@@ -248,21 +250,21 @@ fn AssemblyFunction::emit_method_stmt(
     }
     Store((recv, offset), expr, width, code) => {
       self.emit_comment("--- Store \{offset}(\{recv.id}) \{expr.id} ---")
-      let recv_reg = self.emit_get_int_var(recv, fallback=A0)
+      let recv_reg = self.emit_get_int_var(recv, fallback=T0)
       self.emit_sanitizer(recv_reg, code)
       match width {
         Int => {
-          let expr_reg = self.emit_get_int_var(expr, fallback=A1)
+          let expr_reg = self.emit_get_int_var(expr, fallback=T1)
           // self.emit_sanitizer(expr_reg, code)
           self.emit_asm(Sw(expr_reg, MemAccess::new(recv_reg, offset)))
         }
         Double => {
-          let expr_reg = self.emit_get_float_var(expr, fallback=Fa0)
+          let expr_reg = self.emit_get_float_var(expr, fallback=Ft0)
           // self.emit_sanitizer(expr_reg, code)
           self.emit_asm(Fsd(expr_reg, MemAccess::new(recv_reg, offset)))
         }
         Ptr => {
-          let expr_reg = self.emit_get_int_var(expr, fallback=A1)
+          let expr_reg = self.emit_get_int_var(expr, fallback=T1)
           // self.emit_sanitizer(expr_reg, code)
           self.emit_asm(Sd(expr_reg, MemAccess::new(recv_reg, offset)))
         }
@@ -271,7 +273,7 @@ fn AssemblyFunction::emit_method_stmt(
     }
     Sanitizer(var, code) =>
       if enable_sanitizer {
-        let reg = self.emit_get_int_var(var, fallback=A0)
+        let reg = self.emit_get_int_var(var, fallback=T0)
         self.emit_sanitizer(reg, code)
       }
     IfGoto(cond, _true_target, false_target) =>
@@ -281,8 +283,8 @@ fn AssemblyFunction::emit_method_stmt(
         | Lt(lhs, rhs, Int | Ptr)
         | Le(lhs, rhs, Int | Ptr)
         | Gt(lhs, rhs, Int | Ptr) | Ge(lhs, rhs, Int | Ptr) => {
-          let lhs = self.emit_get_int_var(lhs, fallback=A0)
-          let rhs = self.emit_get_int_var(rhs, fallback=A1)
+          let lhs = self.emit_get_int_var(lhs, fallback=T0)
+          let rhs = self.emit_get_int_var(rhs, fallback=T1)
           match cond {
             Eq(_, _, Int | Ptr) =>
               self.emit_asm(
@@ -299,19 +301,19 @@ fn AssemblyFunction::emit_method_stmt(
         | Ne(lhs, rhs, Double)
         | Lt(lhs, rhs, Double)
         | Le(lhs, rhs, Double) | Gt(lhs, rhs, Double) | Ge(lhs, rhs, Double) => {
-          let lhs = self.emit_get_float_var(lhs, fallback=Fa0)
-          let rhs = self.emit_get_float_var(rhs, fallback=Fa1)
+          let lhs = self.emit_get_float_var(lhs, fallback=Ft0)
+          let rhs = self.emit_get_float_var(rhs, fallback=Ft1)
           match cond {
             Eq(_, _, Double) => {
-              self.emit_asm(FeqD(A0, lhs, rhs))
+              self.emit_asm(FeqD(T0, lhs, rhs))
               self.emit_asm(
-                Beq(A0, Zero, self.create_label(false_target.unwrap())),
+                Beq(T0, Zero, self.create_label(false_target.unwrap())),
               )
             }
             Le(_, _, Double) => {
-              self.emit_asm(FleD(A0, lhs, rhs))
+              self.emit_asm(FleD(T0, lhs, rhs))
               self.emit_asm(
-                Beq(A0, Zero, self.create_label(false_target.unwrap())),
+                Beq(T0, Zero, self.create_label(false_target.unwrap())),
               )
             }
             _ => @util.die("todo")
@@ -326,11 +328,11 @@ fn AssemblyFunction::emit_method_stmt(
       match var {
         Some(var) =>
           if var.width.is_float() {
-            let freg = self.emit_get_float_var(var, fallback=Fa0)
-            self.emit_asm(FmvD(Fa0, freg))
+            let freg = self.emit_get_float_var(var, fallback=Ft0)
+            self.emit_asm(FmvD(Fa0, freg)) // return fa0
           } else {
-            let reg = self.emit_get_int_var(var, fallback=A0)
-            self.emit_asm(Mv(A0, reg))
+            let reg = self.emit_get_int_var(var, fallback=T0)
+            self.emit_asm(Mv(A0, reg)) // return a0
           }
         None => ()
       }
@@ -398,14 +400,14 @@ fn AssemblyFunction::emit_stmt_rvalue(
       match optimized {
         Some(opt) => self.emit_asm(opt)
         None => {
-          let reg = self.emit_get_int_var(expr, fallback=A0)
+          let reg = self.emit_get_int_var(expr, fallback=T0)
           self.emit_asm(Sub(def, Zero, reg))
         }
       }
     }
     Neg(expr, Double) => {
       let def = self.allocator.get_global_allocated_freg(def)
-      let freg = self.emit_get_float_var(expr, fallback=Fa0)
+      let freg = self.emit_get_float_var(expr, fallback=Ft0)
       self.emit_asm(FnegD(def, freg))
     }
     Neg(_, Ptr) => @util.die("unreachable")
@@ -419,12 +421,12 @@ fn AssemblyFunction::emit_stmt_rvalue(
           }
         (_, Some(Int(x))) =>
           if op == Add && -2048 <= x && x < 2048 {
-            let r1 = self.emit_get_int_var(lhs, fallback=A0)
+            let r1 = self.emit_get_int_var(lhs, fallback=T0)
             Some(Addi(def, r1, x))
           } else if op == Mul {
             match is_power_of_two(x) {
               Some(log) => {
-                let r1 = self.emit_get_int_var(lhs, fallback=A0)
+                let r1 = self.emit_get_int_var(lhs, fallback=T0)
                 if log == 0 {
                   Some(Mv(def, r1))
                 } else {
@@ -438,7 +440,7 @@ fn AssemblyFunction::emit_stmt_rvalue(
           }
         (Some(Int(x)), _) =>
           if op == Add && -2048 <= x && x < 2048 {
-            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            let r2 = self.emit_get_int_var(rhs, fallback=T1)
             Some(Addi(def, r2, x))
           } else {
             None
@@ -449,8 +451,8 @@ fn AssemblyFunction::emit_stmt_rvalue(
         match optimized {
           Some(opt) => opt
           None => {
-            let r1 = self.emit_get_int_var(lhs, fallback=A0)
-            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            let r1 = self.emit_get_int_var(lhs, fallback=T0)
+            let r2 = self.emit_get_int_var(rhs, fallback=T1)
             match op {
               Add => Add(def, r1, r2)
               Sub => Sub(def, r1, r2)
@@ -472,12 +474,12 @@ fn AssemblyFunction::emit_stmt_rvalue(
           }
         (_, Some(Int(x))) =>
           if op == Add && -2048 <= x && x < 2048 {
-            let r1 = self.emit_get_int_var(lhs, fallback=A0)
+            let r1 = self.emit_get_int_var(lhs, fallback=T0)
             Some(Addi(def, r1, x))
           } else if op == Mul {
             match is_power_of_two(x) {
               Some(log) => {
-                let r1 = self.emit_get_int_var(lhs, fallback=A0)
+                let r1 = self.emit_get_int_var(lhs, fallback=T0)
                 if log == 0 {
                   Some(Mv(def, r1))
                 } else {
@@ -491,12 +493,12 @@ fn AssemblyFunction::emit_stmt_rvalue(
           }
         (Some(Int(x)), _) =>
           if op == Add && -2048 <= x && x < 2048 {
-            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            let r2 = self.emit_get_int_var(rhs, fallback=T1)
             Some(Addi(def, r2, x))
           } else if op == Mul {
             match is_power_of_two(x) {
               Some(log) => {
-                let r2 = self.emit_get_int_var(rhs, fallback=A1)
+                let r2 = self.emit_get_int_var(rhs, fallback=T1)
                 if log == 0 {
                   Some(Mv(def, r2))
                 } else {
@@ -514,8 +516,8 @@ fn AssemblyFunction::emit_stmt_rvalue(
         match optimized {
           Some(opt) => opt
           None => {
-            let r1 = self.emit_get_int_var(lhs, fallback=A0)
-            let r2 = self.emit_get_int_var(rhs, fallback=A1)
+            let r1 = self.emit_get_int_var(lhs, fallback=T0)
+            let r2 = self.emit_get_int_var(rhs, fallback=T1)
             match op {
               Add => Add(def, r1, r2)
               Sub => Sub(def, r1, r2)
@@ -528,8 +530,8 @@ fn AssemblyFunction::emit_stmt_rvalue(
     }
     Prim(lhs, rhs, op, Double) => {
       let def = self.allocator.get_global_allocated_freg(def)
-      let r1 = self.emit_get_float_var(lhs, fallback=Fa0)
-      let r2 = self.emit_get_float_var(rhs, fallback=Fa1)
+      let r1 = self.emit_get_float_var(lhs, fallback=Ft0)
+      let r2 = self.emit_get_float_var(rhs, fallback=Ft1)
       self.emit_asm(
         match op {
           Add => FaddD(def, r1, r2)
@@ -541,31 +543,31 @@ fn AssemblyFunction::emit_stmt_rvalue(
     }
     Var(var, Int) | Var(var, Ptr) => {
       let def = self.allocator.get_global_allocated_reg(def)
-      let reg = self.emit_get_int_var(var, fallback=A0)
+      let reg = self.emit_get_int_var(var, fallback=T0)
       self.emit_asm(Mv(def, reg))
     }
     Var(var, Double) => {
       let def = self.allocator.get_global_allocated_freg(def)
-      let freg = self.emit_get_float_var(var, fallback=Fa0)
+      let freg = self.emit_get_float_var(var, fallback=Ft0)
       self.emit_asm(FmvD(def, freg))
     }
 
     // Load
     Load((recv, offset), Int, code) => {
       let def = self.allocator.get_global_allocated_reg(def)
-      let reg = self.emit_get_int_var(recv, fallback=A0)
+      let reg = self.emit_get_int_var(recv, fallback=T0)
       self.emit_sanitizer(reg, code)
       self.emit_asm(Lw(def, MemAccess::new(reg, offset)))
     }
     Load((recv, offset), Double, code) => {
       let def = self.allocator.get_global_allocated_freg(def)
-      let reg = self.emit_get_int_var(recv, fallback=A0)
+      let reg = self.emit_get_int_var(recv, fallback=T0)
       self.emit_sanitizer(reg, code)
       self.emit_asm(Fld(def, MemAccess::new(reg, offset)))
     }
     Load((recv, offset), Ptr, code) => {
       let def = self.allocator.get_global_allocated_reg(def)
-      let reg = self.emit_get_int_var(recv, fallback=A0)
+      let reg = self.emit_get_int_var(recv, fallback=T0)
       self.emit_sanitizer(reg, code)
       self.emit_asm(Ld(def, MemAccess::new(reg, offset)))
     }
@@ -625,7 +627,7 @@ fn AssemblyFunction::emit_get_int_var(
               force
             }
             None =>
-              if self.allocator.is_spilled(var) || var.is_param {
+              if self.allocator.is_spilled(var) {
                 self.emit_asm(
                   Lw(fallback, MemAccess::new(Fp, var.offset, ~loc)),
                 )
@@ -642,7 +644,7 @@ fn AssemblyFunction::emit_get_int_var(
               force
             }
             None =>
-              if self.allocator.is_spilled(var) || var.is_param {
+              if self.allocator.is_spilled(var) {
                 self.emit_asm(Ld(fallback, MemAccess::new(Fp, var.offset)))
                 fallback
               } else {
@@ -667,14 +669,14 @@ fn AssemblyFunction::emit_get_float_var(
       let label = add_double_const(self.world, x)
       match force {
         Some(force) => {
-          self.emit_asm(La(A0, label))
-          self.emit_asm(Fld(force, MemAccess::new(A0, 0)))
+          self.emit_asm(La(T0, label))
+          self.emit_asm(Fld(force, MemAccess::new(T0, 0)))
           force
         }
         None => {
           let fallback = self.allocator.get_global_allocated_freg(var)
-          self.emit_asm(La(A0, label))
-          self.emit_asm(Fld(fallback, MemAccess::new(A0, 0)))
+          self.emit_asm(La(T0, label))
+          self.emit_asm(Fld(fallback, MemAccess::new(T0, 0)))
           fallback
         }
       }
@@ -686,7 +688,7 @@ fn AssemblyFunction::emit_get_float_var(
           force
         }
         None =>
-          if self.allocator.is_spilled(var) || var.is_param {
+          if self.allocator.is_spilled(var) {
             self.emit_asm(Fld(fallback, MemAccess::new(Fp, var.offset)))
             fallback
           } else {
@@ -733,18 +735,18 @@ fn AssemblyFunction::emit_invoke_closure(
   if stack_size != 0 {
     self.emit_asm(Addi(Sp, Sp, stack_size))
   }
-  self.emit_invoke_restore_register(stmt_slot, def)
   match def {
     Some(def) =>
       if width.is_float() {
         let def_freg = self.allocator.get_global_allocated_freg(def)
-        self.emit_asm(FmvD(def_freg, Fa0))
+        self.emit_asm(FmvD(def_freg, Fa0)) // return fa0
       } else {
         let def_reg = self.allocator.get_global_allocated_reg(def)
-        self.emit_asm(Mv(def_reg, A0))
+        self.emit_asm(Mv(def_reg, A0)) // return a0
       }
     None => ()
   }
+  self.emit_invoke_restore_register(stmt_slot, def)
   self.emit_comment("--- invoke_closure \{callee.id} ---")
 }
 
@@ -763,18 +765,18 @@ fn AssemblyFunction::emit_invoke_direct(
   if stack_size != 0 {
     self.emit_asm(Addi(Sp, Sp, stack_size))
   }
-  self.emit_invoke_restore_register(stmt_slot, def)
   match def {
     Some(def) =>
       if width.is_float() {
         let def_freg = self.allocator.get_global_allocated_freg(def)
-        self.emit_asm(FmvD(def_freg, Fa0))
+        self.emit_asm(FmvD(def_freg, Fa0)) // return fa0
       } else {
         let def_reg = self.allocator.get_global_allocated_reg(def)
-        self.emit_asm(Mv(def_reg, A0))
+        self.emit_asm(Mv(def_reg, A0)) // return a0
       }
     None => ()
   }
+  self.emit_invoke_restore_register(stmt_slot, def)
   self.emit_comment("--- invoke_direct \{label} ---")
 }
 
@@ -790,8 +792,8 @@ fn AssemblyFunction::emit_invoke_malloc(
   self.emit_asm(Call("minimbt_malloc"))
   self.emit_sanitizer(A0, 142)
   let def_reg = self.allocator.get_global_allocated_reg(def)
-  self.emit_invoke_restore_register(stmt_slot, Some(def))
   self.emit_asm(Mv(def_reg, A0))
+  self.emit_invoke_restore_register(stmt_slot, Some(def))
   self.emit_comment("--- malloc \{size} ---")
 }
 
@@ -805,7 +807,7 @@ fn AssemblyFunction::emit_invoke_save_register(
     if reg_caller_saved_list.contains(reg) ||
       not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
       let var = self.allocator.get_global_allocated_int_var(vid)
-      if var.const_value.is_empty() && not(var.is_param) {
+      if var.const_value.is_empty() {
         match var.width {
           Int => self.emit_asm(Sw(reg, MemAccess::new(Fp, var.offset)))
           Double => @util.die("unreachable")
@@ -818,7 +820,7 @@ fn AssemblyFunction::emit_invoke_save_register(
     if freg_caller_saved_list.contains(freg) ||
       not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
       let var = self.allocator.get_global_allocated_float_var(vid)
-      if var.const_value.is_empty() && not(var.is_param) {
+      if var.const_value.is_empty() {
         self.emit_asm(Fsd(freg, MemAccess::new(Fp, var.offset)))
       }
     }
@@ -835,7 +837,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
   for vid, reg in result.reg_map_after {
     if vid != def_id && reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
-      if var.const_value.is_empty() && not(var.is_param) {
+      if var.const_value.is_empty() {
         match var.width {
           Int => self.emit_asm(Lw(reg, MemAccess::new(Fp, var.offset)))
           Double => @util.die("unreachable")
@@ -847,7 +849,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
   for vid, freg in result.freg_map_after {
     if vid != def_id && freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
-      if var.const_value.is_empty() && not(var.is_param) {
+      if var.const_value.is_empty() {
         self.emit_asm(Fld(freg, MemAccess::new(Fp, var.offset)))
       }
     }
@@ -901,15 +903,15 @@ fn AssemblyFunction::emit_invoke_args(
       arg => {
         match arg.width {
           Int => {
-            let reg = self.emit_get_int_var(arg, fallback=A0)
+            let reg = self.emit_get_int_var(arg, fallback=T0)
             self.emit_asm(Sw(reg, MemAccess::new(Sp, offset)))
           }
           Double => {
-            let reg = self.emit_get_float_var(arg, fallback=Fa0)
+            let reg = self.emit_get_float_var(arg, fallback=Ft0)
             self.emit_asm(Fsd(reg, MemAccess::new(Sp, offset)))
           }
           Ptr => {
-            let reg = self.emit_get_int_var(arg, fallback=A0)
+            let reg = self.emit_get_int_var(arg, fallback=T0)
             self.emit_asm(Sd(reg, MemAccess::new(Sp, offset)))
           }
         }

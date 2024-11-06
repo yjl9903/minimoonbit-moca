@@ -64,7 +64,7 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
         if lhs.from != rhs.from {
           lhs.from - rhs.from
         } else {
-          lhs.from - rhs.from
+          lhs.to - rhs.to
         }
     },
   )
@@ -74,12 +74,8 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
       lhs, rhs =>
         if lhs.from != rhs.from {
           lhs.from - rhs.from
-        } else if lhs.def != rhs.def {
-          let lhs = if lhs.def { 1 } else { 0 }
-          let rhs = if rhs.def { 1 } else { 0 }
-          lhs - rhs
         } else {
-          lhs.from - rhs.from
+          lhs.to - rhs.to
         }
     },
   )
@@ -93,55 +89,32 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
     @shared.debug("Life \{life.var.memory_id()}: [\{life.from}, \{life.to}]")
   }
   let mut p = 0
-  let mut current = self.allocate_initial_state()
-  let active_reg : Array[(Reg, LifeCycle?)] = {
-    let mp = []
-    for r in reg_caller_saved_list {
-      if r == A0 || r == A1 {
-        continue
-      }
-      mp.push((r, None))
+  let (active_reg, active_freg) = self.allocate_initial_state(lifes_map)
+  // Allocate params
+  while p < lifes.length() && -1 == lifes[p].from {
+    let life = lifes[p]
+    let var = lifes[p].var
+    match var.param_offset {
+      Some(Reg(_)) => ()
+      Some(FReg(_)) => ()
+      Some(Offset(_)) =>
+        // Not reachable
+        if var.width.is_float() {
+          let idx = allocate_registor_or_spill(self, active_freg, life)
+          @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
+          self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
+        } else {
+          let idx = allocate_registor_or_spill(self, active_reg, life)
+          @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
+          self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
+        }
+      None => ()
     }
-    for r in reg_callee_saved_list {
-      mp.push((r, None))
-    }
-    mp
+    p = p + 1
   }
-  let active_freg : Array[(FReg, LifeCycle?)] = {
-    let mp = []
-    for r in freg_caller_saved_list {
-      if r == Fa0 || r == Fa1 {
-        continue
-      }
-      mp.push((r, None))
-    }
-    for r in freg_callee_saved_list {
-      mp.push((r, None))
-    }
-    mp
-  }
+  // Allocate body
   for i = 0; i < body.stmts.length(); i = i + 1 {
-    // 1. Release outdated
-    self.release_register(active_freg, i)
-    self.release_register(active_reg, i)
-
-    // 2. Allocate before def
-    while p < lifes.length() && i == lifes[p].from && not(lifes[p].def) {
-      let life = lifes[p]
-      let var = lifes[p].var
-      if var.width.is_float() {
-        let idx = allocate_registor_or_spill(self, active_freg, life)
-        @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
-        self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
-      } else {
-        let idx = allocate_registor_or_spill(self, active_reg, life)
-        @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
-        self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
-      }
-      p = p + 1
-    }
-
-    // 3. Set allocation info
+    // 1. Set allocation info before stmt
     let allocation = AllocationResult::new()
     for item in active_freg {
       let (freg, life) = item
@@ -158,9 +131,8 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
       }
     }
     self.results.push(allocation)
-    current = allocation
 
-    // 4. Allocate defined register
+    // 2. Allocate defined register
     while p < lifes.length() && i == lifes[p].from {
       let life = lifes[p]
       let var = lifes[p].var
@@ -176,7 +148,11 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
       p = p + 1
     }
 
-    // 5.
+    // 3. Release outdated
+    self.release_register(active_freg, i)
+    self.release_register(active_reg, i)
+
+    // 4. Set allocation info after stmt
     for item in active_freg {
       let (freg, life) = item
       match life {
@@ -263,39 +239,98 @@ fn LinearAllocator::allocate_registor_or_spill[TReg](
 }
 
 fn LinearAllocator::allocate_initial_state(
-  _self : LinearAllocator
-) -> AllocationResult {
-  let initial = AllocationResult::new()
-  // let active_reg = @hashset.new()
-  // let active_freg = @hashset.new()
-  // self.method.params.each(
-  //   fn {
-  //     p =>
-  //       match p.param_offset {
-  //         Some(Reg(reg)) => {
-  //           initial.reg_map.set(p.id, reg)
-  //           active_reg.insert(reg)
-  //         }
-  //         Some(FReg(freg)) => {
-  //           initial.freg_map.set(p.id, freg)
-  //           active_freg.insert(freg)
-  //         }
-  //         _ => ()
-  //       }
-  //   },
-  // )
-  initial
+  self : LinearAllocator,
+  lifes : Map[Int, LifeCycle]
+) -> (Array[(Reg, LifeCycle?)], Array[(FReg, LifeCycle?)]) {
+  let active_reg : Array[(Reg, LifeCycle?)] = {
+    let mp = []
+    for r in reg_caller_saved_list {
+      if r == T0 || r == T1 {
+        continue
+      }
+      mp.push((r, None))
+    }
+    for r in reg_callee_saved_list {
+      mp.push((r, None))
+    }
+    mp
+  }
+  let active_freg : Array[(FReg, LifeCycle?)] = {
+    let mp = []
+    for r in freg_caller_saved_list {
+      if r == Ft0 || r == Ft1 {
+        continue
+      }
+      mp.push((r, None))
+    }
+    for r in freg_callee_saved_list {
+      mp.push((r, None))
+    }
+    mp
+  }
+
+  // 1. Generate reg allocate
+  let mut fp = 0
+  let mut gp = 0
+  for var in self.method.params {
+    if var.is_this {
+      continue
+    }
+    if var.width.is_float() {
+      if fp < freg_arg_list.length() {
+        var.param_offset = Some(FReg(freg_arg_list[fp]))
+        fp += 1
+      }
+      ()
+    } else {
+      if gp < reg_arg_list.length() {
+        var.param_offset = Some(Reg(reg_arg_list[gp]))
+        gp += 1
+      }
+      ()
+    }
+  }
+  // 2. %this param in reg
+  match self.method.this {
+    Some(var) =>
+      if gp < reg_arg_list.length() {
+        var.param_offset = Some(Reg(reg_arg_list[gp]))
+        gp += 1
+      }
+    None => ()
+  }
+  // 3. init reg allocate
+  self.method.params.each(
+    fn {
+      p =>
+        match p.param_offset {
+          Some(Reg(reg)) => {
+            let life = lifes.get(p.memory_id()).unwrap()
+            let idx = active_reg.search_by(fn { a => a.0 == reg }).unwrap()
+            active_reg[idx] = (reg, Some(life))
+            self.allocated_reg[p.memory_id()] = (p, active_reg[idx].0)
+          }
+          Some(FReg(freg)) => {
+            let life = lifes.get(p.memory_id()).unwrap()
+            let idx = active_freg.search_by(fn { a => a.0 == freg }).unwrap()
+            active_freg[idx] = (freg, Some(life))
+            self.allocated_freg[p.memory_id()] = (p, active_freg[idx].0)
+          }
+          _ => ()
+        }
+    },
+  )
+  (active_reg, active_freg)
 }
 
 struct LifeCycle {
   var : MachineVar
   from : Int
-  def : Bool
   to : Int
 }
 
-fn LifeCycle::new(var : MachineVar, from : (Int, Bool), to : Int) -> LifeCycle {
-  { var, from: from.0, def: from.1, to }
+fn LifeCycle::new(var : MachineVar, from : Int, to : Int) -> LifeCycle {
+  { var, from, to }
 }
 
 fn LinearAllocator::get_life_cycles(
@@ -304,20 +339,17 @@ fn LinearAllocator::get_life_cycles(
   let map = Map::new()
   let active = Map::new()
   let body = self.method.body
+  for i = 0; i < self.method.params.length(); i = i + 1 {
+    let param = self.method.params[i]
+    active.set(param.memory_id(), (-1, param))
+  }
   for i = 0; i < body.stmts.length(); i = i + 1 {
     match body.stmts[i].def {
       Some(def) =>
         if not(active.contains(def.memory_id())) {
-          active.set(def.memory_id(), ((i, true), def))
+          active.set(def.memory_id(), (i, def))
         }
       None => ()
-    }
-    for used in body.stmts[i].uses {
-      if not(used.const_value.is_empty()) || used.is_param {
-        if not(active.contains(used.memory_id())) {
-          active.set(used.memory_id(), ((i, false), used))
-        }
-      }
     }
   }
   for i = body.stmts.length() - 1; i >= -1; i = i - 1 {
@@ -332,14 +364,10 @@ fn LinearAllocator::get_life_cycles(
     )
     for item in lived {
       let (vid, (from, var)) = item
-      // Const value should not have register
-      if not(var.const_value.is_empty()) {
-        continue
-      }
       // Get lifecycle
       active.remove(vid)
       let life = if i == -1 {
-        LifeCycle::new(var, from, from.0 + 1)
+        LifeCycle::new(var, from, from + 1)
       } else {
         LifeCycle::new(var, from, i)
       }
@@ -352,9 +380,7 @@ fn LinearAllocator::get_life_cycles(
 fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
   let vars_map = Map::new()
   for var in self.method.local_vars {
-    if var.is_param {
-      var.is_stack = true
-    } else if not(var.const_value.is_empty()) {
+    if not(var.const_value.is_empty()) {
       var.is_stack = false
     } else {
       var.is_stack = false
@@ -383,7 +409,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
           if reg_caller_saved_list.contains(reg) ||
             not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
             let var = self.get_global_allocated_int_var(vid)
-            if var.const_value.is_empty() && not(var.is_param) {
+            if var.const_value.is_empty() {
               match var.outcoming_var {
                 Some(outcoming_var) => outcoming_var.is_stack = true
                 None => var.is_stack = true
@@ -395,7 +421,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
           if freg_caller_saved_list.contains(freg) ||
             not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
             let var = self.get_global_allocated_float_var(vid)
-            if var.const_value.is_empty() && not(var.is_param) {
+            if var.const_value.is_empty() {
               match var.outcoming_var {
                 Some(outcoming_var) => outcoming_var.is_stack = true
                 None => var.is_stack = true
@@ -406,7 +432,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
         for vid, reg in result.reg_map_after {
           if reg_caller_saved_list.contains(reg) {
             let var = self.get_global_allocated_int_var(vid)
-            if var.const_value.is_empty() && not(var.is_param) {
+            if var.const_value.is_empty() {
               match var.outcoming_var {
                 Some(outcoming_var) => outcoming_var.is_stack = true
                 None => var.is_stack = true
@@ -417,7 +443,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
         for vid, freg in result.freg_map_after {
           if freg_caller_saved_list.contains(freg) {
             let var = self.get_global_allocated_float_var(vid)
-            if var.const_value.is_empty() && not(var.is_param) {
+            if var.const_value.is_empty() {
               match var.outcoming_var {
                 Some(outcoming_var) => outcoming_var.is_stack = true
                 None => var.is_stack = true
@@ -430,7 +456,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
             args.each(
               fn {
                 arg =>
-                  if not(arg.is_const()) && not(arg.is_param) {
+                  if not(arg.is_const()) {
                     match arg.outcoming_var {
                       Some(outcoming_var) => outcoming_var.is_stack = true
                       None => arg.is_stack = true
