@@ -227,7 +227,9 @@ impl Show for RvAsm with output(self, logger) {
     FeqD(rd, rs1, rs2) => write3(logger, "feq.d", rd, rs1, rs2)
     FleD(rd, rs1, rs2) => write3(logger, "fle.d", rd, rs1, rs2)
     FmvDX(rd, rs1) => write2(logger, "fmv.d.x", rd, rs1)
-    Nop => logger.write_string("nop")
+    Nop =>
+      // logger.write_string("nop")
+      ()
     La(rd, label) => {
       logger.write_string("lui ")
       Show::output(rd, logger)
