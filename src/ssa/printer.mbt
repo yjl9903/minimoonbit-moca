@@ -82,7 +82,7 @@ pub fn Method::print_stmt(self : Method, stmt : StmtKind) -> String {
       "if \{cond} then \{true_block} else \{false_block}"
     }
     Goto(t) => "goto B\{t};"
-    Break(t, _) => "break B\{t};"
+    Break(t, n) => "break B\{t}, goto B\{n};"
     Continue(t) => "continue B\{t};"
     Nop => ""
     Return(None) => "return;"
