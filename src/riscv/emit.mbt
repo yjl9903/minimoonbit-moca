@@ -621,36 +621,32 @@ fn AssemblyFunction::emit_get_int_var(
     None =>
       match var.width {
         Int =>
-          match force {
-            Some(force) => {
-              self.emit_asm(Lw(force, MemAccess::new(Fp, var.offset, ~loc)))
-              force
-            }
-            None =>
-              if self.allocator.is_spilled(var) {
-                self.emit_asm(
-                  Lw(fallback, MemAccess::new(Fp, var.offset, ~loc)),
-                )
-                fallback
-              } else {
-                let reg = self.allocator.get_global_allocated_reg(var)
-                reg
+          if self.allocator.is_spilled(var) {
+            self.emit_asm(Lw(fallback, MemAccess::new(Fp, var.offset, ~loc)))
+            fallback
+          } else {
+            let reg = self.allocator.get_global_allocated_reg(var)
+            match force {
+              Some(force) => {
+                self.emit_asm(Mv(force, reg))
+                force
               }
+              None => reg
+            }
           }
         Ptr =>
-          match force {
-            Some(force) => {
-              self.emit_asm(Ld(force, MemAccess::new(Fp, var.offset)))
-              force
-            }
-            None =>
-              if self.allocator.is_spilled(var) {
-                self.emit_asm(Ld(fallback, MemAccess::new(Fp, var.offset)))
-                fallback
-              } else {
-                let reg = self.allocator.get_global_allocated_reg(var)
-                reg
+          if self.allocator.is_spilled(var) {
+            self.emit_asm(Ld(fallback, MemAccess::new(Fp, var.offset)))
+            fallback
+          } else {
+            let reg = self.allocator.get_global_allocated_reg(var)
+            match force {
+              Some(force) => {
+                self.emit_asm(Mv(force, reg))
+                force
               }
+              None => reg
+            }
           }
         Double => @util.die("should be Int")
       }
@@ -682,19 +678,18 @@ fn AssemblyFunction::emit_get_float_var(
       }
     }
     None =>
-      match force {
-        Some(force) => {
-          self.emit_asm(Fld(force, MemAccess::new(Fp, var.offset)))
-          force
-        }
-        None =>
-          if self.allocator.is_spilled(var) {
-            self.emit_asm(Fld(fallback, MemAccess::new(Fp, var.offset)))
-            fallback
-          } else {
-            let freg = self.allocator.get_global_allocated_freg(var)
-            freg
+      if self.allocator.is_spilled(var) {
+        self.emit_asm(Fld(fallback, MemAccess::new(Fp, var.offset)))
+        fallback
+      } else {
+        let freg = self.allocator.get_global_allocated_freg(var)
+        match force {
+          Some(force) => {
+            self.emit_asm(FmvD(force, freg))
+            force
           }
+          None => freg
+        }
       }
   }
 }
@@ -708,7 +703,7 @@ fn AssemblyFunction::emit_invoke_closure(
   width : Width
 ) -> Unit {
   self.emit_comment("--- invoke_closure \{callee.id} ---")
-  self.emit_invoke_save_register(stmt_slot, args)
+  self.emit_invoke_save_register(stmt_slot, def, args)
   let new_args = []
   new_args.push_iter(args.iter())
   new_args.push(callee)
@@ -760,7 +755,7 @@ fn AssemblyFunction::emit_invoke_direct(
   width : Width
 ) -> Unit {
   self.emit_comment("--- invoke_direct \{label} ---")
-  self.emit_invoke_save_register(stmt_slot, args)
+  self.emit_invoke_save_register(stmt_slot, def, args)
   let (stack_size, _) = self.emit_invoke_args(stmt_slot, args)
   self.emit_asm(Call(label))
   if stack_size != 0 {
@@ -788,7 +783,7 @@ fn AssemblyFunction::emit_invoke_malloc(
   size : Int
 ) -> Unit {
   self.emit_comment("--- malloc \{size} ---")
-  self.emit_invoke_save_register(stmt_slot, [])
+  self.emit_invoke_save_register(stmt_slot, Some(def), [])
   self.emit_asm(Li(A0, size.to_string()))
   self.emit_asm(Call("minimbt_malloc"))
   self.emit_sanitizer(A0, 142)
@@ -801,11 +796,13 @@ fn AssemblyFunction::emit_invoke_malloc(
 fn AssemblyFunction::emit_invoke_save_register(
   self : AssemblyFunction,
   slot : Int,
+  def : MachineVar?,
   args : Array[MachineVar]
 ) -> Unit {
+  let def_id = def.map(fn { d => d.memory_id() }).or(-1)
   let result = self.allocator.results[slot]
   for vid, reg in result.reg_map_after {
-    if reg_caller_saved_list.contains(reg) {
+    if vid != def_id && reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
         match var.width {
@@ -817,7 +814,7 @@ fn AssemblyFunction::emit_invoke_save_register(
     }
   }
   for vid, freg in result.freg_map_after {
-    if freg_caller_saved_list.contains(freg) ||
+    if (vid != def_id && freg_caller_saved_list.contains(freg)) ||
       not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {
@@ -872,7 +869,7 @@ fn AssemblyFunction::emit_invoke_args(
   let mut gp = 0
   let mut fp = 0
   let mut offset = 0
-  let this_reg = None
+  let mut this_reg = None
   let stack = []
   for i = 0; i < args.length(); i = i + 1 {
     let arg = args[i]
@@ -888,6 +885,9 @@ fn AssemblyFunction::emit_invoke_args(
     } else {
       if gp < reg_arg_list.length() {
         arg_reg.set(arg.memory_id(), (reg_arg_list[gp], arg))
+        if callee_id == arg.memory_id() {
+          this_reg = Some(reg_arg_list[gp])
+        }
         gp += 1
       } else {
         offset += arg.size
