@@ -71,6 +71,8 @@ pub let reg_saved_list : Array[Reg] = [
 
 pub let reg_arg_list : Array[Reg] = [A0, A1, A2, A3, A4, A5, A6, A7]
 
+pub let reg_arg_rev_list : Array[Reg] = [A7, A6, A5, A4, A3, A2, A1, A0]
+
 pub let reg_caller_saved_list : Array[Reg] = reg_temp_list + reg_arg_list
 
 pub let reg_callee_saved_list : Array[Reg] = reg_saved_list
@@ -193,6 +195,17 @@ pub let freg_saved_list : Array[FReg] = [
 ]
 
 pub let freg_arg_list : Array[FReg] = [Fa0, Fa1, Fa2, Fa3, Fa4, Fa5, Fa6, Fa7]
+
+pub let freg_arg_rev_list : Array[FReg] = [
+  Fa7,
+  Fa6,
+  Fa5,
+  Fa4,
+  Fa3,
+  Fa2,
+  Fa1,
+  Fa0,
+]
 
 pub let freg_caller_saved_list : Array[FReg] = freg_temp_list + freg_arg_list
 

@@ -713,6 +713,7 @@ fn AssemblyFunction::emit_invoke_closure(
   new_args.push_iter(args.iter())
   new_args.push(callee)
   let (stack_size, callee_reg) = self.emit_invoke_args(
+    stmt_slot,
     new_args,
     callee=Some(callee),
   )
@@ -760,7 +761,7 @@ fn AssemblyFunction::emit_invoke_direct(
 ) -> Unit {
   self.emit_comment("--- invoke_direct \{label} ---")
   self.emit_invoke_save_register(stmt_slot, args)
-  let (stack_size, _) = self.emit_invoke_args(args)
+  let (stack_size, _) = self.emit_invoke_args(stmt_slot, args)
   self.emit_asm(Call(label))
   if stack_size != 0 {
     self.emit_asm(Addi(Sp, Sp, stack_size))
@@ -803,9 +804,8 @@ fn AssemblyFunction::emit_invoke_save_register(
   args : Array[MachineVar]
 ) -> Unit {
   let result = self.allocator.results[slot]
-  for vid, reg in result.reg_map_before {
-    if reg_caller_saved_list.contains(reg) ||
-      not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
+  for vid, reg in result.reg_map_after {
+    if reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
         match var.width {
@@ -816,7 +816,7 @@ fn AssemblyFunction::emit_invoke_save_register(
       }
     }
   }
-  for vid, freg in result.freg_map_before {
+  for vid, freg in result.freg_map_after {
     if freg_caller_saved_list.contains(freg) ||
       not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
       let var = self.allocator.get_global_allocated_float_var(vid)
@@ -858,21 +858,27 @@ fn AssemblyFunction::emit_invoke_restore_register(
 
 fn AssemblyFunction::emit_invoke_args(
   self : AssemblyFunction,
+  slot : Int,
   args : Array[MachineVar],
   ~callee : MachineVar? = None
 ) -> (Int, Reg?) {
   let callee_id = callee.map(fn { c => c.memory_id() }).or(-1)
 
+  // Map
+  let arg_reg = Map::new()
+  let arg_freg = Map::new()
+
   // Calc stack
   let mut gp = 0
   let mut fp = 0
   let mut offset = 0
-  let mut this_reg = None
+  let this_reg = None
   let stack = []
   for i = 0; i < args.length(); i = i + 1 {
     let arg = args[i]
     if arg.width.is_float() {
       if fp < freg_arg_list.length() {
+        arg_freg.set(arg.memory_id(), (freg_arg_list[fp], arg))
         fp += 1
       } else {
         offset += arg.size
@@ -881,6 +887,7 @@ fn AssemblyFunction::emit_invoke_args(
       ()
     } else {
       if gp < reg_arg_list.length() {
+        arg_reg.set(arg.memory_id(), (reg_arg_list[gp], arg))
         gp += 1
       } else {
         offset += arg.size
@@ -920,33 +927,226 @@ fn AssemblyFunction::emit_invoke_args(
     },
   )
 
-  // 2. Pass by reg
-  gp = 0
-  fp = 0
-  for i = 0; i < args.length(); i = i + 1 {
-    let arg = args[i]
-    if arg.width.is_float() {
-      if fp < freg_arg_list.length() {
-        let freg = freg_arg_list[fp]
-        let _ = self.emit_get_float_var(arg, fallback=freg, force=Some(freg))
-        fp += 1
-      } else {
-        ()
-      }
-      ()
-    } else {
-      if gp < reg_arg_list.length() {
-        let reg = reg_arg_list[gp]
-        let _ = self.emit_get_int_var(arg, fallback=reg, force=Some(reg))
-        if i + 1 == args.length() && arg.memory_id() == callee_id {
-          this_reg = Some(reg)
+  // 2. Generate pass param by reg
+  let allow_reg = reg_temp_list + reg_arg_rev_list
+  let active_reg_var = self.allocator.get_invoke_reg_map(
+    args,
+    self.allocator.results[slot].reg_map_before,
+  )
+  let active_var_reg = Map::from_iter(
+    active_reg_var.iter().map(fn { (reg, var) => (var.memory_id(), reg) }),
+  )
+  let allow_freg = freg_temp_list + freg_arg_rev_list
+  let active_freg_var = self.allocator.get_invoke_reg_map(
+    args,
+    self.allocator.results[slot].freg_map_before,
+  )
+  let active_var_freg = Map::from_iter(
+    active_freg_var.iter().map(fn { (reg, var) => (var.memory_id(), reg) }),
+  )
+
+  // 2.1. Move reg
+  for item in arg_reg.values() {
+    let (reg, arg) = item // target reg <- arg
+    // Check which var is the current reg
+    match active_reg_var.get(reg) {
+      Some(var) =>
+        if var.memory_id() == arg.memory_id() {
+          // Ok
+          ()
+        } else {
+          // This reg is occupied by other var
+          match args.search_by(fn { a => a.memory_id() == var.memory_id() }) {
+            Some(_) =>
+              // active var -> reg is another param, should move to other place
+              // 1. find an empty reg
+              match
+                allow_reg.search_by(
+                  fn { reg => active_reg_var.get(reg).is_empty() },
+                ) {
+                Some(temp) => {
+                  let temp = allow_reg[temp]
+                  self.emit_asm(Mv(temp, reg)) // move reg to a temp pos
+                  active_reg_var.set(temp, var)
+                  active_var_reg.set(var.memory_id(), temp)
+                  match active_var_reg.get(arg.memory_id()) {
+                    // arg is in the reg
+                    Some(arg_reg) => {
+                      active_reg_var.remove(arg_reg)
+                      self.emit_asm(Mv(reg, arg_reg))
+                    }
+                    // arg is not in the reg
+                    None => {
+                      let _ = self.emit_get_int_var(
+                        arg,
+                        fallback=reg,
+                        force=Some(reg),
+                      )
+                      ()
+                    }
+                  }
+                  active_reg_var.set(reg, arg)
+                  active_var_reg.set(arg.memory_id(), reg)
+                }
+                None => @util.die("unreachable")
+              }
+            None => {
+              // var is not arg, overwrite it with arg
+              match active_var_reg.get(arg.memory_id()) {
+                // arg is in the reg
+                Some(arg_reg) => {
+                  active_reg_var.remove(arg_reg)
+                  self.emit_asm(Mv(reg, arg_reg))
+                }
+                // arg is not in the reg
+                None => {
+                  let _ = self.emit_get_int_var(
+                    arg,
+                    fallback=reg,
+                    force=Some(reg),
+                  )
+                  ()
+                }
+              }
+              active_var_reg.set(arg.memory_id(), reg)
+              active_reg_var.set(reg, arg)
+            }
+          }
         }
-        gp += 1
-      } else {
-        ()
+      None => {
+        // No one use this reg
+        match active_var_reg.get(arg.memory_id()) {
+          // arg is in the reg
+          Some(arg_reg) => {
+            active_reg_var.remove(arg_reg)
+            self.emit_asm(Mv(reg, arg_reg))
+          }
+          // arg is not in the reg
+          None => {
+            let _ = self.emit_get_int_var(arg, fallback=reg, force=Some(reg))
+            ()
+          }
+        }
+        active_var_reg.set(arg.memory_id(), reg)
+        active_reg_var.set(reg, arg)
       }
-      ()
     }
   }
+
+  // 2.2. Move freg
+  for item in arg_freg.values() {
+    let (freg, arg) = item // target reg <- arg
+    // Check which var is the current reg
+    match active_freg_var.get(freg) {
+      Some(var) =>
+        if var.memory_id() == arg.memory_id() {
+          // Ok
+          ()
+        } else {
+          // This reg is occupied by other var
+          match args.search_by(fn { a => a.memory_id() == var.memory_id() }) {
+            Some(_) =>
+              // active var -> reg is another param, should move to other place
+              // 1. find an empty reg
+              match
+                allow_freg.search_by(
+                  fn { freg => active_freg_var.get(freg).is_empty() },
+                ) {
+                Some(temp) => {
+                  let temp = allow_freg[temp]
+                  self.emit_asm(FmvD(temp, freg)) // move reg to a temp pos
+                  active_freg_var.set(temp, var)
+                  active_var_freg.set(var.memory_id(), temp)
+                  match active_var_freg.get(arg.memory_id()) {
+                    // arg is in the reg
+                    Some(arg_freg) => {
+                      active_freg_var.remove(arg_freg)
+                      self.emit_asm(FmvD(freg, arg_freg))
+                    }
+                    // arg is not in the reg
+                    None => {
+                      let _ = self.emit_get_float_var(
+                        arg,
+                        fallback=freg,
+                        force=Some(freg),
+                      )
+                      ()
+                    }
+                  }
+                  active_freg_var.set(freg, arg)
+                  active_var_freg.set(arg.memory_id(), freg)
+                }
+                None => @util.die("unreachable")
+              }
+            None => {
+              // var is not arg, overwrite it with arg
+              match active_var_freg.get(arg.memory_id()) {
+                // arg is in the reg
+                Some(arg_freg) => {
+                  active_freg_var.remove(arg_freg)
+                  self.emit_asm(FmvD(freg, arg_freg))
+                }
+                // arg is not in the reg
+                None => {
+                  let _ = self.emit_get_float_var(
+                    arg,
+                    fallback=freg,
+                    force=Some(freg),
+                  )
+                  ()
+                }
+              }
+              active_var_freg.set(arg.memory_id(), freg)
+              active_freg_var.set(freg, arg)
+            }
+          }
+        }
+      None => {
+        // No one use this reg
+        match active_var_freg.get(arg.memory_id()) {
+          // arg is in the reg
+          Some(arg_freg) => {
+            active_freg_var.remove(arg_freg)
+            self.emit_asm(FmvD(freg, arg_freg))
+          }
+          // arg is not in the reg
+          None => {
+            let _ = self.emit_get_float_var(
+              arg,
+              fallback=freg,
+              force=Some(freg),
+            )
+            ()
+          }
+        }
+        active_var_freg.set(arg.memory_id(), freg)
+        active_freg_var.set(freg, arg)
+      }
+    }
+  }
+
+  //
   (stack_size, this_reg)
+}
+
+fn LinearAllocator::get_invoke_reg_map[TReg : Eq + Hash](
+  self : LinearAllocator,
+  args : Array[MachineVar],
+  active_reg : Map[Int, TReg]
+) -> Map[TReg, MachineVar] {
+  let map = Map::new()
+  for vid, reg in active_reg {
+    // Only args should be kept
+    match args.search_by(fn { a => a.memory_id() == vid }) {
+      Some(_) => {
+        let var = self.method.local_vars
+          .search_by(fn { v => v.id == vid })
+          .unwrap()
+        let var = self.method.local_vars[var]
+        map.set(reg, var)
+      }
+      None => ()
+    }
+  }
+  map
 }
