@@ -133,6 +133,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         None => @typing.type_check(self.ast.unwrap(), externals())
       }
       let knf = self.knf_env.to_knf(typechecked)
+      let knf = @knf.transform_knf_to_anf(knf)
       self.knf = Some(knf)
     }
     KnfOpt => {
