@@ -26,6 +26,7 @@ pub struct MachineMethod {
   // info
   stack_vars : Map[Int, MachineVar]
   mut stack_size : Int
+  tail_calls : @hashset.T[Int]
 
   // body
   body : IR

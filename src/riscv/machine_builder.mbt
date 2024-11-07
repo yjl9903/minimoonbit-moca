@@ -61,6 +61,7 @@ fn create_machine_method(
     body: { stmts: [], blocks: [] },
     stack_vars: Map::new(),
     stack_size: 0,
+    tail_calls: @hashset.new(),
     is_closure: method.is_closure,
     free_vars: method.formal_free_vars,
     ssa_method: Some(method),
