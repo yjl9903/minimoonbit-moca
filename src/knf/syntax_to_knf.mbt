@@ -99,7 +99,7 @@ fn KnfEnv::visit_top_level_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
             visitor(rest)
           }
           "main" => {
-            let main_body = self.visit_stmt(def.body).0
+            let main_body = self.fork().visit_stmt(def.body).0
             inits.push(Main(main_body))
             visitor(rest)
           }
