@@ -189,6 +189,12 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
       let has_recursion = self.collect_recursion(expr)
       if has_recursion {
         let has_cont = match rest {
+          Unit =>
+            if @knf.extract_return_type(self.def.ty) == Some(Unit) {
+              false
+            } else {
+              true
+            }
           Var(var) => if name == var { false } else { true }
           _ => true
         }
@@ -254,8 +260,13 @@ fn TailContext::transform_stmt(self : TailContext, knf : Knf) -> Knf {
     ExternalFunctionApplication(_) => knf
 
     // Let
-    Let(binding, expr, rest) =>
-      Let(binding, self.transform_stmt(expr), self.transform_stmt(rest))
+    Let(binding, expr, rest) => {
+      let expr = self.transform_stmt(expr)
+      match expr {
+        Continue(_) => expr
+        _ => Let(binding, self.transform_stmt(expr), self.transform_stmt(rest))
+      }
+    }
     LetTuple(binding, expr, rest) =>
       LetTuple(binding, expr, self.transform_stmt(rest))
     LetRec(def, rest) => LetRec(def, self.transform_stmt(rest))

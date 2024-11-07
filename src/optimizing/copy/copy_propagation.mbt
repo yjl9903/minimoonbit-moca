@@ -108,6 +108,17 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
           let expr = self.transform(expr)
           let rest = self.transform(rest)
           match rest {
+            Unit =>
+              match expr {
+                Unit => Unit
+                Apply(_) =>
+                  if binding.1 == Unit {
+                    expr
+                  } else {
+                    Let(binding, expr, rest)
+                  }
+                _ => Let(binding, expr, rest)
+              }
             Var(rv) =>
               if binding.0 == rv {
                 expr
