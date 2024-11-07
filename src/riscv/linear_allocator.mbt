@@ -179,7 +179,7 @@ fn LinearAllocator::release_register[TReg](
   for idx, item in active {
     let (_, life) = item
     match life {
-      Some(life) => if life.to < current { removed.push(idx) }
+      Some(life) => if life.to <= current { removed.push(idx) }
       None => ()
     }
   }
@@ -398,7 +398,8 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
   for i = 0; i < self.method.body.stmts.length(); i = i + 1 {
     let stmt = self.method.body.stmts[i]
     match stmt.stmt {
-      Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_) as rvalue) => {
+      Definition(def, InvokeClosure(_) | InvokeDirect(_) | Malloc(_) as rvalue) => {
+        let def_id = def.map(fn { d => d.memory_id() }).or(-1)
         let result = self.results[i]
         // let args = match rvalue {
         //   InvokeClosure(_, args, _) => args
@@ -430,7 +431,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
         //   }
         // }
         for vid, reg in result.reg_map_after {
-          if reg_caller_saved_list.contains(reg) {
+          if def_id != vid && reg_caller_saved_list.contains(reg) {
             let var = self.get_global_allocated_int_var(vid)
             if var.const_value.is_empty() {
               match var.outcoming_var {
@@ -441,7 +442,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
           }
         }
         for vid, freg in result.freg_map_after {
-          if freg_caller_saved_list.contains(freg) {
+          if def_id != vid && freg_caller_saved_list.contains(freg) {
             let var = self.get_global_allocated_float_var(vid)
             if var.const_value.is_empty() {
               match var.outcoming_var {
