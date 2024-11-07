@@ -399,36 +399,36 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
     let stmt = self.method.body.stmts[i]
     match stmt.stmt {
       Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_) as rvalue) => {
-        let args = match rvalue {
-          InvokeClosure(_, args, _) => args
-          InvokeDirect(_, args, _) => args
-          _ => []
-        }
         let result = self.results[i]
-        for vid, reg in result.reg_map_before {
-          if reg_caller_saved_list.contains(reg) ||
-            not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
-            let var = self.get_global_allocated_int_var(vid)
-            if var.const_value.is_empty() {
-              match var.outcoming_var {
-                Some(outcoming_var) => outcoming_var.is_stack = true
-                None => var.is_stack = true
-              }
-            }
-          }
-        }
-        for vid, freg in result.freg_map_before {
-          if freg_caller_saved_list.contains(freg) ||
-            not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
-            let var = self.get_global_allocated_float_var(vid)
-            if var.const_value.is_empty() {
-              match var.outcoming_var {
-                Some(outcoming_var) => outcoming_var.is_stack = true
-                None => var.is_stack = true
-              }
-            }
-          }
-        }
+        // let args = match rvalue {
+        //   InvokeClosure(_, args, _) => args
+        //   InvokeDirect(_, args, _) => args
+        //   _ => []
+        // }
+        // for vid, reg in result.reg_map_before {
+        //   if reg_caller_saved_list.contains(reg) ||
+        //     not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
+        //     let var = self.get_global_allocated_int_var(vid)
+        //     if var.const_value.is_empty() {
+        //       match var.outcoming_var {
+        //         Some(outcoming_var) => outcoming_var.is_stack = true
+        //         None => var.is_stack = true
+        //       }
+        //     }
+        //   }
+        // }
+        // for vid, freg in result.freg_map_before {
+        //   if freg_caller_saved_list.contains(freg) ||
+        //     not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
+        //     let var = self.get_global_allocated_float_var(vid)
+        //     if var.const_value.is_empty() {
+        //       match var.outcoming_var {
+        //         Some(outcoming_var) => outcoming_var.is_stack = true
+        //         None => var.is_stack = true
+        //       }
+        //     }
+        //   }
+        // }
         for vid, reg in result.reg_map_after {
           if reg_caller_saved_list.contains(reg) {
             let var = self.get_global_allocated_int_var(vid)
