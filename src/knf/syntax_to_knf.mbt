@@ -70,38 +70,86 @@ fn KnfEnv::find_name_by_string(self : KnfEnv, name : String) -> Name? {
 }
 
 pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
-  self.visit_global_defs(syntax)
+  self.visit_top_level_defs(syntax)
 }
 
-fn KnfEnv::visit_global_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+enum TopLevel {
+  Let((Name, Type), Knf)
+  LetRec(FuncDef)
+  Init(Knf)
+  Main(Knf)
+}
+
+fn KnfEnv::visit_top_level_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  let inits : Array[TopLevel] = []
   fn visitor(syntax : @types.Syntax) {
     match syntax {
       Unit => Knf::Unit
       Let((name, typ), expr, rest) => {
         let (expr, _) = self.fork().visit_expr(expr)
         let name = self.new_let_binding(name, typ)
-        Knf::Let((name, typ), expr, visitor(rest))
+        inits.push(Let((name, typ), expr))
+        visitor(rest)
       }
       LetRec(def, rest) =>
         match def.name.0 {
           "init" => {
             let (body, _) = self.fork().visit_stmt(def.body)
-            let temp = new_temp()
-            let rest = visitor(rest)
-            Knf::Let((temp, Unit), body, rest)
+            inits.push(Init(body))
+            visitor(rest)
           }
-          "main" => self.visit_stmt(def.body).0
+          "main" => {
+            let main_body = self.visit_stmt(def.body).0
+            inits.push(Main(main_body))
+            visitor(rest)
+          }
           _ => {
             let funcdef = self.visit_let_rec(def)
-            let rest = visitor(rest)
-            Knf::LetRec(funcdef, rest)
+            inits.push(LetRec(funcdef))
+            visitor(rest)
           }
         }
       _ => @util.die("Unexpected node under global context")
     }
   }
 
-  self.bind_global_const(fn() { visitor(syntax) })
+  self.bind_global_const(
+    fn() {
+      let _ = visitor(syntax)
+      let main = inits.filter(
+        fn {
+          t =>
+            match t {
+              Main(_) => true
+              _ => false
+            }
+        },
+      )
+      if main.length() == 1 {
+        let main = match main[0] {
+          Main(body) => body
+          _ => @util.die("unreachable")
+        }
+        inits.rev_fold(
+          fn {
+            acc, top =>
+              match top {
+                Let(binding, expr) => Let(binding, expr, acc)
+                LetRec(func) => LetRec(func, acc)
+                Init(init_body) => {
+                  let temp = new_temp()
+                  Knf::Let((temp, Unit), init_body, acc)
+                }
+                Main(_) => acc // skip main
+              }
+          },
+          init=main,
+        )
+      } else {
+        @util.die("Found many or zero main function")
+      }
+    },
+  )
 }
 
 /// Bind const: %const_1
