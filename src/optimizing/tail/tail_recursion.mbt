@@ -99,27 +99,25 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
       false
 
     // May directly use self pointer, which has side effects
-    Var(v) => {
-      if v == self.def.name {
-        self.valid = false
-      }
+    Var(v) =>
+      // if v == self.def.name {
+      //   self.valid = false
+      // }
       false
-    }
     Tuple(els) => {
       let found = els.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) => self.valid = false
-        None => ()
-      }
+      // match found {
+      //   Some(_) => self.valid = false
+      //   None => ()
+      // }
       false
     }
-    Get(recv, idx) => {
+    Get(recv, idx) =>
       // After tyck, this is impossible
-      if recv == self.def.name || idx == self.def.name {
-        self.valid = false
-      }
+      // if recv == self.def.name || idx == self.def.name {
+      //   self.valid = false
+      // }
       false
-    }
     Put(recv, idx, expr) => {
       if recv == self.def.name || idx == self.def.name || expr == self.def.name {
         self.valid = false
@@ -135,54 +133,57 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
         false
       } else {
         let found = args.search_by(fn { e => e.0 == self.def.name })
-        match found {
-          Some(_) => {
-            self.valid = false
-            false
-          }
-          None => self.collect_recursion(body)
-        }
+        // match found {
+        //   Some(_) => {
+        //     self.valid = false
+        //     false
+        //   }
+        //   None => self.collect_recursion(body)
+        // }
+        self.collect_recursion(body)
       }
-    Continue(_, args) => {
-      let found = args.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) => self.valid = false
-        None => ()
-      }
+    Continue(_, args) =>
+      // let found = args.search_by(fn { e => e == self.def.name })
+      // match found {
+      //   Some(_) => self.valid = false
+      //   None => ()
+      // }
       false
-    }
 
     // If
+    // if lhs == self.def.name || rhs == self.def.name {
+    //   self.valid = false
+    //   false
+    // } else 
     IfEq(lhs, rhs, true_branch, false_branch, _)
-    | IfLe(lhs, rhs, true_branch, false_branch, _) =>
-      if lhs == self.def.name || rhs == self.def.name {
-        self.valid = false
-        false
-      } else {
-        let true_branch = self.collect_recursion(true_branch)
-        let false_branch = self.collect_recursion(false_branch)
-        true_branch || false_branch
-      }
+    | IfLe(lhs, rhs, true_branch, false_branch, _) => {
+      let true_branch = self.collect_recursion(true_branch)
+      let false_branch = self.collect_recursion(false_branch)
+      true_branch || false_branch
+    }
 
     // Apply
-    Apply(callee, args) => {
-      let found = args.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) => {
-          self.valid = false
-          false
-        }
-        None => if callee == self.def.name { true } else { false }
+    Apply(callee, args) =>
+      // let found = args.search_by(fn { e => e == self.def.name })
+      // match found {
+      //   Some(_) => {
+      //     self.valid = false
+      //     false
+      //   }
+      //   None => if callee == self.def.name { true } else { false }
+      // }
+      if callee == self.def.name {
+        true
+      } else {
+        false
       }
-    }
-    ExternalFunctionApplication(_, args) => {
-      let found = args.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) => self.valid = false
-        None => ()
-      }
+    ExternalFunctionApplication(_, args) =>
+      // let found = args.search_by(fn { e => e == self.def.name })
+      // match found {
+      //   Some(_) => self.valid = false
+      //   None => ()
+      // }
       false
-    }
 
     // Let
     Let((name, _), expr, rest) => {
