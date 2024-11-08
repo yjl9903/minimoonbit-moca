@@ -1,6 +1,6 @@
 let is_debug = true
 
-let enable_tail_call = false
+let enable_tail_call = true
 
 let enable_sanitizer = false
 
