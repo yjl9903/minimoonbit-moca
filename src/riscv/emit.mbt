@@ -927,8 +927,8 @@ fn AssemblyFunction::emit_invoke_args(
   let callee_id = callee.map(fn { c => c.memory_id() }).or(-1)
 
   // Map
-  let arg_reg = Map::new()
-  let arg_freg = Map::new()
+  let reg_arg = Map::new()
+  let freg_arg = Map::new()
 
   // Calc stack
   let mut gp = 0
@@ -940,7 +940,7 @@ fn AssemblyFunction::emit_invoke_args(
     let arg = args[i]
     if arg.width.is_float() {
       if fp < freg_arg_list.length() {
-        arg_freg.set(arg.memory_id(), (freg_arg_list[fp], arg))
+        freg_arg.set(freg_arg_list[fp], arg)
         fp += 1
       } else {
         offset += arg.size
@@ -949,7 +949,7 @@ fn AssemblyFunction::emit_invoke_args(
       ()
     } else {
       if gp < reg_arg_list.length() {
-        arg_reg.set(arg.memory_id(), (reg_arg_list[gp], arg))
+        reg_arg.set(reg_arg_list[gp], arg)
         if callee_id == arg.memory_id() {
           this_reg = Some(reg_arg_list[gp])
         }
@@ -1011,7 +1011,7 @@ fn AssemblyFunction::emit_invoke_args(
   )
 
   // 2.1. Move reg
-  for item in arg_reg.values() {
+  for item in reg_arg {
     let (reg, arg) = item // target reg <- arg
     // Check which var is the current reg
     match active_reg_var.get(reg) {
@@ -1099,7 +1099,7 @@ fn AssemblyFunction::emit_invoke_args(
   }
 
   // 2.2. Move freg
-  for item in arg_freg.values() {
+  for item in freg_arg {
     let (freg, arg) = item // target reg <- arg
     // Check which var is the current reg
     match active_freg_var.get(freg) {
