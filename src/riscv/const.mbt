@@ -1,5 +1,7 @@
 let is_debug = true
 
+let enable_tail_call = false
+
 let enable_sanitizer = false
 
 fn create_method_label(name : String) -> String {

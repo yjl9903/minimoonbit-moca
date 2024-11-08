@@ -205,7 +205,7 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   }
 
   // 2.0. Prepare tail call
-  if not(self.machine.is_main) {
+  if not(self.machine.is_main) && enable_tail_call {
     let stmts = self.machine.body.stmts
     let mut i = 0
     while i < stmts.length() {
