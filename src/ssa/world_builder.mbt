@@ -95,7 +95,6 @@ pub fn WorldBuilder::build(
   // 1. Preprocess closure
   let main_expr = self.preprocess(prog.body)
   prog.fundefs.each(fn { def => def.body = self.preprocess(def.body) })
-  // let main_expr = prog.body
   // 2. Prepare all the method builders
   let main_method_builder = self.create_main_method_builder()
   let method_builders = prog.fundefs.map(
@@ -193,6 +192,7 @@ fn WorldBuilder::preprocess(
         },
       )
       self.add_global_fun(name, closure)
+      self.add_global_var(name, typ)
       MakeClosure(
         (name, typ),
         { name: closure.name, actual_free_vars },
