@@ -42,7 +42,7 @@ pub struct MachineMethod {
 pub enum ConstValue {
   Int(Int)
   Double(Double)
-}
+} derive(Show)
 
 pub enum ParamOffset {
   Reg(Reg)
