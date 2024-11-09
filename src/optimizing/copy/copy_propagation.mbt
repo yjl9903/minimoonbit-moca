@@ -4,20 +4,24 @@ pub fn transform_copy_propagation(knf : Knf) -> Knf {
 }
 
 struct Context {
-  replaced : Map[Name, Name]
+  mut replaced : @immut/hashmap.T[Name, Name]
 }
 
 fn Context::new() -> Context {
-  { replaced: Map::new() }
+  { replaced: @immut/hashmap.new() }
+}
+
+fn Context::fork(self : Context) -> Context {
+  { replaced: self.replaced }
 }
 
 fn Context::add_replacement(self : Context, from : Name, to : Name) -> Unit {
-  let to = self.replaced.get(to).or(to)
-  self.replaced.set(from, to)
+  let to = self.replaced.find(to).or(to)
+  self.replaced = self.replaced.add(from, to)
 }
 
 fn Context::replace(self : Context, name : Name) -> Name {
-  match self.replaced.get(name) {
+  match self.replaced.find(name) {
     Some(name) => name
     None => name
   }
@@ -79,8 +83,8 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
       IfEq(
         lhs,
         rhs,
-        self.transform(true_branch),
-        self.transform(false_branch),
+        self.fork().transform(true_branch),
+        self.fork().transform(false_branch),
         ty,
       )
     }
@@ -90,8 +94,8 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
       IfLe(
         lhs,
         rhs,
-        self.transform(true_branch),
-        self.transform(false_branch),
+        self.fork().transform(true_branch),
+        self.fork().transform(false_branch),
         ty,
       )
     }
@@ -105,7 +109,7 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
           rest
         }
         _ => {
-          let expr = self.transform(expr)
+          let expr = self.fork().transform(expr)
           let rest = self.transform(rest)
           match rest {
             Unit =>
@@ -134,7 +138,7 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
       LetTuple(binding, expr, self.transform(rest))
     }
     LetRec(def, rest) => {
-      let new_ctx = Context::new()
+      let new_ctx = self.fork()
       let def = { ..def, body: new_ctx.transform(def.body) }
       LetRec(def, self.transform(rest))
     }
