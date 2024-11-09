@@ -1022,6 +1022,7 @@ fn AssemblyFunction::emit_invoke_args(
   } else {
     0
   }
+  offset = 0
   stack.each(
     fn {
       arg => {

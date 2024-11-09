@@ -92,23 +92,12 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
   let (active_reg, active_freg) = self.allocate_initial_state(lifes_map)
   // Allocate params
   while p < lifes.length() && -1 == lifes[p].from {
-    let life = lifes[p]
     let var = lifes[p].var
     match var.param_offset {
       Some(Reg(_)) => ()
       Some(FReg(_)) => ()
-      Some(Offset(_)) =>
-        // Not reachable
-        if var.width.is_float() {
-          let idx = allocate_registor_or_spill(self, active_freg, life)
-          @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
-          self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
-        } else {
-          let idx = allocate_registor_or_spill(self, active_reg, life)
-          @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
-          self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
-        }
-      None => ()
+      // params > 8, spill it
+      _ => self.spilled.insert(var.memory_id())
     }
     p = p + 1
   }
