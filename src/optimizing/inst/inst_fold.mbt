@@ -24,8 +24,6 @@ fn PeepholeFunc::transform_single(self : PeepholeFunc) -> Unit {
   )
 }
 
-let count: Ref[Int] = { val: 0 }
-
 fn PeepholeFunc::transform_pair(self : PeepholeFunc) -> Unit {
   self.blocks.each(
     fn {
