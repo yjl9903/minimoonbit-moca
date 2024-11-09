@@ -159,7 +159,8 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
 
   // 1.2. Save reg
   let (saved_reg, saved_freg) = self.allocator.collect_saved_reg()
-  if saved_reg.length() > 0 || saved_freg.length() > 0 {
+  if not(self.machine.is_main) &&
+    (saved_reg.length() > 0 || saved_freg.length() > 0) {
     let mut i = 0
     for reg in saved_reg {
       i += 8
@@ -205,7 +206,10 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   }
 
   // 2.0. Prepare tail call
-  if not(self.machine.is_main) && enable_tail_call {
+  if not(self.machine.is_main) &&
+    saved_reg.length() == 0 &&
+    saved_freg.length() == 0 &&
+    enable_tail_call {
     let stmts = self.machine.body.stmts
     let mut i = 0
     while i < stmts.length() {
@@ -379,33 +383,33 @@ fn AssemblyFunction::emit_method_stmt(
       }
       // Epilogue
       // self.emit_asm(Label(self.create_return_label()))
-      // TODO: restore reg
       let (saved_reg, saved_freg) = self.allocator.collect_saved_reg()
-      if saved_reg.length() > 0 || saved_freg.length() > 0 {
+      if not(self.machine.is_main) &&
+        (saved_reg.length() > 0 || saved_freg.length() > 0) {
         let stack_size = 8 * (saved_reg.length() + saved_freg.length())
         let stack_size = align_to(stack_size, 16)
         self.emit_asm(Addi(Sp, Sp, stack_size))
         let mut i = 0
         for reg in saved_reg {
           i += 8
-          self.emit_asm(Sd(reg, MemAccess::new(Sp, -i)))
+          self.emit_asm(Ld(reg, MemAccess::new(Sp, -i)))
         }
         for freg in saved_freg {
           i += 8
-          self.emit_asm(Fsd(freg, MemAccess::new(Sp, -i)))
+          self.emit_asm(Fld(freg, MemAccess::new(Sp, -i)))
         }
       }
 
-      //
-      self.emit_asm(Mv(Sp, Fp))
-      self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
-      self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
-      self.emit_asm(Addi(Sp, Sp, 16))
+      // return
       if self.machine.is_main {
         self.emit_asm(Li(A0, "0"))
         self.emit_asm(Li(A7, "93"))
         self.emit_asm(Ecall)
       } else {
+        self.emit_asm(Mv(Sp, Fp))
+        self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
+        self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
+        self.emit_asm(Addi(Sp, Sp, 16))
         self.emit_asm(Ret)
       }
     }
