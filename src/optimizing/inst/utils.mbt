@@ -1,3 +1,18 @@
+fn is_modify_mem(asm : @riscv.RvAsm, offset : Int) -> Bool {
+  match asm {
+    Sb(_, { base: r1, offset: o })
+    | Sh(_, { base: r1, offset: o })
+    | Sw(_, { base: r1, offset: o })
+    | Sd(_, { base: r1, offset: o }) | Fsd(_, { base: r1, offset: o }) =>
+      if r1 == Fp && o == offset {
+        true
+      } else {
+        false
+      }
+    _ => false
+  }
+}
+
 fn is_modify_reg(asm : @riscv.RvAsm, reg : @riscv.Reg) -> Bool {
   match asm {
     Add(r0, r1, r2)
@@ -49,7 +64,11 @@ fn is_modify_reg(asm : @riscv.RvAsm, reg : @riscv.Reg) -> Bool {
     | Lw(r0, { base: r1, offset: _ })
     | Ld(r0, { base: r1, offset: _ })
     | Lbu(r0, { base: r1, offset: _ })
-    | Lhu(r0, { base: r1, offset: _ }) | Lwu(r0, { base: r1, offset: _ }) =>
+    | Lhu(r0, { base: r1, offset: _ })
+    | Lwu(r0, { base: r1, offset: _ })
+    | Sb(r0, { base: r1, offset: _ })
+    | Sh(r0, { base: r1, offset: _ })
+    | Sw(r0, { base: r1, offset: _ }) | Sd(r0, { base: r1, offset: _ }) =>
       if r0 == reg || r1 == reg {
         true
       } else {
