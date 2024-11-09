@@ -101,6 +101,7 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
     }
     p = p + 1
   }
+
   // Allocate body
   for i = 0; i < body.stmts.length(); i = i + 1 {
     // 1. Set allocation info before stmt
@@ -156,6 +157,21 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
         None => ()
       }
     }
+  }
+
+  // Remove spilled var from result
+  for i = 0; i < body.stmts.length(); i = i + 1 {
+    let result = self.results[i]
+    let removed = @hashset.new()
+    result.reg_map_before.each(
+      fn { vid, _ => if self.is_spilled_by_id(vid) { removed.insert(vid) } },
+    )
+    removed.each(fn { vid => result.reg_map_before.remove(vid) })
+    let removed = @hashset.new()
+    result.reg_map_after.each(
+      fn { vid, _ => if self.is_spilled_by_id(vid) { removed.insert(vid) } },
+    )
+    removed.each(fn { vid => result.reg_map_after.remove(vid) })
   }
 }
 
@@ -390,37 +406,10 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
       Definition(def, InvokeClosure(_) | InvokeDirect(_) | Malloc(_) as rvalue) => {
         let def_id = def.map(fn { d => d.memory_id() }).or(-1)
         let result = self.results[i]
-        // let args = match rvalue {
-        //   InvokeClosure(_, args, _) => args
-        //   InvokeDirect(_, args, _) => args
-        //   _ => []
-        // }
-        // for vid, reg in result.reg_map_before {
-        //   if reg_caller_saved_list.contains(reg) ||
-        //     not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
-        //     let var = self.get_global_allocated_int_var(vid)
-        //     if var.const_value.is_empty() {
-        //       match var.outcoming_var {
-        //         Some(outcoming_var) => outcoming_var.is_stack = true
-        //         None => var.is_stack = true
-        //       }
-        //     }
-        //   }
-        // }
-        // for vid, freg in result.freg_map_before {
-        //   if freg_caller_saved_list.contains(freg) ||
-        //     not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
-        //     let var = self.get_global_allocated_float_var(vid)
-        //     if var.const_value.is_empty() {
-        //       match var.outcoming_var {
-        //         Some(outcoming_var) => outcoming_var.is_stack = true
-        //         None => var.is_stack = true
-        //       }
-        //     }
-        //   }
-        // }
         for vid, reg in result.reg_map_after {
-          if def_id != vid && reg_caller_saved_list.contains(reg) {
+          if def_id != vid &&
+            not(self.is_spilled_by_id(vid)) &&
+            reg_caller_saved_list.contains(reg) {
             let var = self.get_global_allocated_int_var(vid)
             if var.const_value.is_empty() {
               match var.outcoming_var {
@@ -431,7 +420,9 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
           }
         }
         for vid, freg in result.freg_map_after {
-          if def_id != vid && freg_caller_saved_list.contains(freg) {
+          if def_id != vid &&
+            not(self.is_spilled_by_id(vid)) &&
+            freg_caller_saved_list.contains(freg) {
             let var = self.get_global_allocated_float_var(vid)
             if var.const_value.is_empty() {
               match var.outcoming_var {
@@ -546,4 +537,8 @@ fn LinearAllocator::is_spilled(
   var : MachineVar
 ) -> Bool {
   self.spilled.contains(var.memory_id())
+}
+
+fn LinearAllocator::is_spilled_by_id(self : LinearAllocator, vid : Int) -> Bool {
+  self.spilled.contains(vid)
 }

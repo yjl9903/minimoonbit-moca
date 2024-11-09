@@ -914,12 +914,14 @@ fn AssemblyFunction::emit_invoke_save_register(
   self : AssemblyFunction,
   slot : Int,
   def : MachineVar?,
-  args : Array[MachineVar]
+  _args : Array[MachineVar]
 ) -> Unit {
   let def_id = def.map(fn { d => d.memory_id() }).or(-1)
   let result = self.allocator.results[slot]
   for vid, reg in result.reg_map_after {
-    if vid != def_id && reg_caller_saved_list.contains(reg) {
+    if vid != def_id &&
+      not(self.allocator.is_spilled_by_id(vid)) &&
+      reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
         match var.width {
@@ -931,8 +933,9 @@ fn AssemblyFunction::emit_invoke_save_register(
     }
   }
   for vid, freg in result.freg_map_after {
-    if (vid != def_id && freg_caller_saved_list.contains(freg)) ||
-      not(args.search_by(fn { a => a.memory_id() == vid }).is_empty()) {
+    if vid != def_id &&
+      not(self.allocator.is_spilled_by_id(vid)) &&
+      freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {
         self.emit_asm(Fsd(freg, MemAccess::new(Fp, var.offset)))
@@ -949,7 +952,9 @@ fn AssemblyFunction::emit_invoke_restore_register(
   let def_id = def.map(fn { d => d.memory_id() }).or(-1)
   let result = self.allocator.results[slot]
   for vid, reg in result.reg_map_after {
-    if vid != def_id && reg_caller_saved_list.contains(reg) {
+    if vid != def_id &&
+      not(self.allocator.is_spilled_by_id(vid)) &&
+      reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
         match var.width {
@@ -961,7 +966,9 @@ fn AssemblyFunction::emit_invoke_restore_register(
     }
   }
   for vid, freg in result.freg_map_after {
-    if vid != def_id && freg_caller_saved_list.contains(freg) {
+    if vid != def_id &&
+      not(self.allocator.is_spilled_by_id(vid)) &&
+      freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {
         self.emit_asm(Fld(freg, MemAccess::new(Fp, var.offset)))
