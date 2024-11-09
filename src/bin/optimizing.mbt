@@ -13,6 +13,7 @@ fn get_optimizing_manager(backend : Backends) -> @optimizing.Manager {
       // Pass::Ast(Liveness),
       Pass::Knf(ConstProp),
       Pass::Knf(CopyPropagation),
+      Pass::Knf(Liveness),
       Pass::Knf(TailRecursion),
       Pass::Knf(MayTailRecursion),
       Pass::Knf(ConstProp),
