@@ -280,21 +280,12 @@ fn AssemblyFunction::emit_method_stmt(
         _ => ()
       }
     Definition(Some(def), rvalue) => {
-      self.emit_stmt_rvalue(stmt.slot, def, rvalue)
-      if self.allocator.is_spilled(def) {
+      let store_spilled = self.emit_stmt_rvalue(stmt.slot, def, rvalue)
+      if not(store_spilled) && self.allocator.is_spilled(def) {
         match def.width {
-          Int => {
-            let def_reg = self.allocator.get_global_allocated_reg(def)
-            self.emit_asm(Sw(def_reg, MemAccess::new(Fp, def.offset)))
-          }
-          Double => {
-            let def_reg = self.allocator.get_global_allocated_freg(def)
-            self.emit_asm(Fsd(def_reg, MemAccess::new(Fp, def.offset)))
-          }
-          Ptr => {
-            let def_reg = self.allocator.get_global_allocated_reg(def)
-            self.emit_asm(Sd(def_reg, MemAccess::new(Fp, def.offset)))
-          }
+          Int => self.emit_asm(Sw(T0, MemAccess::new(Fp, def.offset)))
+          Double => self.emit_asm(Fsd(Ft0, MemAccess::new(Fp, def.offset)))
+          Ptr => self.emit_asm(Sd(T0, MemAccess::new(Fp, def.offset)))
         }
       }
     }
@@ -426,22 +417,33 @@ fn AssemblyFunction::emit_stmt_rvalue(
   stmt_slot : Int,
   def : MachineVar,
   rvalue : RValue
-) -> Unit {
+) -> Bool {
   match rvalue {
     Int(x) =>
       if x == 0 {
-        let def = self.allocator.get_global_allocated_reg(def)
-        self.emit_asm(Mv(def, Zero))
+        if self.allocator.is_spilled(def) {
+          self.emit_asm(Sw(Zero, MemAccess::new(Fp, def.offset)))
+        } else {
+          let def = self.allocator.get_global_allocated_reg(def)
+          self.emit_asm(Mv(def, Zero))
+        }
+        true
       } else {
-        let def = self.allocator.get_global_allocated_reg(def)
-        self.emit_asm(Li(def, x.to_string()))
+        if self.allocator.is_spilled(def) {
+          self.emit_asm(Li(T0, x.to_string()))
+          self.emit_asm(Sw(T0, MemAccess::new(Fp, def.offset)))
+        } else {
+          let def = self.allocator.get_global_allocated_reg(def)
+          self.emit_asm(Li(def, x.to_string()))
+        }
+        true
       }
     Neg(expr, Int) => {
-      let def = self.allocator.get_global_allocated_reg(def)
+      let def_reg = self.allocator.get_global_allocated_reg(def)
       let optimized = match expr.const_value {
         Some(Int(x)) =>
           if -2048 <= -x && -x < 2048 {
-            Some(Li(def, (-x).to_string()))
+            Some(Li(def_reg, (-x).to_string()))
           } else {
             None
           }
@@ -451,14 +453,16 @@ fn AssemblyFunction::emit_stmt_rvalue(
         Some(opt) => self.emit_asm(opt)
         None => {
           let reg = self.emit_get_int_var(expr, fallback=T0)
-          self.emit_asm(Sub(def, Zero, reg))
+          self.emit_asm(Sub(def_reg, Zero, reg))
         }
       }
+      false
     }
     Neg(expr, Double) => {
       let def = self.allocator.get_global_allocated_freg(def)
       let freg = self.emit_get_float_var(expr, fallback=Ft0)
       self.emit_asm(FnegD(def, freg))
+      false
     }
     Neg(_, Ptr) => @util.die("unreachable")
     Prim(lhs, rhs, op, Int) => {
@@ -512,6 +516,7 @@ fn AssemblyFunction::emit_stmt_rvalue(
           }
         },
       )
+      false
     }
     Prim(lhs, rhs, op, Ptr) => {
       let def = self.allocator.get_global_allocated_reg(def)
@@ -577,6 +582,7 @@ fn AssemblyFunction::emit_stmt_rvalue(
           }
         },
       )
+      false
     }
     Prim(lhs, rhs, op, Double) => {
       let def = self.allocator.get_global_allocated_freg(def)
@@ -590,16 +596,29 @@ fn AssemblyFunction::emit_stmt_rvalue(
           Div => FdivD(def, r1, r2)
         },
       )
+      false
     }
     Var(var, Int) | Var(var, Ptr) => {
-      let def = self.allocator.get_global_allocated_reg(def)
-      let reg = self.emit_get_int_var(var, fallback=T0)
-      self.emit_asm(Mv(def, reg))
+      if self.allocator.is_spilled(def) {
+        let reg = self.emit_get_int_var(var, fallback=T0)
+        self.emit_asm(Sw(reg, MemAccess::new(Fp, def.offset)))
+      } else {
+        let def = self.allocator.get_global_allocated_reg(def)
+        let reg = self.emit_get_int_var(var, fallback=T0)
+        self.emit_asm(Mv(def, reg))
+      }
+      true
     }
     Var(var, Double) => {
-      let def = self.allocator.get_global_allocated_freg(def)
-      let freg = self.emit_get_float_var(var, fallback=Ft0)
-      self.emit_asm(FmvD(def, freg))
+      if self.allocator.is_spilled(def) {
+        let freg = self.emit_get_float_var(var, fallback=Ft0)
+        self.emit_asm(Fsd(freg, MemAccess::new(Fp, def.offset)))
+      } else {
+        let def = self.allocator.get_global_allocated_freg(def)
+        let freg = self.emit_get_float_var(var, fallback=Ft0)
+        self.emit_asm(FmvD(def, freg))
+      }
+      true
     }
 
     // Load
@@ -608,33 +627,44 @@ fn AssemblyFunction::emit_stmt_rvalue(
       let reg = self.emit_get_int_var(recv, fallback=T0)
       self.emit_sanitizer(reg, code)
       self.emit_asm(Lw(def, MemAccess::new(reg, offset)))
+      false
     }
     Load((recv, offset), Double, code) => {
       let def = self.allocator.get_global_allocated_freg(def)
       let reg = self.emit_get_int_var(recv, fallback=T0)
       self.emit_sanitizer(reg, code)
       self.emit_asm(Fld(def, MemAccess::new(reg, offset)))
+      false
     }
     Load((recv, offset), Ptr, code) => {
       let def = self.allocator.get_global_allocated_reg(def)
       let reg = self.emit_get_int_var(recv, fallback=T0)
       self.emit_sanitizer(reg, code)
       self.emit_asm(Ld(def, MemAccess::new(reg, offset)))
+      false
     }
     LoadLabel(label) => {
       let def = self.allocator.get_global_allocated_reg(def)
       self.emit_asm(La(def, label))
+      false
     }
 
     // Invoke
-    InvokeClosure(callee, args, width) =>
+    InvokeClosure(callee, args, width) => {
       self.emit_invoke_closure(stmt_slot, Some(def), callee, args, width)
-    InvokeDirect(label, args, width) =>
+      true
+    }
+    InvokeDirect(label, args, width) => {
       self.emit_invoke_direct(stmt_slot, Some(def), label, args, width)
-    Malloc(size) => self.emit_invoke_malloc(stmt_slot, def, size)
+      true
+    }
+    Malloc(size) => {
+      self.emit_invoke_malloc(stmt_slot, def, size)
+      true
+    }
 
     // Phi
-    Phi(_) => ()
+    Phi(_) => true
   }
 }
 
@@ -789,12 +819,21 @@ fn AssemblyFunction::emit_invoke_closure(
     }
     match def {
       Some(def) =>
-        if width.is_float() {
-          let def_freg = self.allocator.get_global_allocated_freg(def)
-          self.emit_asm(FmvD(def_freg, Fa0)) // return fa0
+        if self.allocator.is_spilled(def) {
+          match width {
+            Int => self.emit_asm(Sw(A0, MemAccess::new(Fp, def.offset))) // return fa0
+            Double => self.emit_asm(Fsd(Fa0, MemAccess::new(Fp, def.offset))) // return fa0
+            Ptr => self.emit_asm(Sd(A0, MemAccess::new(Fp, def.offset))) // return fa0
+          }
         } else {
-          let def_reg = self.allocator.get_global_allocated_reg(def)
-          self.emit_asm(Mv(def_reg, A0)) // return a0
+          if width.is_float() {
+            let def_freg = self.allocator.get_global_allocated_freg(def)
+            self.emit_asm(FmvD(def_freg, Fa0)) // return fa0
+          } else {
+            let def_reg = self.allocator.get_global_allocated_reg(def)
+            self.emit_asm(Mv(def_reg, A0)) // return a0
+          }
+          ()
         }
       None => ()
     }
@@ -827,12 +866,21 @@ fn AssemblyFunction::emit_invoke_direct(
     }
     match def {
       Some(def) =>
-        if width.is_float() {
-          let def_freg = self.allocator.get_global_allocated_freg(def)
-          self.emit_asm(FmvD(def_freg, Fa0)) // return fa0
+        if self.allocator.is_spilled(def) {
+          match width {
+            Int => self.emit_asm(Sw(A0, MemAccess::new(Fp, def.offset))) // return fa0
+            Double => self.emit_asm(Fsd(Fa0, MemAccess::new(Fp, def.offset))) // return fa0
+            Ptr => self.emit_asm(Sd(A0, MemAccess::new(Fp, def.offset))) // return fa0
+          }
         } else {
-          let def_reg = self.allocator.get_global_allocated_reg(def)
-          self.emit_asm(Mv(def_reg, A0)) // return a0
+          if width.is_float() {
+            let def_freg = self.allocator.get_global_allocated_freg(def)
+            self.emit_asm(FmvD(def_freg, Fa0)) // return fa0
+          } else {
+            let def_reg = self.allocator.get_global_allocated_reg(def)
+            self.emit_asm(Mv(def_reg, A0)) // return a0
+          }
+          ()
         }
       None => ()
     }
@@ -852,8 +900,12 @@ fn AssemblyFunction::emit_invoke_malloc(
   self.emit_asm(Li(A0, size.to_string()))
   self.emit_asm(Call("minimbt_malloc"))
   self.emit_sanitizer(A0, 142)
-  let def_reg = self.allocator.get_global_allocated_reg(def)
-  self.emit_asm(Mv(def_reg, A0))
+  if self.allocator.is_spilled(def) {
+    self.emit_asm(Sd(A0, MemAccess::new(Fp, def.offset)))
+  } else {
+    let def_reg = self.allocator.get_global_allocated_reg(def)
+    self.emit_asm(Mv(def_reg, A0))
+  }
   self.emit_invoke_restore_register(stmt_slot, Some(def))
   self.emit_comment("--- malloc \{size} ---")
 }

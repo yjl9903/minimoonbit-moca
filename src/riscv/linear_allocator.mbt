@@ -521,9 +521,17 @@ fn LinearAllocator::get_global_allocated_reg(
   if var.width.is_float() {
     @util.die("shoulde not be Double")
   }
-  match self.allocated_reg.get(var.memory_id()) {
-    Some(r) => r.1
-    None => @util.die("shoulde allocate reg \{var.name} \{var.id}", ~loc)
+  if self.is_spilled(var) {
+    match var.width {
+      Int => T0
+      Double => @util.die("unreachable")
+      Ptr => T0
+    }
+  } else {
+    match self.allocated_reg.get(var.memory_id()) {
+      Some(r) => r.1
+      None => @util.die("shoulde allocate reg \{var.name} \{var.id}", ~loc)
+    }
   }
 }
 
@@ -534,9 +542,13 @@ fn LinearAllocator::get_global_allocated_freg(
   if not(var.width.is_float()) {
     @util.die("shoulde be Double")
   }
-  match self.allocated_freg.get(var.memory_id()) {
-    Some(r) => r.1
-    None => @util.die("shoulde allocate reg")
+  if self.is_spilled(var) {
+    Ft0
+  } else {
+    match self.allocated_freg.get(var.memory_id()) {
+      Some(r) => r.1
+      None => @util.die("shoulde allocate reg")
+    }
   }
 }
 
