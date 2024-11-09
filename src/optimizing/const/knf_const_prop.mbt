@@ -1,4 +1,5 @@
 pub fn transform_knf_const_prop(knf : Knf) -> Knf {
+  @knf.clear_const_value()
   let ctx = { map: Map::new() }
   ctx.visit_knf(knf).0
 }
@@ -30,6 +31,11 @@ fn KnfContext::set(
     }
     _ => ()
   }
+}
+
+fn KnfContext::remove(self : KnfContext, name : Name) -> Unit {
+  self.map.remove(name)
+  @knf.remove_const_value(name)
 }
 
 fn KnfContext::visit_knf(self : KnfContext, knf : Knf) -> (Knf, KnfConstValue?) {
@@ -108,7 +114,12 @@ fn KnfContext::visit_knf(self : KnfContext, knf : Knf) -> (Knf, KnfConstValue?) 
       }
 
     // Loop
-    Loop(_) | Continue(_) => @util.die("unreachable")
+    Loop(label, args, body) => {
+      args.each(fn { name => self.remove(name.0) })
+      let (body, _) = self.visit_knf(body)
+      (Loop(label, args, body), None)
+    }
+    Continue(_) => (knf, None)
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch, ty) =>

@@ -15,6 +15,7 @@ fn get_optimizing_manager(backend : Backends) -> @optimizing.Manager {
       Pass::Knf(CopyPropagation),
       Pass::Knf(TailRecursion),
       Pass::Knf(MayTailRecursion),
+      Pass::Knf(ConstProp),
       Pass::Ssa(ConstProp),
       Pass::Ssa(DeadCodeElimination),
       Pass::Assembly(InstFold),
