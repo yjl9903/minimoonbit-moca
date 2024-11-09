@@ -2,6 +2,7 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
   let ph = PeepholeFunc::new(method)
   ph.transform_single()
   ph.transform_pair()
+  ph.transform_store_load()
 }
 
 fn PeepholeFunc::transform_single(self : PeepholeFunc) -> Unit {
@@ -101,6 +102,91 @@ fn PeepholeFunc::transform_pair(self : PeepholeFunc) -> Unit {
             _ => ()
           }
         }
+    },
+  )
+}
+
+// Transform, sw -> ... -> lw -> ... -> sw ->  ... -> lw
+fn PeepholeFunc::transform_store_load(self : PeepholeFunc) -> Unit {
+  self.blocks.each(
+    fn {
+      block => {
+        let stmts = block.insts
+        for i = 0; i < stmts.length(); i = i + 1 {
+          match stmts[i].1 {
+            Sw(r1, { base, offset }) =>
+              if base == Fp && r1 != T0 && r1 != T1 {
+                let arr = []
+                let mut state = 0 // 0 = store, 1 = load
+                for j = i + 1; j < stmts.length(); j = j + 1 {
+                  if stmts[j].1 == Lw(r1, { base: Fp, offset }) {
+                    state = 1
+                    arr.push(stmts[j])
+                  } else if stmts[j].1 == Sw(r1, { base: Fp, offset }) {
+                    state = 1
+                    arr.push(stmts[j])
+                  } else if state == 1 && is_modify_reg(stmts[j].1, r1) {
+                    break
+                  }
+                }
+                if arr.length() > 0 &&
+                  arr[arr.length() - 1].1 == Lw(r1, { base: Fp, offset }) {
+                  for k = 0; k + 1 < arr.length(); k = k + 1 {
+                    // println("optimized : \{arr[k].1}")
+                    self.update(arr[k].0, Nop)
+                  }
+                }
+              }
+            Sd(r1, { base, offset }) =>
+              if base == Fp && r1 != T0 && r1 != T1 {
+                let arr = []
+                let mut state = 0 // 0 = store, 1 = load
+                for j = i + 1; j < stmts.length(); j = j + 1 {
+                  if stmts[j].1 == Ld(r1, { base: Fp, offset }) {
+                    state = 1
+                    arr.push(stmts[j])
+                  } else if stmts[j].1 == Sd(r1, { base: Fp, offset }) {
+                    state = 1
+                    arr.push(stmts[j])
+                  } else if state == 1 && is_modify_reg(stmts[j].1, r1) {
+                    break
+                  }
+                }
+                if arr.length() > 0 &&
+                  arr[arr.length() - 1].1 == Ld(r1, { base: Fp, offset }) {
+                  for k = 0; k + 1 < arr.length(); k = k + 1 {
+                    // println("optimized : \{arr[k].1}")
+                    self.update(arr[k].0, Nop)
+                  }
+                }
+              }
+            Fsd(r1, { base, offset }) =>
+              if base == Fp && r1 != Ft0 && r1 != Ft0 {
+                let arr = []
+                let mut state = 0 // 0 = store, 1 = load
+                for j = i + 1; j < stmts.length(); j = j + 1 {
+                  if stmts[j].1 == Fld(r1, { base: Fp, offset }) {
+                    state = 1
+                    arr.push(stmts[j])
+                  } else if stmts[j].1 == Fsd(r1, { base: Fp, offset }) {
+                    state = 1
+                    arr.push(stmts[j])
+                  } else if state == 1 && is_modify_freg(stmts[j].1, r1) {
+                    break
+                  }
+                }
+                if arr.length() > 0 &&
+                  arr[arr.length() - 1].1 == Fld(r1, { base: Fp, offset }) {
+                  for k = 0; k + 1 < arr.length(); k = k + 1 {
+                    // println("optimized : \{arr[k].1}")
+                    self.update(arr[k].0, Nop)
+                  }
+                }
+              }
+            _ => ()
+          }
+        }
+      }
     },
   )
 }
