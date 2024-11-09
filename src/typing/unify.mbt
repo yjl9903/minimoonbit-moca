@@ -5,7 +5,7 @@ fn unify(lhs : Type, rhs : Type) -> Type!TypeError {
 
     // Determined
     (Unit, Unit) => Unit
-    (Bool, Bool) => Unit
+    (Bool, Bool) => Bool
     (Int, Int) => Int
     (Double, Double) => Double
     (Fun(l_args, l_ret), Fun(r_args, r_ret)) =>
