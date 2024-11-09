@@ -72,8 +72,14 @@ fn WorldBuilder::add_global_fun(
   closure : @closure.Closure
 ) -> Unit {
   let def = self.get_func_def(closure.name)
-  // def.is_closure = false
-  // def.formal_free_vars = []
+  def.formal_free_vars = def.formal_free_vars.filter(
+    fn {
+      (name, _) =>
+        not(self.global_vars.contains(name)) &&
+        not(self.direct_closure.contains(name))
+    },
+  )
+  def.is_closure = def.formal_free_vars.length() > 0
   self.global_funs.set(closure.name._, def)
   if not(def.is_closure) {
     self.direct_closure.set(name, def)
@@ -86,8 +92,9 @@ pub fn WorldBuilder::build(
 ) -> World {
   // Collect all functions
   prog.fundefs.each(fn { f => self.all_funs.set(f.name._, f) })
-  // 1. Build top-level expr
-  let main_expr = self.build_top_level(prog.body)
+  // 1. Preprocess closure
+  let main_expr = self.preprocess(prog.body)
+  prog.fundefs.each(fn { def => def.body = self.preprocess(def.body) })
   // let main_expr = prog.body
   // 2. Prepare all the method builders
   let main_method_builder = self.create_main_method_builder()
@@ -120,7 +127,7 @@ pub fn WorldBuilder::build(
   world
 }
 
-fn WorldBuilder::build_top_level(
+fn WorldBuilder::preprocess(
   self : WorldBuilder,
   expr : @closure.Expr
 ) -> @closure.Expr {
@@ -147,21 +154,21 @@ fn WorldBuilder::build_top_level(
       IfEq(
         lhs,
         rhs,
-        self.build_top_level(true_branch),
-        self.build_top_level(false_branch),
+        self.preprocess(true_branch),
+        self.preprocess(false_branch),
         if_type,
       )
     IfLe(lhs, rhs, true_branch, false_branch, if_type) =>
       IfLe(
         lhs,
         rhs,
-        self.build_top_level(true_branch),
-        self.build_top_level(false_branch),
+        self.preprocess(true_branch),
+        self.preprocess(false_branch),
         if_type,
       )
 
     // Loop
-    Loop(label, args, body) => Loop(label, args, self.build_top_level(body))
+    Loop(label, args, body) => Loop(label, args, self.preprocess(body))
     Continue(label, args) => Continue(label, args)
 
     // Call
@@ -178,16 +185,28 @@ fn WorldBuilder::build_top_level(
       // closure.actual_free_vars.eachi(
       //   fn { i, name => self.add_global_var(name, def.formal_free_vars[i].1) },
       // )
+      let actual_free_vars = closure.actual_free_vars.filter(
+        fn {
+          name =>
+            not(self.global_vars.contains(name)) &&
+            not(self.direct_closure.contains(name))
+        },
+      )
       self.add_global_fun(name, closure)
       MakeClosure(
         (name, typ),
-        { name: closure.name, actual_free_vars: closure.actual_free_vars },
-        self.build_top_level(rest),
+        { name: closure.name, actual_free_vars },
+        self.preprocess(rest),
       )
     }
-    Let((name, typ), expr, rest) =>
-      Let((name, typ), expr, self.build_top_level(rest))
-    LetTuple(els, expr, rest) => LetTuple(els, expr, self.build_top_level(rest))
+    Let((name, typ), expr, rest) => {
+      match get_const_value(name) {
+        Some(Int(_)) => self.add_global_var(name, Int)
+        _ => ()
+      }
+      Let((name, typ), self.preprocess(expr), self.preprocess(rest))
+    }
+    LetTuple(els, expr, rest) => LetTuple(els, expr, self.preprocess(rest))
   }
 }
 
