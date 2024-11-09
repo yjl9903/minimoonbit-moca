@@ -62,8 +62,18 @@ pub fn ClosureOptPass::optimize(
 
 pub fn SsaOptPass::optimize(self : SsaOptPass, method : @ssa.Method) -> Unit {
   match self {
-    DeadCodeElimination => @dead.remove_ssa_dead_code(method)
+    DeadCodeElimination => ()
     ConstProp => @const.mark_ssa_const_variable(method)
+  }
+}
+
+pub fn SsaOptPass::optimize_world(
+  self : SsaOptPass,
+  world : @ssa.World
+) -> Unit {
+  match self {
+    DeadCodeElimination => @dead.remove_ssa_dead_code(world)
+    ConstProp => ()
   }
 }
 
