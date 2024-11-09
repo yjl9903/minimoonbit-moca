@@ -83,7 +83,7 @@ pub enum RvAsm {
   // Comments
   Label(String)
   Comment(String)
-}
+} derive(Eq)
 
 fn write3[TReg1 : Show, TReg2 : Show, TReg3 : Show](
   logger : Logger,
@@ -162,7 +162,7 @@ fn write2[TReg1 : Show, TReg2 : Show](
   rs1.output(logger)
 }
 
-impl Show for RvAsm with output(self, logger) {
+pub fn RvAsm::output(self : RvAsm, logger : Logger) -> Unit {
   match self {
     Label(_) => ()
     _ => logger.write_string("  ")
@@ -286,4 +286,10 @@ impl Show for RvAsm with output(self, logger) {
       logger.write_string(comment)
     }
   }
+}
+
+pub fn RvAsm::to_string(self : RvAsm) -> String {
+  let logger = Buffer::new()
+  self.output(logger)
+  logger.to_string()
 }
