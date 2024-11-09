@@ -49,7 +49,7 @@ pub struct FuncDef {
   old_name : Name
   ty : LowType
   args : Array[(Name, LowType)]
-  body : Expr
+  mut body : Expr
 
   /// true if the function is a closure function, and the closure will be available at `s11` on 
   /// function entry.

@@ -36,10 +36,13 @@ fn MethodBuilder::new(
 ) -> MethodBuilder {
   let free_vars = def.formal_free_vars
   // Filter global var
-  let free_vars = free_vars
-  // .filter(
-  //   fn { (name, _) => not(world_builder.global_vars.contains(name)) },
-  // )
+  let free_vars = free_vars.filter(
+    fn {
+      (name, _) =>
+        not(world_builder.global_vars.contains(name)) &&
+        not(world_builder.direct_closure.contains(name))
+    },
+  )
   let is_closure = free_vars.length() > 0
   let builder = {
     id: def.id,
@@ -368,12 +371,13 @@ fn MethodBuilder::visit_stmt(
     }
     MakeClosure((name, typ), closure, rest) => {
       // Connect actual free vars and formal free vars
-      let actual_free_vars = closure.actual_free_vars
-      // .filter(
-      //   fn {
-      //     name => not(self.ssa_builder.world_builder.global_vars.contains(name))
-      //   },
-      // )
+      let actual_free_vars = closure.actual_free_vars.filter(
+        fn {
+          name =>
+            not(self.ssa_builder.world_builder.global_vars.contains(name)) &&
+            not(self.ssa_builder.world_builder.direct_closure.contains(name))
+        },
+      )
       let closure_builder = self.ssa_builder.world_builder.get_method_builder(
         closure.name._,
       )
