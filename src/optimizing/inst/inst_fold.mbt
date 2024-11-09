@@ -24,6 +24,8 @@ fn PeepholeFunc::transform_single(self : PeepholeFunc) -> Unit {
   )
 }
 
+let count: Ref[Int] = { val: 0 }
+
 fn PeepholeFunc::transform_pair(self : PeepholeFunc) -> Unit {
   self.blocks.each(
     fn {
@@ -114,100 +116,61 @@ fn PeepholeFunc::transform_store_load(self : PeepholeFunc) -> Unit {
         let stmts = block.insts
         for i = 0; i < stmts.length(); i = i + 1 {
           match stmts[i].1 {
-            Sw(r1, { base, offset }) =>
+            Lw(r1, { base, offset }) =>
               if base == Fp && r1 != T0 && r1 != T1 {
                 let arr = []
-                let mut state = 0 // 0 = store, 1 = load
                 for j = i + 1; j < stmts.length(); j = j + 1 {
-                  if stmts[j].1 == Lw(r1, { base: Fp, offset }) {
-                    if state == 0 {
-                      state = 1
-                      arr.push(stmts[j])
-                    } else {
-                      break
-                    }
-                  } else if stmts[j].1 == Sw(r1, { base: Fp, offset }) {
-                    if state == 1 {
-                      state = 0
-                      arr.push(stmts[j])
-                    } else {
-                      break
-                    }
+                  if stmts[j].1 == Sw(r1, { base: Fp, offset }) {
+                    arr.push(stmts[j])
+                    break
                   } else if is_modify_reg(stmts[j].1, r1) ||
                     is_modify_mem(stmts[j].1, offset) {
                     break
                   }
                 }
-                if arr.length() > 0 &&
-                  arr[arr.length() - 1].1 == Lw(r1, { base: Fp, offset }) {
-                  for k = 0; k + 1 < arr.length(); k = k + 1 {
-                    // println("optimized : \{arr[k].1}")
-                    self.update(arr[k].0, Comment("optimized : \{arr[k].1}"))
-                  }
+                if arr.length() == 1 {
+                  // println("optimized :\{stmts[i].1}")
+                  // println("optimized :\{arr[0].1}")
+                  // self.update(stmts[i].0, Comment("optimized :\{stmts[i].1}"))
+                  self.update(arr[0].0, Comment("optimized :\{arr[0].1}"))
                 }
               }
-            Sd(r1, { base, offset }) =>
+            Ld(r1, { base, offset }) =>
               if base == Fp && r1 != T0 && r1 != T1 {
                 let arr = []
-                let mut state = 0 // 0 = store, 1 = load
                 for j = i + 1; j < stmts.length(); j = j + 1 {
-                  if stmts[j].1 == Ld(r1, { base: Fp, offset }) {
-                    if state == 0 {
-                      state = 1
-                      arr.push(stmts[j])
-                    } else {
-                      break
-                    }
-                  } else if stmts[j].1 == Sd(r1, { base: Fp, offset }) {
-                    if state == 1 {
-                      state = 0
-                      arr.push(stmts[j])
-                    } else {
-                      break
-                    }
+                  if stmts[j].1 == Sd(r1, { base: Fp, offset }) {
+                    arr.push(stmts[j])
+                    break
                   } else if is_modify_reg(stmts[j].1, r1) ||
                     is_modify_mem(stmts[j].1, offset) {
                     break
                   }
                 }
-                if arr.length() > 0 &&
-                  arr[arr.length() - 1].1 == Ld(r1, { base: Fp, offset }) {
-                  for k = 0; k + 1 < arr.length(); k = k + 1 {
-                    // println("optimized : \{arr[k].1}")
-                    self.update(arr[k].0, Comment("optimized : \{arr[k].1}"))
-                  }
+                if arr.length() == 1 {
+                  // println("optimized :\{stmts[i].1}")
+                  // println("optimized :\{arr[0].1}")
+                  // self.update(stmts[i].0, Comment("optimized :\{stmts[i].1}"))
+                  self.update(arr[0].0, Comment("optimized :\{arr[0].1}"))
                 }
               }
-            Fsd(r1, { base, offset }) =>
+            Fld(r1, { base, offset }) =>
               if base == Fp && r1 != Ft0 && r1 != Ft0 {
                 let arr = []
-                let mut state = 0 // 0 = store, 1 = load
                 for j = i + 1; j < stmts.length(); j = j + 1 {
-                  if stmts[j].1 == Fld(r1, { base: Fp, offset }) {
-                    if state == 0 {
-                      state = 1
-                      arr.push(stmts[j])
-                    } else {
-                      break
-                    }
-                  } else if stmts[j].1 == Fsd(r1, { base: Fp, offset }) {
-                    if state == 1 {
-                      state = 0
-                      arr.push(stmts[j])
-                    } else {
-                      break
-                    }
+                  if stmts[j].1 == Fsd(r1, { base: Fp, offset }) {
+                    arr.push(stmts[j])
+                    break
                   } else if is_modify_freg(stmts[j].1, r1) ||
                     is_modify_mem(stmts[j].1, offset) {
                     break
                   }
                 }
-                if arr.length() > 0 &&
-                  arr[arr.length() - 1].1 == Fld(r1, { base: Fp, offset }) {
-                  for k = 0; k + 1 < arr.length(); k = k + 1 {
-                    // println("optimized : \{arr[k].1}")
-                    self.update(arr[k].0, Comment("optimized : \{arr[k].1}"))
-                  }
+                if arr.length() == 1 {
+                  // println("optimized :\{stmts[i].1}")
+                  // println("optimized :\{arr[0].1}")
+                  // self.update(stmts[i].0, Comment("optimized :\{stmts[i].1}"))
+                  self.update(arr[0].0, Comment("optimized :\{arr[0].1}"))
                 }
               }
             _ => ()
