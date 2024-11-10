@@ -45,7 +45,7 @@ export fn minimbt_print_int(i: i32) void {
 }
 
 export fn minimbt_print_double(i: f64) void {
-    _ = stdout.writer().print("{:.2}", .{i}) catch 0;
+    _ = stdout.writer().print("{d}", .{i}) catch 0;
 }
 
 export fn minimbt_print_endline() void {
