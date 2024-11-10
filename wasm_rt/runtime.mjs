@@ -33,7 +33,7 @@ let importObject = {
         return parseInt(result[0])
     },
     minimbt_read_char: () => {
-        return input[ptr++].charCodeAt(0)
+        return input[ptr++]?.charCodeAt(0) ?? -1;
     },
     minimbt_print_int: (value) => process.stdout.write(`${value}`),
     minimbt_print_char: (value) => process.stdout.write(String.fromCharCode(value)),
