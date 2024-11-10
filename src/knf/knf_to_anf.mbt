@@ -47,7 +47,20 @@ fn visit_knf(knf : Knf, cont : (Knf) -> Knf) -> Knf {
     Let(binding, expr, rest) =>
       visit_knf(
         expr,
-        fn { result => Let(binding, result, visit_knf(rest, cont)) },
+        fn {
+          result => {
+            let rest = visit_knf(rest, cont)
+            match rest {
+              Var(ret) =>
+                if binding.0 == ret {
+                  result
+                } else {
+                  Let(binding, result, rest)
+                }
+              _ => Let(binding, result, rest)
+            }
+          }
+        },
       )
     LetTuple(binding, expr, rest) =>
       LetTuple(binding, expr, visit_knf(rest, cont))

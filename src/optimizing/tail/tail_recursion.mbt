@@ -72,7 +72,7 @@ fn TailContext::transform(self : TailContext) -> @knf.FuncDef {
   let has_recursion = self.collect_recursion(self.def.body)
   if has_recursion && self.valid {
     @shared.debug("Transform tail recursion: \{self.def.name}")
-    let loop_body = self.transform_stmt(self.def.body)
+    let loop_body = self.transform_stmt(self.def.body, true)
     let func_body = Knf::Loop(
       (self.def.name, @knf.extract_return_type(self.def.ty).unwrap()),
       self.def.args,
@@ -99,30 +99,28 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
       false
 
     // May directly use self pointer, which has side effects
-    Var(v) => {
-      if v == self.def.name {
-        self.valid = false
-      }
+    Var(v) =>
+      // if v == self.def.name {
+      //   self.valid = false
+      // }
       false
-    }
-    Tuple(els) => {
-      let found = els.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) => self.valid = false
-        None => ()
-      }
+    Tuple(els) =>
+      // let found = els.search_by(fn { e => e == self.def.name })
+      // match found {
+      //   Some(_) => self.valid = false
+      //   None => ()
+      // }
       false
-    }
     Get(recv, idx) => {
       // After tyck, this is impossible
       if recv == self.def.name || idx == self.def.name {
-        self.valid = false
+        // self.valid = false
       }
       false
     }
     Put(recv, idx, expr) => {
       if recv == self.def.name || idx == self.def.name || expr == self.def.name {
-        self.valid = false
+        // self.valid = false
       }
       false
     }
@@ -136,27 +134,25 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
       } else {
         let found = args.search_by(fn { e => e.0 == self.def.name })
         match found {
-          Some(_) => {
-            self.valid = false
+          Some(_) =>
+            // self.valid = false
             false
-          }
           None => self.collect_recursion(body)
         }
       }
-    Continue(_, args) => {
-      let found = args.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) => self.valid = false
-        None => ()
-      }
+    Continue(_, args) =>
+      // let found = args.search_by(fn { e => e == self.def.name })
+      // match found {
+      //   Some(_) => self.valid = false
+      //   None => ()
+      // }
       false
-    }
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch, _)
     | IfLe(lhs, rhs, true_branch, false_branch, _) =>
       if lhs == self.def.name || rhs == self.def.name {
-        self.valid = false
+        // self.valid = false
         false
       } else {
         let true_branch = self.collect_recursion(true_branch)
@@ -168,40 +164,39 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
     Apply(callee, args) => {
       let found = args.search_by(fn { e => e == self.def.name })
       match found {
-        Some(_) => {
-          self.valid = false
+        Some(_) =>
+          // self.valid = false
           false
-        }
         None => if callee == self.def.name { true } else { false }
       }
     }
-    ExternalFunctionApplication(_, args) => {
-      let found = args.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) => self.valid = false
-        None => ()
-      }
+    ExternalFunctionApplication(_, args) =>
+      // let found = args.search_by(fn { e => e == self.def.name })
+      // match found {
+      //   Some(_) => self.valid = false
+      //   None => ()
+      // }
       false
-    }
 
     // Let
-    Let((name, _), expr, rest) => {
+    Let((_, _), expr, rest) => {
       let has_recursion = self.collect_recursion(expr)
       if has_recursion {
-        let has_cont = match rest {
-          Unit =>
-            if @knf.extract_return_type(self.def.ty) == Some(Unit) {
-              false
-            } else {
-              true
-            }
-          Var(var) => if name == var { false } else { true }
-          _ => true
-        }
-        if has_cont {
-          self.valid = false
-        }
-        true
+        // let has_cont = match rest {
+        //   Unit =>
+        //     if @knf.extract_return_type(self.def.ty) == Some(Unit) {
+        //       false
+        //     } else {
+        //       true
+        //     }
+        // Var(var) => if name == var { false } else { true }
+        // _ => true
+        // }
+        // if has_cont {
+        //   self.valid = false
+        // }
+        // true
+        self.collect_recursion(rest)
       } else {
         self.collect_recursion(rest)
       }
@@ -214,7 +209,11 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
   }
 }
 
-fn TailContext::transform_stmt(self : TailContext, knf : Knf) -> Knf {
+fn TailContext::transform_stmt(
+  self : TailContext,
+  knf : Knf,
+  top_level : Bool
+) -> Knf {
   match knf {
     // Literal
     Unit
@@ -233,26 +232,27 @@ fn TailContext::transform_stmt(self : TailContext, knf : Knf) -> Knf {
       IfEq(
         lhs,
         rhs,
-        self.transform_stmt(true_branch),
-        self.transform_stmt(false_branch),
+        self.transform_stmt(true_branch, top_level),
+        self.transform_stmt(false_branch, top_level),
         ty,
       )
     IfLe(lhs, rhs, true_branch, false_branch, ty) =>
       IfLe(
         lhs,
         rhs,
-        self.transform_stmt(true_branch),
-        self.transform_stmt(false_branch),
+        self.transform_stmt(true_branch, top_level),
+        self.transform_stmt(false_branch, top_level),
         ty,
       )
 
     // Loop
-    Loop(label, args, body) => Loop(label, args, self.transform_stmt(body))
+    Loop(label, args, body) =>
+      Loop(label, args, self.transform_stmt(body, false))
     Continue(_) => knf
 
     // Apply
     Apply(callee, args) =>
-      if callee == self.def.name {
+      if top_level && callee == self.def.name {
         Continue(self.def.name, args)
       } else {
         knf
@@ -261,15 +261,15 @@ fn TailContext::transform_stmt(self : TailContext, knf : Knf) -> Knf {
 
     // Let
     Let(binding, expr, rest) => {
-      let expr = self.transform_stmt(expr)
+      let expr = self.transform_stmt(expr, false)
       match expr {
         Continue(_) => expr
-        _ => Let(binding, self.transform_stmt(expr), self.transform_stmt(rest))
+        _ => Let(binding, expr, self.transform_stmt(rest, top_level))
       }
     }
     LetTuple(binding, expr, rest) =>
-      LetTuple(binding, expr, self.transform_stmt(rest))
-    LetRec(def, rest) => LetRec(def, self.transform_stmt(rest))
+      LetTuple(binding, expr, self.transform_stmt(rest, top_level))
+    LetRec(def, rest) => LetRec(def, self.transform_stmt(rest, top_level))
 
     // unused
     ExternalArray(_) => @util.die("unreachable")
