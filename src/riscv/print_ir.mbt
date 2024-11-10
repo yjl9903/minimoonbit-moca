@@ -159,12 +159,8 @@ fn MachineWorld::print_rvalue(
         Some(Double(x)) => "(Double) \{x}, const, Double"
         None => "\{v}, \{width}"
       }
-    IntOfFloat(v) => {
-      "int_of_float \{v}, Int"
-    }
-    FloatOfInt(v) => {
-      "float_of_int \{v}, Double"
-    }
+    IntOfFloat(v) => "int_of_float \{v}, Int"
+    FloatOfInt(v) => "float_of_int \{v}, Double"
     InvokeClosure(callee, args, width) => {
       let args = args.map(fn { a => a.to_string() }).join(", ")
       "invoke_closure \{callee} (\{args}), \{width}"
