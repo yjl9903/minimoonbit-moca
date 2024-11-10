@@ -62,9 +62,7 @@ fn MethodBuilder::new(
   // Build this and free vars
   if is_closure {
     builder.ssa_builder.add_this()
-  }
-  if builder.is_closure {
-    builder.ssa_builder.add_free_vars(builder.formal_free_vars)
+    builder.ssa_builder.add_free_vars(free_vars)
   }
   // Build parms
   builder.ssa_builder.add_param_vars(builder.args)
