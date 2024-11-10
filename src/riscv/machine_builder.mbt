@@ -592,21 +592,34 @@ fn Builder::build_rvalue(
     }
 
     // Invoke
-    InvokeDirect(label, args) => {
-      let ty = self.world.ssa.get_method_type(label).unwrap()
-      let ret_type = @closure.extract_return_type(ty)
-      let invoke = InvokeDirect(
-        create_method_label(label),
-        args.map(fn { a => self.build_get_var(a, stmts) }),
-        Width::from_low_type(ret_type),
-      )
-      if def.is_empty() {
-        stmts.push(Definition(None, invoke))
-        None
-      } else {
-        Some(invoke)
+    InvokeDirect(label, args) =>
+      match label {
+        "minimbt_int_of_float" | "minimbt_truncate" => {
+          let arg = args[0]
+          let arg = self.build_get_var(arg, stmts)
+          Some(IntOfFloat(arg))
+        }
+        "minimbt_float_of_int" => {
+          let arg = args[0]
+          let arg = self.build_get_var(arg, stmts)
+          Some(FloatOfInt(arg))
+        }
+        _ => {
+          let ty = self.world.ssa.get_method_type(label).unwrap()
+          let ret_type = @closure.extract_return_type(ty)
+          let invoke = InvokeDirect(
+            create_method_label(label),
+            args.map(fn { a => self.build_get_var(a, stmts) }),
+            Width::from_low_type(ret_type),
+          )
+          if def.is_empty() {
+            stmts.push(Definition(None, invoke))
+            None
+          } else {
+            Some(invoke)
+          }
+        }
       }
-    }
     InvokeClosure(callee, args) => {
       let ret_type = @closure.extract_return_type(callee.ty)
       let callee = self.build_get_var(callee, stmts)

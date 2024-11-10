@@ -106,6 +106,8 @@ pub enum RValue {
   Int(Int)
   Neg(MachineVar, Width)
   Prim(MachineVar, MachineVar, PrimOp, Width)
+  IntOfFloat(MachineVar)
+  FloatOfInt(MachineVar)
   Var(MachineVar, Width)
   Load((MachineVar, Int), Width, Int) // load _, _(_) / sanitizer error code
   LoadLabel(String)
@@ -158,6 +160,8 @@ fn Stmt::update_def_uses(self : Stmt) -> Unit {
         Neg(v, _) => [v]
         Prim(lhs, rhs, _, _) => [lhs, rhs]
         Var(v, _) => [v]
+        IntOfFloat(v) => [v]
+        FloatOfInt(v) => [v]
         Load((recv, _), _, _) => [recv]
         LoadLabel(_) => []
         InvokeClosure(callee, args, _) => [callee, ..args]
