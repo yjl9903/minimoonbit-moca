@@ -76,14 +76,24 @@ pub fn knf_max_counter(knf : Knf) -> Int {
 
 pub fn extract_array_type(typ : Type) -> Type? {
   match typ {
-    Array(typ) | Var({ val: Some(Array(typ)) }) => Some(typ)
+    Var({ val: Some(typ) }) => extract_array_type(typ)
+    Array(typ) => Some(typ)
     _ => None
   }
 }
 
 pub fn extract_return_type(typ : Type) -> Type? {
   match typ {
-    Fun(_, ret) | Var({ val: Some(Fun(_, ret)) }) => Some(ret)
+    Var({ val: Some(typ) }) => extract_return_type(typ)
+    Fun(_, ret) => Some(ret)
     _ => None
+  }
+}
+
+pub fn extract_params_type(typ : Type) -> Array[Type] {
+  match typ {
+    Var({ val: Some(typ) }) => extract_params_type(typ)
+    Fun(params, _) => params
+    _ => []
   }
 }

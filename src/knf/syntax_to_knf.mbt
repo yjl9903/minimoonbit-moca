@@ -163,6 +163,21 @@ fn KnfEnv::bind_global_const(self : KnfEnv, rest : () -> Knf) -> Knf {
 }
 
 fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
+  // Validate
+  if extract_params_type(def.name.1).length() != def.args.length() {
+    @util.die("invalid let rec binding")
+  } else {
+    let targs = extract_params_type(def.name.1)
+    let dargs = def.args
+    for i = 0; i < targs.length(); i = i + 1 {
+      match @typing.unify?(targs[i], dargs[i].1) {
+        Ok(_) => ()
+        Err(_) => @util.die("type mismatch")
+      }
+    }
+  }
+
+  // ----
   let name = self.new_let_rec_binding(def)
   let new_env = self.fork()
   let args = def.args.map(

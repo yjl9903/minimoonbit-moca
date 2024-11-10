@@ -1,4 +1,4 @@
-fn unify(lhs : Type, rhs : Type) -> Type!TypeError {
+pub fn unify(lhs : Type, rhs : Type) -> Type!TypeError {
   match (lhs, rhs) {
     (_, Var({ val: Some(rhs) })) => unify!(lhs, rhs)
     (Var({ val: Some(lhs) }), rhs) => unify!(lhs, rhs)
