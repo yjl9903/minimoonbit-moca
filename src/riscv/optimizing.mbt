@@ -66,9 +66,5 @@ fn AssemblyFunction::optimize_leaf(self : AssemblyFunction) -> Bool {
         }
     },
   )
-  let (saved_reg, saved_freg) = self.allocator.collect_saved_reg()
-  invokes.length() == 0 &&
-  self.machine.stack_size == 0 &&
-  saved_reg.length() == 0 &&
-  saved_freg.length() == 0
+  invokes.length() == 0
 }
