@@ -149,10 +149,12 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   // ------------- sp
 
   // 1. Prologue
-  self.emit_asm(Addi(Sp, Sp, -16))
-  self.emit_asm(Sd(Ra, MemAccess::new(Sp, 8)))
-  self.emit_asm(Sd(Fp, MemAccess::new(Sp, 0)))
-  self.emit_asm(Mv(Fp, Sp))
+  if not(self.optimize_leaf()) {
+    self.emit_asm(Addi(Sp, Sp, -16))
+    self.emit_asm(Sd(Ra, MemAccess::new(Sp, 8)))
+    self.emit_asm(Sd(Fp, MemAccess::new(Sp, 0)))
+    self.emit_asm(Mv(Fp, Sp))
+  }
 
   // 1.1. Calc stack size
   self.emit_asm(Addi(Sp, Sp, -self.machine.stack_size))
@@ -205,60 +207,10 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
     }
   }
 
-  // 2.0. Prepare tail call
-  if not(self.machine.is_main) &&
-    saved_reg.length() == 0 &&
-    saved_freg.length() == 0 &&
-    enable_tail_call {
-    let stmts = self.machine.body.stmts
-    let mut i = 0
-    while i < stmts.length() {
-      let mut j = i + 1
-      while j < stmts.length() {
-        let cont = match stmts[j].stmt {
-          Nop => true
-          Comment(_) => true
-          _ => false
-        }
-        if cont {
-          j = j + 1
-        } else {
-          break
-        }
-      }
-      if j < stmts.length() {
-        match (stmts[i].stmt, stmts[j].stmt) {
-          (Definition(def, InvokeClosure(_)), Return(ret)) =>
-            // def == return
-            if def.map(fn { v => v.memory_id() }) ==
-              ret.map(fn { v => v.memory_id() }) ||
-              ret.is_empty() {
-              self.machine.tail_calls.insert(stmts[i].slot)
-              stmts[j].stmt = Nop
-            }
-          (Definition(def, InvokeDirect(label, _, _)), Return(ret)) =>
-            // def == return
-            if def.map(fn { v => v.memory_id() }) ==
-              ret.map(fn { v => v.memory_id() }) ||
-              ret.is_empty() {
-              match @ssa.get_world().externals.get(label) {
-                // externals, skip
-                Some(_) => ()
-                // Our method
-                None => {
-                  self.machine.tail_calls.insert(stmts[i].slot)
-                  stmts[j].stmt = Nop
-                }
-              }
-            }
-          _ => ()
-        }
-      }
-      i = j
-    }
-  }
+  // 2. Optimizing
+  self.optimize_tail_call(saved_reg, saved_freg)
 
-  // 2. Build stmts
+  // 3. Build stmts
   for block in self.machine.body.blocks {
     if self.machine.body.blocks.length() > 1 {
       self.emit_asm(Label(self.create_label(block.label)))
@@ -406,10 +358,12 @@ fn AssemblyFunction::emit_method_stmt(
         self.emit_asm(Li(A7, "93"))
         self.emit_asm(Ecall)
       } else {
-        self.emit_asm(Mv(Sp, Fp))
-        self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
-        self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
-        self.emit_asm(Addi(Sp, Sp, 16))
+        if not(self.optimize_leaf()) {
+          self.emit_asm(Mv(Sp, Fp))
+          self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
+          self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
+          self.emit_asm(Addi(Sp, Sp, 16))
+        }
         self.emit_asm(Ret)
       }
     }
@@ -837,8 +791,15 @@ fn AssemblyFunction::emit_invoke_closure(
   }
   if stack_size == 0 && self.machine.tail_calls.contains(stmt_slot) {
     self.emit_asm(Addi(Sp, Sp, self.machine.stack_size))
-    self.emit_asm(Addi(T6, T6, 8)) // Skip save ra, fp
+    // self.emit_asm(Addi(T6, T6, 8)) // Skip save ra, fp
     self.emit_asm(Jalr(T6))
+    // --- return ---
+    self.emit_asm(Mv(Sp, Fp))
+    self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
+    self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
+    self.emit_asm(Addi(Sp, Sp, 16))
+    self.emit_asm(Ret)
+    // --------------
     self.emit_comment("--- invoke_closure tail \{callee.id} ---")
   } else {
     self.emit_asm(Jalr(T6))
@@ -884,8 +845,15 @@ fn AssemblyFunction::emit_invoke_direct(
   if stack_size == 0 && self.machine.tail_calls.contains(stmt_slot) {
     self.emit_asm(Addi(Sp, Sp, self.machine.stack_size))
     self.emit_asm(La(T6, label))
-    self.emit_asm(Addi(T6, T6, 8)) // Skip save ra, fp
+    // self.emit_asm(Addi(T6, T6, 8)) // Skip save ra, fp
     self.emit_asm(Jalr(T6))
+    // --- return ---
+    self.emit_asm(Mv(Sp, Fp))
+    self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
+    self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
+    self.emit_asm(Addi(Sp, Sp, 16))
+    self.emit_asm(Ret)
+    // --------------
     self.emit_comment("--- invoke_direct tail \{label} ---")
   } else {
     self.emit_asm(Call(label))
