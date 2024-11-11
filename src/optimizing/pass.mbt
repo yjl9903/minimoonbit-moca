@@ -20,7 +20,9 @@ pub enum SsaOptPass {
   ConstProp
 }
 
-pub enum MachineOptPass {}
+pub enum MachineOptPass {
+  CommonSubExpr
+}
 
 pub enum AssemblyOptPass {
   InstFold
@@ -82,10 +84,12 @@ pub fn SsaOptPass::optimize_world(
 }
 
 pub fn MachineOptPass::optimize(
-  _self : MachineOptPass,
-  _method : @riscv.MachineMethod
+  self : MachineOptPass,
+  method : @riscv.MachineMethod
 ) -> Unit {
-  ()
+  match self {
+    CommonSubExpr => @expr.transform_global_common_sub_expr(method)
+  }
 }
 
 pub fn AssemblyOptPass::optimize(

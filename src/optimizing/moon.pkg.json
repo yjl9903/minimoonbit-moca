@@ -16,6 +16,7 @@
     "moonbitlang/minimbt/optimizing/tail",
     "moonbitlang/minimbt/optimizing/inline",
     "moonbitlang/minimbt/optimizing/dead",
+    "moonbitlang/minimbt/optimizing/expr",
     "moonbitlang/minimbt/optimizing/inst"
   ]
 }

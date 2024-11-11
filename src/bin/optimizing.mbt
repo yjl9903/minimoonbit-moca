@@ -16,15 +16,20 @@ fn get_optimizing_manager(backend : Backends) -> @optimizing.Manager {
       Pass::Knf(Liveness),
       Pass::Knf(TailRecursion),
       Pass::Knf(MayTailRecursion),
-      Pass::Knf(ConstProp),
-      Pass::Ssa(ConstProp),
-      Pass::Ssa(DeadCodeElimination),
-      Pass::Assembly(InstFold),
     ],
   )
-  if backend == RSICV {
+  let optimizing_manager = if backend == RSICV {
     optimizing_manager.add_opt_pass(Pass::Knf(MethodInline))
   } else {
     optimizing_manager
   }
+  optimizing_manager.add_opt_passes(
+    [
+      Pass::Knf(ConstProp),
+      Pass::Ssa(ConstProp),
+      Pass::Ssa(DeadCodeElimination),
+      Pass::Machine(CommonSubExpr),
+      Pass::Assembly(InstFold),
+    ],
+  )
 }
