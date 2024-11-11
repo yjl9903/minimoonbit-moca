@@ -363,6 +363,8 @@ fn AssemblyFunction::emit_method_stmt(
           self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
           self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
           self.emit_asm(Addi(Sp, Sp, 16))
+        } else {
+          self.emit_asm(Addi(Sp, Sp, self.machine.stack_size))
         }
         self.emit_asm(Ret)
       }
