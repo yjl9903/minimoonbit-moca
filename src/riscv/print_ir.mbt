@@ -70,25 +70,25 @@ fn MachineWorld::print_method(
       // }
 
       // Print reg
-      match stmt.stmt {
-        Comment(_) | Nop | Return(_) => ()
-        _ => {
-          let result = allocator.results[stmt.slot]
-          let regs = result.reg_map_before
-            .iter()
-            .map(fn { (reg, v) => "\{v} -> \{reg}" })
-            .collect()
-            .join(", ")
-          let fregs = result.freg_map_before
-            .iter()
-            .map(fn { (reg, v) => "\{v} -> \{reg}" })
-            .collect()
-            .join(", ")
-          logger.write_string(
-            "    # register L\{stmt.slot} = { \{regs}, \{fregs} }\n",
-          )
-        }
-      }
+      // match stmt.stmt {
+      //   Comment(_) | Nop | Return(_) => ()
+      //   _ => {
+      //     let result = allocator.results[stmt.slot]
+      //     let regs = result.reg_map_before
+      //       .iter()
+      //       .map(fn { (reg, v) => "\{v} -> \{reg}" })
+      //       .collect()
+      //       .join(", ")
+      //     let fregs = result.freg_map_before
+      //       .iter()
+      //       .map(fn { (reg, v) => "\{v} -> \{reg}" })
+      //       .collect()
+      //       .join(", ")
+      //     logger.write_string(
+      //       "    # register L\{stmt.slot} = { \{regs}, \{fregs} }\n",
+      //     )
+      //   }
+      // }
 
       // Print stmt
       match stmt.stmt {

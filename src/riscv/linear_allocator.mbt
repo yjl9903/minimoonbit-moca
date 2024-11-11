@@ -84,10 +84,10 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
   //     @util.die("????")
   //   }
   // }
-  @shared.debug("Allocate \{self.method.name}:")
-  for life in lifes {
-    @shared.debug("Life \{life.var.memory_id()}: [\{life.from}, \{life.to}]")
-  }
+  // @shared.debug("Allocate \{self.method.name}:")
+  // for life in lifes {
+  //   @shared.debug("Life \{life.var.memory_id()}: [\{life.from}, \{life.to}]")
+  // }
   let mut p = 0
   let (active_reg, active_freg) = self.allocate_initial_state(lifes_map)
   // Allocate params
@@ -128,11 +128,11 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
       let var = lifes[p].var
       if var.width.is_float() {
         let idx = allocate_registor_or_spill(self, active_freg, life)
-        @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
+        // @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
         self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
       } else {
         let idx = allocate_registor_or_spill(self, active_reg, life)
-        @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
+        // @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
         self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
       }
       p = p + 1
