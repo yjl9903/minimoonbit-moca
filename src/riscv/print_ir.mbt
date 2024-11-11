@@ -149,8 +149,9 @@ fn MachineWorld::print_rvalue(
 ) -> String {
   match rvalue {
     Int(x) => "(Int) \{x}, Int"
-    Neg(x, width) => "- \{x}, \{width}"
-    Prim(lhs, rhs, op, width) => "\{lhs} \{op} \{rhs}, \{width}"
+    Neg(x, width) => "- \{print_var(x)}, \{width}"
+    Prim(lhs, rhs, op, width) =>
+      "\{print_var(lhs)} \{op} \{print_var(rhs)}, \{width}"
     Load((recv, offset), width, _) => "load \{recv}, offset=\{offset}, \{width}"
     LoadLabel(label) => "load_label \{label}, Ptr"
     Var(v, width) =>
@@ -159,14 +160,14 @@ fn MachineWorld::print_rvalue(
         Some(Double(x)) => "(Double) \{x}, const, Double"
         None => "\{v}, \{width}"
       }
-    IntOfFloat(v) => "int_of_float \{v}, Int"
-    FloatOfInt(v) => "float_of_int \{v}, Double"
+    IntOfFloat(v) => "int_of_float \{print_var(v)}, Int"
+    FloatOfInt(v) => "float_of_int \{print_var(v)}, Double"
     InvokeClosure(callee, args, width) => {
-      let args = args.map(fn { a => a.to_string() }).join(", ")
-      "invoke_closure \{callee} (\{args}), \{width}"
+      let args = args.map(fn { a => print_var(a) }).join(", ")
+      "invoke_closure \{print_var(callee)} (\{args}), \{width}"
     }
     InvokeDirect(label, args, width) => {
-      let args = args.map(fn { a => a.to_string() }).join(", ")
+      let args = args.map(fn { a => print_var(a) }).join(", ")
       "invoke_direct \"\{label}\" (\{args}), \{width}"
     }
     Malloc(size) => "malloc(\{size}), \{Ptr}"
@@ -174,5 +175,13 @@ fn MachineWorld::print_rvalue(
       let els = els.map(fn { el => el.to_string() }).join(", ")
       "phi(\{els})"
     }
+  }
+}
+
+fn MachineWorld::print_var(var : MachineVar) -> String {
+  match var.const_value {
+    Some(Int(x)) => "(Int) \{x}"
+    Some(Double(x)) => "(Double) \{x}"
+    _ => var.to_string()
   }
 }
