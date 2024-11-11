@@ -217,3 +217,29 @@ pub fn IR::get_next_stmts(self : IR, i : Int) -> Array[Int] {
     _ => if i + 1 < self.stmts.length() { [i + 1] } else { [] }
   }
 }
+
+pub fn IR::build_stmts_graph(self : IR) -> @shared.Graph {
+  let graph = @shared.Graph::new()
+  self.stmts.eachi(
+    fn {
+      i, stmt =>
+        match stmt.stmt {
+          Definition(_) | Sanitizer(_) | Store(_) | Comment(_) | Nop =>
+            graph.add_edge(i, i + 1)
+          IfGoto(_, true_branch, false_branch) => {
+            match true_branch {
+              Some(t) => graph.add_edge(i, self.blocks[t].stmts[0].slot)
+              None => ()
+            }
+            match false_branch {
+              Some(t) => graph.add_edge(i, self.blocks[t].stmts[0].slot)
+              None => ()
+            }
+          }
+          Goto(t) => graph.add_edge(i, self.blocks[t].stmts[0].slot)
+          Return(_) => ()
+        }
+    },
+  )
+  graph
+}
