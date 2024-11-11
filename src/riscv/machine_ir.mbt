@@ -186,6 +186,14 @@ fn Stmt::update_def_uses(self : Stmt) -> Unit {
   }
 }
 
+fn Stmt::has_effect(self : Stmt) -> Bool {
+  match self.stmt {
+    Definition(_, InvokeClosure(_) | InvokeDirect(_) | Phi(_)) => true
+    Definition(_) => false
+    _ => true
+  }
+}
+
 pub struct IR {
   stmts : Array[Stmt]
   blocks : Array[Block]

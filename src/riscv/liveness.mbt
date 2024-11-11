@@ -3,7 +3,10 @@ struct LivenessState {
   live_out : Array[@hashset.T[Int]]
 }
 
-fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
+fn LivenessState::analyze(
+  method : MachineMethod,
+  ~depth : Int = 0
+) -> LivenessState {
   // @shared.debug("liveness \{method.name}")
   let stmts = method.body.stmts
   let rev_stmts = stmts.iter2().to_array().rev()
@@ -59,10 +62,35 @@ fn LivenessState::analyze(method : MachineMethod) -> LivenessState {
     }
     first_iter = false
   }
-  // for i = 0; i < stmts.length(); i = i + 1 {
-  //   @shared.debug("  - out \{i} : \{liveness.live_out[i]}")
-  // }
-  liveness
+  // Prune dead vars
+  let mut changed = false
+  for i = 0; i < stmts.length(); i = i + 1 {
+    match stmts[i].def {
+      Some(def) =>
+        if not(liveness.live_out[i].contains(def.memory_id())) {
+          if not(stmts[i].has_effect()) {
+            changed = true
+            let _ = stmts[i].update(Nop)
+            ()
+          } else {
+            match stmts[i].stmt {
+              Definition(Some(_), InvokeClosure(_) | InvokeDirect(_) as rvalue) => {
+                changed = true
+                let _ = stmts[i].update(Definition(None, rvalue))
+                ()
+              }
+              _ => ()
+            }
+          }
+        }
+      None => ()
+    }
+  }
+  if changed && depth < 10 {
+    LivenessState::analyze(method, depth=depth + 1)
+  } else {
+    liveness
+  }
 }
 
 fn LivenessState::is_live_before(

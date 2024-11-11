@@ -309,18 +309,26 @@ fn LinearAllocator::allocate_initial_state(
     fn {
       p =>
         match p.param_offset {
-          Some(Reg(reg)) => {
-            let life = lifes.get(p.memory_id()).unwrap()
-            let idx = active_reg.search_by(fn { a => a.0 == reg }).unwrap()
-            active_reg[idx] = (reg, Some(life))
-            self.allocated_reg[p.memory_id()] = (p, active_reg[idx].0)
-          }
-          Some(FReg(freg)) => {
-            let life = lifes.get(p.memory_id()).unwrap()
-            let idx = active_freg.search_by(fn { a => a.0 == freg }).unwrap()
-            active_freg[idx] = (freg, Some(life))
-            self.allocated_freg[p.memory_id()] = (p, active_freg[idx].0)
-          }
+          Some(Reg(reg)) =>
+            match lifes.get(p.memory_id()) {
+              Some(life) => {
+                let idx = active_reg.search_by(fn { a => a.0 == reg }).unwrap()
+                active_reg[idx] = (reg, Some(life))
+                self.allocated_reg[p.memory_id()] = (p, active_reg[idx].0)
+              }
+              None => ()
+            }
+          Some(FReg(freg)) =>
+            match lifes.get(p.memory_id()) {
+              Some(life) => {
+                let idx = active_freg
+                  .search_by(fn { a => a.0 == freg })
+                  .unwrap()
+                active_freg[idx] = (freg, Some(life))
+                self.allocated_freg[p.memory_id()] = (p, active_freg[idx].0)
+              }
+              None => ()
+            }
           _ => ()
         }
     },
@@ -357,12 +365,12 @@ fn LinearAllocator::get_life_cycles(
       None => ()
     }
   }
-  for i = body.stmts.length() - 1; i >= -1; i = i - 1 {
+  for i = body.stmts.length() - 1; i >= 0; i = i - 1 {
     let lived = []
     active.each(
       fn {
         vid, info =>
-          if i == -1 || self.liveness.is_live_before(i, vid) {
+          if self.liveness.is_live_before(i, vid) {
             lived.push((vid, info))
           }
       },
@@ -371,11 +379,7 @@ fn LinearAllocator::get_life_cycles(
       let (vid, (from, var)) = item
       // Get lifecycle
       active.remove(vid)
-      let life = if i == -1 {
-        LifeCycle::new(var, from, from + 1)
-      } else {
-        LifeCycle::new(var, from, i)
-      }
+      let life = LifeCycle::new(var, from, i)
       map.set(vid, life)
     }
   }
