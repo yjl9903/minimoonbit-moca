@@ -2,7 +2,19 @@ fn copy_func_body(def : @knf.FuncDef, args : Array[Name], size : Int) -> Knf {
   if size < disable_inline_size {
     let replace = Map::new()
     def.args.eachi(fn { i, p => replace.set(p.0, args[i]) })
-    replace_stmt(replace, def.body)
+    match replace_stmt?(replace, def.body) {
+      Ok(res) => res
+      Err(_) => {
+        let body = def.body
+        let params = def.args
+        args.rev_foldi(
+          fn {
+            i, acc, arg => Let(params[args.length() - 1 - i], Var(arg), acc)
+          },
+          init=body,
+        )
+      }
+    }
   } else {
     let body = def.body
     let params = def.args
@@ -13,7 +25,9 @@ fn copy_func_body(def : @knf.FuncDef, args : Array[Name], size : Int) -> Knf {
   }
 }
 
-fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf {
+type! InlineError Unit
+
+fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf!InlineError {
   match knf {
     Unit | Int(_) | Double(_) => knf
     Neg(v) => Neg(map.get_or_default(v, v))
@@ -36,24 +50,24 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf {
       FDiv(map.get_or_default(lhs, lhs), map.get_or_default(rhs, rhs))
 
     // Loop
-    Loop(_) => @util.die("unreachable")
-    Continue(_) => @util.die("unreachable")
+    Loop(_) => raise InlineError(())
+    Continue(_) => raise InlineError(())
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch, ty) =>
       IfEq(
         map.get_or_default(lhs, lhs),
         map.get_or_default(rhs, rhs),
-        replace_stmt(map, true_branch),
-        replace_stmt(map, false_branch),
+        replace_stmt!(map, true_branch),
+        replace_stmt!(map, false_branch),
         ty,
       )
     IfLe(lhs, rhs, true_branch, false_branch, ty) =>
       IfLe(
         map.get_or_default(lhs, lhs),
         map.get_or_default(rhs, rhs),
-        replace_stmt(map, true_branch),
-        replace_stmt(map, false_branch),
+        replace_stmt!(map, true_branch),
+        replace_stmt!(map, false_branch),
         ty,
       )
 
@@ -85,10 +99,10 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf {
 
     // Let
     Let((name, ty), expr, rest) => {
-      let expr = replace_stmt(map, expr)
+      let expr = replace_stmt!(map, expr)
       let new_name = @knf.new_temp()
       map.set(name, new_name)
-      Let((new_name, ty), expr, replace_stmt(map, rest))
+      Let((new_name, ty), expr, replace_stmt!(map, rest))
     }
     LetTuple(els, expr, rest) => {
       let new_els = els.map(
@@ -100,7 +114,11 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf {
           }
         },
       )
-      LetTuple(new_els, map.get_or_default(expr, expr), replace_stmt(map, rest))
+      LetTuple(
+        new_els,
+        map.get_or_default(expr, expr),
+        replace_stmt!(map, rest),
+      )
     }
     LetRec(_) => @util.die("unreachable")
 
