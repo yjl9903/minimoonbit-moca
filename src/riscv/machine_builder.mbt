@@ -593,13 +593,13 @@ fn Builder::build_rvalue(
 
     // Invoke
     InvokeDirect(label, args) =>
-      match label {
-        "minimbt_int_of_float" | "minimbt_truncate" => {
+      match (label, enable_int_float_conversion) {
+        ("minimbt_int_of_float" | "minimbt_truncate", true) => {
           let arg = args[0]
           let arg = self.build_get_var(arg, stmts)
           Some(IntOfFloat(arg))
         }
-        "minimbt_float_of_int" => {
+        ("minimbt_float_of_int", true) => {
           let arg = args[0]
           let arg = self.build_get_var(arg, stmts)
           Some(FloatOfInt(arg))
