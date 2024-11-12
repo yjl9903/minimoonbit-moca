@@ -126,7 +126,7 @@ pub enum StmtKind {
   Comment(String)
   Nop
   Return(MachineVar?)
-}
+} derive(Show)
 
 pub struct Stmt {
   slot : Int
