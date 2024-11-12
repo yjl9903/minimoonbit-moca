@@ -264,6 +264,42 @@ fn Builder::build(self : Builder, method : @ssa.Method) -> Unit {
       }
     },
   )
+  // 4. Prune dead branches
+  // let graph = body.build_stmts_graph()
+  // let visited = @hashset.new()
+  // let queue = @queue.new()
+  // queue.push(0)
+  // while not(queue.is_empty()) {
+  //   let cur = queue.pop().unwrap()
+  //   graph
+  //   .get_succs(cur)
+  //   .each(
+  //     fn {
+  //       v =>
+  //         if not(visited.contains(v)) {
+  //           visited.insert(v)
+  //           queue.push(v)
+  //         }
+  //     },
+  //   )
+  // }
+  // body.stmts.each(
+  //   fn {
+  //     stmt =>
+  //       if not(visited.contains(stmt.slot)) {
+  //         match stmt.stmt {
+  //           Nop | Comment(_) => ()
+  //           _ => {
+  //             @shared.debug(
+  //               "Remove unreachable stmt: \{stmt.slot} \{stmt.stmt} in \{method.name}",
+  //             )
+  //             let _ = stmt.update(Nop)
+  //             ()
+  //           }
+  //         }
+  //       }
+  //   },
+  // )
 }
 
 fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
