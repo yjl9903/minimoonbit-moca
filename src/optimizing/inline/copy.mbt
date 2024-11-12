@@ -130,9 +130,9 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf!InlineError {
 fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
   match knf {
     Unit | Int(_) | Double(_) => 1
-    Neg(_) | FNeg(_) => 2
+    Neg(_) | FNeg(_) => 1
     Add(_) | Sub(_) | Mul(_) | Div(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
-      3
+      1
 
     // Loop
     Loop(_) => disable_inline_size
@@ -141,11 +141,11 @@ fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
     // If
     IfEq(_, _, true_branch, false_branch, _)
     | IfLe(_, _, true_branch, false_branch, _) =>
-      3 + self.calc_size(true_branch) + self.calc_size(false_branch)
+      1 + self.calc_size(true_branch) + self.calc_size(false_branch)
 
     // Array
-    Get(_) => 3
-    Put(_) => 4
+    Get(_) => 1
+    Put(_) => 1
 
     // Var
     Var(_) => 1
