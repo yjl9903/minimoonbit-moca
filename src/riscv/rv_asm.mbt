@@ -132,7 +132,7 @@ fn write2label[TReg : Show](
   logger.write_string(", ")
   rs2.output(logger)
   logger.write_string(", ")
-  logger.write_string(label.0)
+  logger.write_string(label._)
 }
 
 fn write2mem[TReg1 : Show, TReg2 : Show](
@@ -262,7 +262,7 @@ pub fn RvAsm::output(self : RvAsm, logger : Logger) -> Unit {
     FmvD(rd, rs1) => write2(logger, "fmv.d", rd, rs1)
     J(label) => {
       logger.write_string("j ")
-      logger.write_string(label.0)
+      logger.write_string(label._)
     }
     Jalr(rs1) => {
       logger.write_string("jalr ")
@@ -274,11 +274,11 @@ pub fn RvAsm::output(self : RvAsm, logger : Logger) -> Unit {
     }
     Call(label) => {
       logger.write_string("call ")
-      logger.write_string(label.0)
+      logger.write_string(label._)
     }
     Tail(label) => {
       logger.write_string("tail ")
-      logger.write_string(label.0)
+      logger.write_string(label._)
     }
     Ret => logger.write_string("ret")
     Label(label) => {
