@@ -22,6 +22,7 @@ pub enum SsaOptPass {
 
 pub enum MachineOptPass {
   CommonSubExpr
+  CopyPropagation
 }
 
 pub enum AssemblyOptPass {
@@ -89,6 +90,7 @@ pub fn MachineOptPass::optimize(
 ) -> Unit {
   match self {
     CommonSubExpr => @expr.transform_global_common_sub_expr(method)
+    CopyPropagation => @definition.transform_copy_propagation(method)
   }
 }
 
