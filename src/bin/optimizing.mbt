@@ -19,7 +19,9 @@ fn get_optimizing_manager(backend : Backends) -> @optimizing.Manager {
     ],
   )
   let optimizing_manager = if backend == RSICV {
-    optimizing_manager.add_opt_pass(Pass::Knf(MethodInline))
+    optimizing_manager.add_opt_passes(
+      [Pass::Knf(MethodInline), Pass::Closure(MethodInline)],
+    )
   } else {
     optimizing_manager
   }
