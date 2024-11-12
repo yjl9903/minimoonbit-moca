@@ -81,7 +81,8 @@ fn is_modify_reg(asm : @riscv.RvAsm, reg : @riscv.Reg) -> Bool {
         false
       }
     FmvDX(_, r1)
-    | Fld(_, { base: r1, offset: _ }) | Fsd(_, { base: r1, offset: _ }) =>
+    | Fld(_, { base: r1, offset: _ })
+    | Fsd(_, { base: r1, offset: _ }) | FcvtWD(r1, _) =>
       if r1 == reg {
         true
       } else {
@@ -106,7 +107,7 @@ fn is_modify_freg(asm : @riscv.RvAsm, freg : @riscv.FReg) -> Bool {
       } else {
         false
       }
-    FmvDX(fr0, _) | Fld(fr0, _) | Fsd(fr0, _) =>
+    FmvDX(fr0, _) | Fld(fr0, _) | Fsd(fr0, _) | FcvtDW(fr0, _) =>
       if fr0 == freg {
         true
       } else {
