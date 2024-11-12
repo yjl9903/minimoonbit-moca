@@ -42,9 +42,13 @@ fn FuncDefInfo::should_be_all_inlined(self : FuncDefInfo) -> Bool {
     false
   } else if self.applied <= max_inline_applied {
     true
-  } else if self.size <= max_inline_size &&
-    self.applied <= max_inline_size_applied {
-    true
+  } else if self.count == 0 {
+    for policy in max_inline_policy {
+      if self.size <= policy.size && self.applied <= policy.applied {
+        return true
+      }
+    }
+    false
   } else {
     false
   }
