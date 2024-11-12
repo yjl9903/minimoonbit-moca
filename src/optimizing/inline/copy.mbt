@@ -1,7 +1,16 @@
-fn copy_func_body(def : @knf.FuncDef, args : Array[Name]) -> Knf {
-  let replace = Map::new()
-  def.args.eachi(fn { i, p => replace.set(p.0, args[i]) })
-  replace_stmt(replace, def.body)
+fn copy_func_body(def : @knf.FuncDef, args : Array[Name], size : Int) -> Knf {
+  if size < max_inline_size {
+    let replace = Map::new()
+    def.args.eachi(fn { i, p => replace.set(p.0, args[i]) })
+    replace_stmt(replace, def.body)
+  } else {
+    let body = def.body
+    let params = def.args
+    args.rev_foldi(
+      fn { i, acc, arg => Let(params[args.length() - 1 - i], Var(arg), acc) },
+      init=body,
+    )
+  }
 }
 
 fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf {

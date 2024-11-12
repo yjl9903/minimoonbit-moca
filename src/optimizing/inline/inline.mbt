@@ -211,7 +211,7 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
             if self.path.search_by(fn { f => f.id == info.def.id }).is_empty() {
               @shared.debug("Transform inline: \{knf}")
               info.applied -= 1
-              copy_func_body(info.def, args)
+              copy_func_body(info.def, args, info.size)
             } else {
               knf
             }
