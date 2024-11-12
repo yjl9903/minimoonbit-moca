@@ -1,4 +1,4 @@
-pub fn transform_method_inline(knf : Knf) -> Knf {
+pub fn transform_knf_method_inline(knf : Knf) -> Knf {
   let context = { funcs: Map::new(), path: [], local: @immut/hashmap.new() }
   context.collect_knf(knf)
   let knf = context.transform(knf)

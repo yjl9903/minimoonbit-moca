@@ -13,7 +13,9 @@ pub enum KnfOptPass {
   MethodInline
 }
 
-pub enum ClosureOptPass {}
+pub enum ClosureOptPass {
+  MethodInline
+}
 
 pub enum SsaOptPass {
   DeadCodeElimination
@@ -56,15 +58,17 @@ pub fn KnfOptPass::optimize(self : KnfOptPass, knf : @knf.Knf) -> @knf.Knf {
     Liveness => @liveness.transform_knf_liveness(knf)
     TailRecursion => @tail.transform_tail_recursion(knf)
     MayTailRecursion => @tail.transform_may_tail_recursion(knf)
-    MethodInline => @inline.transform_method_inline(knf)
+    MethodInline => @inline.transform_knf_method_inline(knf)
   }
 }
 
 pub fn ClosureOptPass::optimize(
-  _self : ClosureOptPass,
+  self : ClosureOptPass,
   closure : @closure.Program
 ) -> @closure.Program {
-  closure
+  match self {
+    MethodInline => @inline.transform_closure_method_inline(closure)
+  }
 }
 
 pub fn SsaOptPass::optimize(self : SsaOptPass, method : @ssa.Method) -> Unit {
