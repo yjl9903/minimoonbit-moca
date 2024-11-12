@@ -162,8 +162,6 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
   }
 }
 
-
-
 fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
   match knf {
     Unit
