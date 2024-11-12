@@ -120,10 +120,10 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf!InlineError {
         replace_stmt!(map, rest),
       )
     }
-    LetRec(_) => @util.die("unreachable")
+    LetRec(_) => raise InlineError(())
 
     // Unused
-    ExternalArray(_) => @util.die("unreachable")
+    ExternalArray(_) => raise InlineError(())
   }
 }
 
