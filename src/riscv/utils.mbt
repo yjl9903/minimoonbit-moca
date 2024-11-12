@@ -38,6 +38,19 @@ test "is_power_of_two" {
   assert_eq!(is_power_of_two(16), Some(4))
 }
 
+fn get_floor_int(value : Double) -> Int? {
+  if value.floor() == value {
+    let value = value.floor()
+    if -2147483648.0 < value && value < 2147483648.0 {
+      Some(value.to_int())
+    } else {
+      None
+    }
+  } else {
+    None
+  }
+}
+
 fn eval_int_bin_op(lhs : Int, op : PrimOp, rhs : Int) -> Int? {
   match op {
     Add => Some(lhs + rhs)

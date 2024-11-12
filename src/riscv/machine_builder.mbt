@@ -471,12 +471,19 @@ fn Builder::build_rvalue(
       let var = self.get_var(v)
       match var.const_value {
         Some(Int(x)) => Some(Int(x))
-        Some(Double(x)) => {
-          let label = add_double_const(self.world, x)
-          let addr = self.add_temp_var(Ptr)
-          stmts.push(Definition(Some(addr), LoadLabel(label)))
-          Some(Load((addr, 0), Double, 202))
-        }
+        Some(Double(x)) =>
+          match get_floor_int(x) {
+            Some(x) => {
+              let c = self.add_int_const_var(x)
+              Some(FloatOfInt(c))
+            }
+            None => {
+              let label = add_double_const(self.world, x)
+              let addr = self.add_temp_var(Ptr)
+              stmts.push(Definition(Some(addr), LoadLabel(label)))
+              Some(Load((addr, 0), Double, 202))
+            }
+          }
         None => {
           let width = Width::from_low_type(var.ty)
           if var.is_global {
@@ -726,10 +733,20 @@ fn Builder::build_double_const(
   value : Double,
   stmts : Array[StmtKind]
 ) -> MachineVar {
-  let label = add_double_const(self.world, value)
-  let addr = self.add_temp_var(Type::Ptr)
-  stmts.push(Definition(Some(addr), LoadLabel(label)))
-  let local_const = self.add_temp_var(Double)
-  stmts.push(Definition(Some(local_const), Load((addr, 0), Double, 208)))
-  local_const
+  match get_floor_int(value) {
+    Some(value) => {
+      let c = self.add_int_const_var(value)
+      let local_const = self.add_temp_var(Double)
+      stmts.push(Definition(Some(local_const), FloatOfInt(c)))
+      local_const
+    }
+    None => {
+      let label = add_double_const(self.world, value)
+      let addr = self.add_temp_var(Type::Ptr)
+      stmts.push(Definition(Some(addr), LoadLabel(label)))
+      let local_const = self.add_temp_var(Double)
+      stmts.push(Definition(Some(local_const), Load((addr, 0), Double, 208)))
+      local_const
+    }
+  }
 }
