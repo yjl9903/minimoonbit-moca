@@ -28,6 +28,7 @@ fn get_optimizing_manager(backend : Backends) -> @optimizing.Manager {
       Pass::Knf(ConstProp),
       Pass::Ssa(ConstProp),
       Pass::Ssa(DeadCodeElimination),
+      Pass::Machine(CopyPropagation),
       Pass::Machine(CommonSubExpr),
       Pass::Assembly(InstFold),
     ],
