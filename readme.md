@@ -2,7 +2,7 @@
 
 [![moonbit-check](https://github.com/yjl9903/minimoonbit-moca/actions/workflows/moonbit.yml/badge.svg)](https://github.com/yjl9903/minimoonbit-moca/actions/workflows/moonbit.yml)
 
-Mini Moonbit implementation from 加力燃烧器.
+Mini Moonbit implementation from 摩卡猫猫.
 
 ## Quickstart
 
