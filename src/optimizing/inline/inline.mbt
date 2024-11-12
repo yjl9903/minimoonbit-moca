@@ -162,43 +162,7 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
   }
 }
 
-fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
-  match knf {
-    Unit | Int(_) | Double(_) => 1
-    Neg(_) | FNeg(_) => 2
-    Add(_) | Sub(_) | Mul(_) | Div(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
-      3
 
-    // Loop
-    Loop(_, _, body) => self.calc_size(body)
-    Continue(_, args) => args.length() + 1
-
-    // If
-    IfEq(_, _, true_branch, false_branch, _)
-    | IfLe(_, _, true_branch, false_branch, _) =>
-      3 + self.calc_size(true_branch) + self.calc_size(false_branch)
-
-    // Array
-    Get(_) => 3
-    Put(_) => 4
-
-    // Var
-    Var(_) => 1
-    Tuple(els) => 1 + els.length()
-
-    // Apply
-    Apply(_, args) => 1 + 1 + args.length()
-    ExternalFunctionApplication(_, args) => 1 + args.length()
-
-    // Let
-    Let(_, expr, rest) => 1 + self.calc_size(expr) + self.calc_size(rest)
-    LetTuple(els, _, rest) => els.length() + self.calc_size(rest)
-    LetRec(_, rest) => 1 + self.calc_size(rest)
-
-    // Unused
-    ExternalArray(_) => @util.die("unreachable")
-  }
-}
 
 fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
   match knf {
