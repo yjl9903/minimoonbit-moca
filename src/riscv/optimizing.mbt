@@ -61,7 +61,10 @@ fn AssemblyFunction::optimize_leaf(self : AssemblyFunction) -> Bool {
   invokes.length() == 0
 }
 
-fn LinearAllocator::optimize_invoke_load_store(self : LinearAllocator) -> Unit {
+fn LinearAllocator::optimize_invoke_load_store(
+  self : LinearAllocator,
+  funcs : Array[AssemblyFunction]
+) -> Unit {
   // For each block, do local analysis
   self.method.body.blocks.each(
     fn {
@@ -224,6 +227,57 @@ fn LinearAllocator::optimize_invoke_load_store(self : LinearAllocator) -> Unit {
           }
         }
       }
+    },
+  )
+
+  // Analyze leaf call, reg load / store
+  self.method.body.stmts.each(
+    fn {
+      stmt =>
+        match stmt.stmt {
+          Definition(def, InvokeDirect(label, _, _)) => {
+            let used = match funcs.filter(fn { m => m.name == label }) {
+              [callee] =>
+                if callee.is_leaf {
+                  callee.allocator.collect_used_reg()
+                } else {
+                  None
+                }
+              _ => None
+            }
+            match used {
+              Some((used_reg, used_freg)) => {
+                let result = self.results[stmt.slot]
+                let saved_reg = self.get_saved_reg_before(def, stmt.slot)
+                let saved_freg = self.get_saved_freg_before(def, stmt.slot)
+                saved_reg.each(
+                  fn {
+                    info => {
+                      let used = used_reg.search_by(fn { r => info.1 == r })
+                      if used.is_empty() {
+                        result.skip_store_vars.insert(info.0.memory_id())
+                        result.skip_load_vars.insert(info.0.memory_id())
+                      }
+                    }
+                  },
+                )
+                saved_freg.each(
+                  fn {
+                    info => {
+                      let used = used_freg.search_by(fn { r => info.1 == r })
+                      if used.is_empty() {
+                        result.skip_store_vars.insert(info.0.memory_id())
+                        result.skip_load_vars.insert(info.0.memory_id())
+                      }
+                    }
+                  },
+                )
+              }
+              None => ()
+            }
+          }
+          _ => ()
+        }
     },
   )
 }

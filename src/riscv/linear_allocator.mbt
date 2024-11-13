@@ -476,20 +476,6 @@ fn LinearAllocator::collect_saved_reg(
 fn LinearAllocator::collect_used_reg(
   self : LinearAllocator
 ) -> (Array[Reg], Array[FReg])? {
-  let has_invoke = self.method.body.stmts.search_by(
-    fn {
-      stmt =>
-        match stmt.stmt {
-          Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_)) => true
-          _ => false
-        }
-    },
-  )
-  // Have invoke, use all reg
-  if not(has_invoke.is_empty()) {
-    return None
-  }
-  // Otherwise
   let regs = @hashset.from_iter(
     self.allocated_reg
     .values()

@@ -2,6 +2,16 @@ pub fn emit(world : MachineWorld) -> AssemblyProgram {
   let functions = world.methods.map(
     fn { method => create_asm_func(world, method) },
   )
+  functions.each(
+    fn {
+      asm_func => {
+        asm_func.allocator.allocate_registor()
+        asm_func.allocator.optimize_invoke_load_store(functions)
+        asm_func.allocator.allocate_stack_vars()
+        asm_func.calc_stack_size()
+      }
+    },
+  )
   let prog = { functions, world }
   functions.each(fn { func => func.emit_method_body() })
   prog
@@ -19,6 +29,7 @@ pub struct AssemblyFunction {
   body : Array[RvAsm]
   machine : MachineMethod
   world : MachineWorld
+  is_leaf : Bool
   allocator : LinearAllocator
 }
 
@@ -28,22 +39,6 @@ pub fn emit_asm(self : AssemblyFunction, asm : RvAsm) -> Unit {
 
 pub fn emit_comment(self : AssemblyFunction, comment : String) -> Unit {
   self.body.push(Comment(comment))
-}
-
-pub fn emit_sanitizer(self : AssemblyFunction, reg : Reg, code : Int) -> Unit {
-  if enable_sanitizer {
-    self.body.push(Comment("--- start sanitizer ---"))
-    self.body.push(Addi(Sp, Sp, -16)) // sp = sp - 16
-    self.body.push(Sd(A0, MemAccess::new(Sp, 8))) // push a0
-    self.body.push(Sd(A1, MemAccess::new(Sp, 0))) // push a1
-    self.body.push(Mv(A0, reg))
-    self.body.push(Li(A1, code.to_string()))
-    self.body.push(Call(sanitizer_label))
-    self.body.push(Ld(A1, MemAccess::new(Sp, 0))) // pop a1
-    self.body.push(Ld(A0, MemAccess::new(Sp, 8))) // pop a0
-    self.body.push(Addi(Sp, Sp, 16)) // sp = sp + 16
-    self.body.push(Comment("--- end sanitizer ---"))
-  }
 }
 
 fn create_asm_func(
@@ -57,12 +52,9 @@ fn create_asm_func(
     body: [],
     machine: method,
     world,
+    is_leaf: method.body.stmts.filter(fn { s => s.is_invoke() }).length() == 0,
     allocator: LinearAllocator::new(method),
   }
-  asm_func.allocator.allocate_registor()
-  asm_func.allocator.allocate_stack_vars()
-  asm_func.allocator.optimize_invoke_load_store()
-  asm_func.calc_stack_size()
   asm_func
 }
 
