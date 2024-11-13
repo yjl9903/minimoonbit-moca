@@ -482,6 +482,9 @@ fn AssemblyFunction::emit_stmt_rvalue(
           if op == Add && -2048 <= x && x < 2048 {
             let r1 = self.emit_get_int_var(lhs, fallback=T0)
             Some(Addi(def, r1, x))
+          } else if op == Sub && -2048 <= -x && -x < 2048 {
+            let r1 = self.emit_get_int_var(lhs, fallback=T0)
+            Some(Addi(def, r1, -x))
           } else if op == Mul {
             match is_power_of_two(x) {
               Some(log) => {
