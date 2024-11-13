@@ -76,7 +76,9 @@ fn remove_dead_global_variables(world : @ssa.World) -> Unit {
                 if defs == 1 && uses == 0 {
                   stmt.update(Nop)
                   removed.insert(def.id)
-                } else if defs_from.size() == 1 && uses_from.size() <= 1 && not(def.is_const()) {
+                } else if defs_from.size() == 1 &&
+                  uses_from.size() <= 1 &&
+                  not(def.is_const()) {
                   let def_from = defs_from.iter().to_array()[0]
                   let use_from = uses_from.iter().to_array().get(0).or(def_from)
                   if def_from == use_from {
