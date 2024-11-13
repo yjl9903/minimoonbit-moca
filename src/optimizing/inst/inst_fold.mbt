@@ -16,6 +16,14 @@ fn PeepholeFunc::transform_single(self : PeepholeFunc) -> Unit {
               match asm {
                 Mv(r1, r2) => if r1 == r2 { self.update(i, Nop) }
                 FmvD(r1, r2) => if r1 == r2 { self.update(i, Nop) }
+                Add(rd, rs1, rs2) =>
+                  if rs1 == rs2 {
+                    self.update(i, Slli(rd, rs1, 1))
+                  }
+                Sub(rd, rs1, rs2) =>
+                  if rs1 == rs2 {
+                    self.update(i, Mv(rd, Zero))
+                  }
                 Addi(r1, r2, x) => if r1 == r2 && x == 0 { self.update(i, Nop) }
                 _ => ()
               }
