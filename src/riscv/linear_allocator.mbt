@@ -76,7 +76,7 @@ fn LinearAllocator::allocate_registor(
         if lhs.from != rhs.from {
           lhs.from - rhs.from
         } else {
-          lhs.to - rhs.to
+          (rhs.to - rhs.from) - (lhs.to - lhs.from)
         }
     },
   )
