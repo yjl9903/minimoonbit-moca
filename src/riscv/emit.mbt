@@ -431,10 +431,10 @@ fn AssemblyFunction::emit_stmt_rvalue(
         }
         true
       }
-    IntOfFloat(var) => {
+    IntOfFloat(var, mode) => {
       let def = self.allocator.get_global_allocated_reg(def)
       let freg = self.emit_get_float_var(var, fallback=Ft0)
-      self.emit_asm(FcvtWD(def, freg))
+      self.emit_asm(FcvtWD(def, freg, mode))
       false
     }
     FloatOfInt(var) => {

@@ -82,7 +82,7 @@ fn is_modify_reg(asm : @riscv.RvAsm, reg : @riscv.Reg) -> Bool {
       }
     FmvDX(_, r1)
     | Fld(_, { base: r1, offset: _ })
-    | Fsd(_, { base: r1, offset: _ }) | FcvtWD(r1, _) =>
+    | Fsd(_, { base: r1, offset: _ }) | FcvtWD(r1, _, _) =>
       if r1 == reg {
         true
       } else {

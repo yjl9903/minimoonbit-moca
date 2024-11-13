@@ -66,7 +66,7 @@ pub enum RvAsm {
   FeqD(Reg, FReg, FReg)
   FleD(Reg, FReg, FReg)
   FmvDX(FReg, Reg)
-  FcvtWD(Reg, FReg)
+  FcvtWD(Reg, FReg, RoundMode)
   FcvtDW(FReg, Reg)
   // pseudo instructions
   Nop
@@ -87,6 +87,11 @@ pub enum RvAsm {
   Label(String)
   Comment(String)
 } derive(Eq)
+
+pub enum RoundMode {
+  Rtz
+  Rdn
+} derive(Show, Eq)
 
 fn write3[TReg1 : Show, TReg2 : Show, TReg3 : Show](
   logger : Logger,
@@ -165,6 +170,22 @@ fn write2[TReg1 : Show, TReg2 : Show](
   rs1.output(logger)
 }
 
+fn write2suf[TReg1 : Show, TReg2 : Show](
+  logger : Logger,
+  op : String,
+  rd : TReg1,
+  rs1 : TReg2,
+  suffix : String
+) -> Unit {
+  logger.write_string(op)
+  logger.write_string(" ")
+  rd.output(logger)
+  logger.write_string(", ")
+  rs1.output(logger)
+  logger.write_string(", ")
+  logger.write_string(suffix)
+}
+
 pub fn RvAsm::output(self : RvAsm, logger : Logger) -> Unit {
   match self {
     Label(_) => ()
@@ -230,7 +251,17 @@ pub fn RvAsm::output(self : RvAsm, logger : Logger) -> Unit {
     FeqD(rd, rs1, rs2) => write3(logger, "feq.d", rd, rs1, rs2)
     FleD(rd, rs1, rs2) => write3(logger, "fle.d", rd, rs1, rs2)
     FcvtDW(rd, rs1) => write2(logger, "fcvt.d.w", rd, rs1)
-    FcvtWD(rd, rs1) => write2(logger, "fcvt.w.d", rd, rs1)
+    FcvtWD(rd, rs1, suf) =>
+      write2suf(
+        logger,
+        "fcvt.w.d",
+        rd,
+        rs1,
+        match suf {
+          Rtz => "rtz"
+          Rdn => "rdn"
+        },
+      )
     FmvDX(rd, rs1) => write2(logger, "fmv.d.x", rd, rs1)
     Nop =>
       // logger.write_string("nop")

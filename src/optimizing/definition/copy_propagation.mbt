@@ -199,10 +199,10 @@ pub fn transform_copy_propagation(
               ()
             }
           }
-          Definition(def, IntOfFloat(var)) => {
+          Definition(def, IntOfFloat(var, mode)) => {
             let new_var = find_replace(stmt.slot, var).or(var)
             if new_var.memory_id() != var.memory_id() {
-              let _ = stmt.update(Definition(def, IntOfFloat(new_var)))
+              let _ = stmt.update(Definition(def, IntOfFloat(new_var, mode)))
               ()
             }
           }
