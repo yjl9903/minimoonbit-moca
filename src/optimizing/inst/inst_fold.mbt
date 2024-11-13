@@ -189,84 +189,100 @@ fn PeepholeFunc::transform_return(self : PeepholeFunc) -> Unit {
           // ?  reg, ...
           // mv a0, reg
           // ret
-          if stmts[i].1 == Ret && i > 2 {
-            match stmts[i - 1].1 {
+          if stmts[i].1 == Ret && i > 3 {
+            let is_mv2 = match stmts[i - 2].1 {
+              Mv(A0, _) => true
+              FmvD(Fa0, _) => true
+              _ => false
+            }
+            let is_mv5 = i > 5 &&
+              (match stmts[i - 5].1 {
+                Mv(A0, _) => true
+                FmvD(Fa0, _) => true
+                _ => false
+              })
+            if not(is_mv2) || not(is_mv5) {
+              continue
+            }
+            let i2 = if is_mv2 { i - 2 } else { i - 5 }
+            let i3 = if is_mv2 { i - 3 } else { i - 6 }
+            match stmts[i2].1 {
               Mv(A0, t) =>
-                match stmts[i - 2].1 {
+                match stmts[i3].1 {
                   Mv(rd, rs1) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Mv(A0, rs1))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Mv(A0, rs1))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Neg(rd, rs1) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Neg(A0, rs1))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Neg(A0, rs1))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Add(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Add(A0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Add(A0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Addi(rd, rs1, imm) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Addi(A0, rs1, imm))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Addi(A0, rs1, imm))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Slli(rd, rs1, imm) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Slli(A0, rs1, imm))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Slli(A0, rs1, imm))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Sub(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Sub(A0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Sub(A0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Mul(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Mul(A0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Mul(A0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Mulw(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Mulw(A0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Mulw(A0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Div(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Div(A0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Div(A0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Divw(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Divw(A0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Divw(A0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Lw(rd, mem) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Lw(A0, mem))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Lw(A0, mem))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Ld(rd, mem) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Ld(A0, mem))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Ld(A0, mem))
+                      self.update(stmts[i2].0, Nop)
                     }
                   Li(rd, value) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, Li(A0, value))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, Li(A0, value))
+                      self.update(stmts[i2].0, Nop)
                     }
                   La(rd, label) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, La(A0, label))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, La(A0, label))
+                      self.update(stmts[i2].0, Nop)
                     }
                   FcvtWD(rd, rs1) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FcvtWD(A0, rs1))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FcvtWD(A0, rs1))
+                      self.update(stmts[i2].0, Nop)
                     }
                   _ => ()
                 }
@@ -274,38 +290,38 @@ fn PeepholeFunc::transform_return(self : PeepholeFunc) -> Unit {
                 match stmts[i - 2].1 {
                   FmvD(rd, rs1) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FmvD(Fa0, rs1))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FmvD(Fa0, rs1))
+                      self.update(stmts[i2].0, Nop)
                     }
                   FnegD(rd, rs1) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FnegD(Fa0, rs1))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FnegD(Fa0, rs1))
+                      self.update(stmts[i2].0, Nop)
                     }
                   FaddD(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FaddD(Fa0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FaddD(Fa0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   FsubD(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FsubD(Fa0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FsubD(Fa0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   FmulD(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FmulD(Fa0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FmulD(Fa0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   FdivD(rd, rs1, rs2) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FdivD(Fa0, rs1, rs2))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FdivD(Fa0, rs1, rs2))
+                      self.update(stmts[i2].0, Nop)
                     }
                   FcvtDW(rd, rs1) =>
                     if rd == t {
-                      self.update(stmts[i - 2].0, FcvtDW(Fa0, rs1))
-                      self.update(stmts[i - 1].0, Nop)
+                      self.update(stmts[i3].0, FcvtDW(Fa0, rs1))
+                      self.update(stmts[i2].0, Nop)
                     }
                   _ => ()
                 }
