@@ -243,28 +243,34 @@ fn LinearAllocator::allocate_initial_state(
   self : LinearAllocator,
   lifes : Map[Int, LifeCycle]
 ) -> (Array[(Reg, LifeCycle?)], Array[(FReg, LifeCycle?)]) {
+  // Allocate callee saved reg first or caller saved first
+  let callee_first = if self.method.is_main { true } else { false }
   let active_reg : Array[(Reg, LifeCycle?)] = {
+    let reg_list = if callee_first {
+      [..reg_callee_saved_list, ..reg_caller_saved_list]
+    } else {
+      [..reg_caller_saved_list, ..reg_callee_saved_list]
+    }
     let mp = []
-    for r in reg_caller_saved_list {
+    for r in reg_list {
       if r == T0 || r == T1 {
         continue
       }
       mp.push((r, None))
     }
-    for r in reg_callee_saved_list {
-      mp.push((r, None))
-    }
     mp
   }
   let active_freg : Array[(FReg, LifeCycle?)] = {
+    let freg_list = if callee_first {
+      [..freg_callee_saved_list, ..freg_caller_saved_list]
+    } else {
+      [..freg_caller_saved_list, ..freg_callee_saved_list]
+    }
     let mp = []
-    for r in freg_caller_saved_list {
+    for r in freg_list {
       if r == Ft0 || r == Ft1 {
         continue
       }
-      mp.push((r, None))
-    }
-    for r in freg_callee_saved_list {
       mp.push((r, None))
     }
     mp
