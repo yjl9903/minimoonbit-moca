@@ -1,4 +1,7 @@
-pub fn transform_copy_propagation(method : @riscv.MachineMethod) -> Unit {
+pub fn transform_copy_propagation(
+  method : @riscv.MachineMethod,
+  ~iterator : Int = 0
+) -> Unit {
   @shared.debug("Copy propagation on machine ir: \{method.name}")
 
   // 1. Collect concerned stmts
@@ -153,6 +156,7 @@ pub fn transform_copy_propagation(method : @riscv.MachineMethod) -> Unit {
     },
   )
   // available_in.eachi(fn { i, av => println("\{i}: \{av}") })
+  let mut replaced = false
   fn find_replace(slot : Int, var : @riscv.MachineVar) -> @riscv.MachineVar? {
     let available_in = available_in[slot].filter(
       fn {
@@ -167,6 +171,7 @@ pub fn transform_copy_propagation(method : @riscv.MachineMethod) -> Unit {
     match available_in {
       [(_, rhs, _)] => {
         @shared.debug("L\{slot} \{var} -> \{rhs}")
+        replaced = true
         Some(rhs)
       }
       _ => None
@@ -396,4 +401,9 @@ pub fn transform_copy_propagation(method : @riscv.MachineMethod) -> Unit {
         }
     },
   )
+
+  // Iterator
+  if replaced && iterator < 10 {
+    transform_copy_propagation(method, iterator=iterator + 1)
+  }
 }
