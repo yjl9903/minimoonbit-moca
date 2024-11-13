@@ -3,7 +3,8 @@ pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
   ph.transform_return()
   ph.transform_single()
   ph.transform_pair()
-  ph.transform_store_load()
+  ph.transform_quad()
+  // ph.transform_store_load()
 }
 
 fn PeepholeFunc::transform_single(self : PeepholeFunc) -> Unit {
@@ -172,6 +173,35 @@ fn PeepholeFunc::transform_pair(self : PeepholeFunc) -> Unit {
             //       self.update(j, Slli(r1, r3, 3))
             //     }
             //   }
+            _ => ()
+          }
+        }
+    },
+  )
+}
+
+fn PeepholeFunc::transform_quad(self : PeepholeFunc) -> Unit {
+  self.blocks.each(
+    fn {
+      block =>
+        for t = 0; t + 3 < block.insts.length(); t = t + 1 {
+          let (_, s1) = block.insts[t]
+          let (_, s2) = block.insts[t + 1]
+          let (k, s3) = block.insts[t + 2]
+          let (l, s4) = block.insts[t + 3]
+          match (s1, s2, s3, s4) {
+            (
+              Add(rd1, rs11, rs12),
+              Ld(rd2, { base: b2, offset: o2 }),
+              Add(rd3, rs31, rs32),
+              Ld(rd4, { base: b4, offset: o4 }),
+            ) =>
+              if rs11 == rs31 && rs12 == rs32 {
+                if rd1 == b2 && rd3 == b4 && o2 == o4 {
+                  self.update(k, Nop)
+                  self.update(l, Mv(rd4, rd2))
+                }
+              }
             _ => ()
           }
         }
