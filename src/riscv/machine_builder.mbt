@@ -303,6 +303,10 @@ fn Builder::build(self : Builder, method : @ssa.Method) -> Unit {
 }
 
 fn Builder::build_stmt(self : Builder, stmt : @ssa.Stmt) -> Array[StmtKind] {
+  match stmt.stmt {
+    Nop => return []
+    _ => ()
+  }
   let stmts = []
   match self.method.ssa_method {
     Some(method) =>

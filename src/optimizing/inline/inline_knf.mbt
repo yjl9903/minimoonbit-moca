@@ -1,5 +1,9 @@
-pub fn transform_method_inline(knf : Knf) -> Knf {
-  let context = { funcs: Map::new(), path: [], local: @immut/hashmap.new() }
+pub fn transform_knf_method_inline(knf : Knf) -> Knf {
+  let context = InlineContext::{
+    funcs: Map::new(),
+    path: [],
+    local: @immut/hashmap.new(),
+  }
   context.collect_knf(knf)
   let knf = context.transform(knf)
   context.cleanup(knf)
@@ -42,9 +46,13 @@ fn FuncDefInfo::should_be_all_inlined(self : FuncDefInfo) -> Bool {
     false
   } else if self.applied <= max_inline_applied {
     true
-  } else if self.size <= max_inline_size &&
-    self.applied <= max_inline_size_applied {
-    true
+  } else if self.count == 0 {
+    for policy in max_inline_policy {
+      if self.size <= policy.size && self.applied <= policy.applied {
+        return true
+      }
+    }
+    false
   } else {
     false
   }
@@ -150,7 +158,7 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
     }
     LetTuple(_, _, rest) => self.collect_knf(rest)
     LetRec(def, rest) => {
-      let info = { def, applied: 0, size: 0, count: 0 }
+      let info = FuncDefInfo::{ def, applied: 0, size: 0, count: 0 }
       info.size = info.calc_size(def.body)
       self.funcs.set(def.name, info)
       self.collect_knf(def.body)
@@ -159,44 +167,6 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
 
     // Unused
     ExternalArray(_) => ()
-  }
-}
-
-fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
-  match knf {
-    Unit | Int(_) | Double(_) => 1
-    Neg(_) | FNeg(_) => 2
-    Add(_) | Sub(_) | Mul(_) | Div(_) | FAdd(_) | FSub(_) | FMul(_) | FDiv(_) =>
-      3
-
-    // Loop
-    Loop(_, _, body) => self.calc_size(body)
-    Continue(_, args) => args.length() + 1
-
-    // If
-    IfEq(_, _, true_branch, false_branch, _)
-    | IfLe(_, _, true_branch, false_branch, _) =>
-      3 + self.calc_size(true_branch) + self.calc_size(false_branch)
-
-    // Array
-    Get(_) => 3
-    Put(_) => 4
-
-    // Var
-    Var(_) => 1
-    Tuple(els) => 1 + els.length()
-
-    // Apply
-    Apply(_, args) => 1 + 1 + args.length()
-    ExternalFunctionApplication(_, args) => 1 + args.length()
-
-    // Let
-    Let(_, expr, rest) => 1 + self.calc_size(expr) + self.calc_size(rest)
-    LetTuple(els, _, rest) => els.length() + self.calc_size(rest)
-    LetRec(_, rest) => 1 + self.calc_size(rest)
-
-    // Unused
-    ExternalArray(_) => @util.die("unreachable")
   }
 }
 
@@ -249,7 +219,7 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
             if self.path.search_by(fn { f => f.id == info.def.id }).is_empty() {
               @shared.debug("Transform inline: \{knf}")
               info.applied -= 1
-              copy_func_body(info.def, args)
+              copy_func_body(info.def, args, info.size)
             } else {
               knf
             }
