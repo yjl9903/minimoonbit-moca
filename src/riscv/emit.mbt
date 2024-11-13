@@ -65,7 +65,7 @@ pub struct AssemblyFunction {
   export : Bool
   machine : MachineMethod
   world : MachineWorld
-  is_leaf : Bool
+  invokes : Int
   liveness : LivenessState
   mut body : Array[RvAsm]
   mut allocator : LinearAllocator
@@ -91,7 +91,7 @@ fn create_asm_func(
     body: [],
     machine: method,
     world,
-    is_leaf: method.body.stmts.filter(fn { s => s.is_invoke() }).length() == 0,
+    invokes: method.body.stmts.filter(fn { s => s.is_invoke() }).length(),
     liveness,
     allocator: LinearAllocator::new(method, liveness),
   }
@@ -182,7 +182,7 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   // ------------- sp
 
   // 1. Prologue
-  if not(self.optimize_leaf()) {
+  if self.invokes > 0 && not(self.machine.is_main) {
     self.emit_asm(Addi(Sp, Sp, -16))
     self.emit_asm(Sd(Ra, MemAccess::new(Sp, 8)))
     self.emit_asm(Sd(Fp, MemAccess::new(Sp, 0)))
@@ -391,7 +391,7 @@ fn AssemblyFunction::emit_method_stmt(
         self.emit_asm(Li(A7, "93"))
         self.emit_asm(Ecall)
       } else {
-        if not(self.optimize_leaf()) {
+        if self.invokes > 0 {
           self.emit_asm(Mv(Sp, Fp))
           self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
           self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))

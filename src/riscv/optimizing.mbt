@@ -238,7 +238,7 @@ fn LinearAllocator::optimize_invoke_load_store(
           Definition(def, InvokeDirect(label, _, _)) => {
             let used = match funcs.filter(fn { m => m.name == label }) {
               [callee] =>
-                if callee.is_leaf {
+                if callee.invokes == 0 {
                   callee.allocator.collect_used_reg()
                 } else {
                   None
