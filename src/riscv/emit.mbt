@@ -473,6 +473,19 @@ fn AssemblyFunction::emit_stmt_rvalue(
               }
               None => None
             }
+          } else if op == Div {
+            match is_power_of_two(x) {
+              Some(log) => {
+                let r1 = self.emit_get_int_var(lhs, fallback=T0)
+                if log == 0 {
+                  Some(Mv(def, r1))
+                } else {
+                  self.emit_asm(Li(T1, log.to_string()))
+                  Some(Sra(def, r1, T1))
+                }
+              }
+              None => None
+            }
           } else {
             None
           }
