@@ -193,7 +193,7 @@ fn WorldBuilder::preprocess(
       )
       if actual_free_vars.length() == 0 {
         self.add_global_fun(name, closure)
-        // self.add_global_var(name, typ)
+        self.add_global_var(name, typ)
       }
       MakeClosure(
         (name, typ),
