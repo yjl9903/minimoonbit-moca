@@ -4,17 +4,54 @@ pub fn emit(world : MachineWorld) -> AssemblyProgram {
   )
   functions.each(
     fn {
-      asm_func => {
-        asm_func.allocator.allocate_registor()
-        asm_func.allocator.optimize_invoke_load_store(functions)
-        asm_func.allocator.allocate_stack_vars()
-        asm_func.calc_stack_size()
-      }
+      asm_func =>
+        if asm_func.machine.is_main {
+          // main func use callee first
+          asm_func.allocator.allocate_registor(callee_first=true)
+          asm_func.allocator.optimize_invoke_load_store(functions)
+          asm_func.allocator.allocate_stack_vars()
+          asm_func.calc_stack_size()
+          asm_func.emit_method_body()
+        } else if asm_func.machine.body.stmts.length() < 20 {
+          // small func use caller first
+          asm_func.allocator.allocate_registor(callee_first=false)
+          asm_func.allocator.optimize_invoke_load_store(functions)
+          asm_func.allocator.allocate_stack_vars()
+          asm_func.calc_stack_size()
+          asm_func.emit_method_body()
+        } else {
+          // 1. try callee first
+          let body1 = asm_func.body
+          let allocator1 = asm_func.allocator
+          asm_func.allocator.allocate_registor(callee_first=false)
+          asm_func.allocator.optimize_invoke_load_store(functions)
+          asm_func.allocator.allocate_stack_vars()
+          asm_func.calc_stack_size()
+          asm_func.emit_method_body()
+
+          // 2. try caller first
+          let body2 = []
+          let allocator2 = LinearAllocator::new(
+            asm_func.machine,
+            asm_func.liveness,
+          )
+          asm_func.body = body2
+          asm_func.allocator = allocator2
+          asm_func.allocator.allocate_registor(callee_first=true)
+          asm_func.allocator.optimize_invoke_load_store(functions)
+          asm_func.allocator.allocate_stack_vars()
+          asm_func.calc_stack_size()
+          asm_func.emit_method_body()
+
+          // 3. merge result
+          if body1.length() <= body2.length() {
+            asm_func.body = body1
+            asm_func.allocator = allocator1
+          }
+        }
     },
   )
-  let prog = { functions, world }
-  functions.each(fn { func => func.emit_method_body() })
-  prog
+  { functions, world }
 }
 
 pub struct AssemblyProgram {
@@ -26,11 +63,12 @@ pub struct AssemblyFunction {
   name : String
   label : String
   export : Bool
-  body : Array[RvAsm]
   machine : MachineMethod
   world : MachineWorld
   is_leaf : Bool
-  allocator : LinearAllocator
+  liveness : LivenessState
+  mut body : Array[RvAsm]
+  mut allocator : LinearAllocator
 }
 
 pub fn emit_asm(self : AssemblyFunction, asm : RvAsm) -> Unit {
@@ -45,6 +83,7 @@ fn create_asm_func(
   world : MachineWorld,
   method : MachineMethod
 ) -> AssemblyFunction {
+  let liveness = LivenessState::analyze(method)
   let asm_func = {
     name: method.name,
     label: method.label,
@@ -53,7 +92,8 @@ fn create_asm_func(
     machine: method,
     world,
     is_leaf: method.body.stmts.filter(fn { s => s.is_invoke() }).length() == 0,
-    allocator: LinearAllocator::new(method),
+    liveness,
+    allocator: LinearAllocator::new(method, liveness),
   }
   asm_func
 }

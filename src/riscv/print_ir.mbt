@@ -36,7 +36,7 @@ fn MachineWorld::print_method(
   method : MachineMethod,
   logger : Logger
 ) -> Unit {
-  let allocator = LinearAllocator::new(method)
+  let allocator = LinearAllocator::new(method, LivenessState::analyze(method))
   allocator.allocate_registor()
   // let liveness = allocator.liveness
 

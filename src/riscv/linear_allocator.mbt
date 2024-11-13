@@ -16,8 +16,10 @@ struct AllocationResult {
   freg_map_after : Map[Int, FReg] // After this inst, Var -> FReg
 }
 
-fn LinearAllocator::new(method : MachineMethod) -> LinearAllocator {
-  let liveness = LivenessState::analyze(method)
+fn LinearAllocator::new(
+  method : MachineMethod,
+  liveness : LivenessState
+) -> LinearAllocator {
   {
     liveness,
     method,
@@ -50,7 +52,10 @@ fn AllocationResult::new() -> AllocationResult {
 //   }
 // }
 
-fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
+fn LinearAllocator::allocate_registor(
+  self : LinearAllocator,
+  ~callee_first : Bool = false
+) -> Unit {
   let body = self.method.body
   let lifes_map = self.get_life_cycles()
   let lifes = lifes_map.values().to_array()
@@ -85,7 +90,10 @@ fn LinearAllocator::allocate_registor(self : LinearAllocator) -> Unit {
   //   @shared.debug("Life \{life.var.memory_id()}: [\{life.from}, \{life.to}]")
   // }
   let mut p = 0
-  let (active_reg, active_freg) = self.allocate_initial_state(lifes_map)
+  let (active_reg, active_freg) = self.allocate_initial_state(
+    lifes_map,
+    ~callee_first,
+  )
   // Allocate params
   while p < lifes.length() && -1 == lifes[p].from {
     let var = lifes[p].var
@@ -241,10 +249,9 @@ fn LinearAllocator::allocate_registor_or_spill[TReg](
 
 fn LinearAllocator::allocate_initial_state(
   self : LinearAllocator,
-  lifes : Map[Int, LifeCycle]
+  lifes : Map[Int, LifeCycle],
+  ~callee_first : Bool
 ) -> (Array[(Reg, LifeCycle?)], Array[(FReg, LifeCycle?)]) {
-  // Allocate callee saved reg first or caller saved first
-  let callee_first = if self.method.is_main { true } else { false }
   let active_reg : Array[(Reg, LifeCycle?)] = {
     let reg_list = if callee_first {
       [..reg_callee_saved_list, ..reg_caller_saved_list]
