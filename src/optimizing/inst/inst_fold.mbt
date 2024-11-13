@@ -51,6 +51,70 @@ fn PeepholeFunc::transform_pair(self : PeepholeFunc) -> Unit {
                 // mv a1, a0
                 self.update(j, Nop)
               }
+            // mv  a0, a1
+            // add a0, a2, a0 -> add a0, a2, a1
+            (Mv(rd1, rs11), Add(rd2, rs21, rs22)) =>
+              if rd1 == rd2 {
+                if rd1 == rs21 {
+                  self.update(i, Nop)
+                  self.update(j, Add(rd2, rs11, rs22))
+                } else if rd1 == rs22 {
+                  self.update(i, Nop)
+                  self.update(j, Add(rd2, rs21, rs11))
+                }
+              }
+            // mv  a0, a1
+            // sub a0, a2, a0 -> sub a0, a2, a1
+            (Mv(rd1, rs11), Sub(rd2, rs21, rs22)) =>
+              if rd1 == rd2 {
+                if rd1 == rs21 {
+                  self.update(i, Nop)
+                  self.update(j, Sub(rd2, rs11, rs22))
+                } else if rd1 == rs22 {
+                  self.update(i, Nop)
+                  self.update(j, Sub(rd2, rs21, rs11))
+                }
+              }
+            (Mv(rd1, rs11), Mul(rd2, rs21, rs22)) =>
+              if rd1 == rd2 {
+                if rd1 == rs21 {
+                  self.update(i, Nop)
+                  self.update(j, Mul(rd2, rs11, rs22))
+                } else if rd1 == rs22 {
+                  self.update(i, Nop)
+                  self.update(j, Mul(rd2, rs21, rs11))
+                }
+              }
+            (Mv(rd1, rs11), Div(rd2, rs21, rs22)) =>
+              if rd1 == rd2 {
+                if rd1 == rs21 {
+                  self.update(i, Nop)
+                  self.update(j, Div(rd2, rs11, rs22))
+                } else if rd1 == rs22 {
+                  self.update(i, Nop)
+                  self.update(j, Div(rd2, rs21, rs11))
+                }
+              }
+            (Mv(rd1, rs11), Mulw(rd2, rs21, rs22)) =>
+              if rd1 == rd2 {
+                if rd1 == rs21 {
+                  self.update(i, Nop)
+                  self.update(j, Mulw(rd2, rs11, rs22))
+                } else if rd1 == rs22 {
+                  self.update(i, Nop)
+                  self.update(j, Mulw(rd2, rs21, rs11))
+                }
+              }
+            (Mv(rd1, rs11), Divw(rd2, rs21, rs22)) =>
+              if rd1 == rd2 {
+                if rd1 == rs21 {
+                  self.update(i, Nop)
+                  self.update(j, Divw(rd2, rs11, rs22))
+                } else if rd1 == rs22 {
+                  self.update(i, Nop)
+                  self.update(j, Divw(rd2, rs21, rs11))
+                }
+              }
             // (Sw(r1, mem1), Lw(r2, mem2)) =>
             //   if r1 != mem1.base && mem1 == mem2 {
             //     if r1 == r2 {
