@@ -2,7 +2,11 @@ pub fn World::print(self : World) -> Unit {
   self.global.each(
     fn {
       v => {
-        println("let \{v} : \{v.ty};")
+        match v.const_value {
+          Some(Int(x)) => println("let \{v} : \{v.ty} = \{x};")
+          Some(Double(x)) => println("let \{v} : \{v.ty} = \{x};")
+          _ => println("let \{v} : \{v.ty};")
+        }
         println("")
       }
     },
