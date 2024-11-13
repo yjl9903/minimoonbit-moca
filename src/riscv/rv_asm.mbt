@@ -78,6 +78,7 @@ pub enum RvAsm {
   FmvD(FReg, FReg)
   J(Label)
   Jalr(Reg)
+  Jalr2(Reg, Reg)
   Jr(Reg)
   Call(Label)
   Tail(Label)
@@ -266,6 +267,12 @@ pub fn RvAsm::output(self : RvAsm, logger : Logger) -> Unit {
     }
     Jalr(rs1) => {
       logger.write_string("jalr ")
+      Show::output(rs1, logger)
+    }
+    Jalr2(rd, rs1) => {
+      logger.write_string("jalr ")
+      Show::output(rd, logger)
+      logger.write_string(", ")
       Show::output(rs1, logger)
     }
     Jr(rs1) => {
