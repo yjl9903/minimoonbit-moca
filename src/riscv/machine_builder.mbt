@@ -646,11 +646,12 @@ fn Builder::build_rvalue(
           let arg = self.build_get_var(arg, stmts)
           Some(IntOfFloat(arg, Rtz))
         }
-        ("minimbt_float_of_int", true) => {
-          let arg = args[0]
-          let arg = self.build_get_var(arg, stmts)
-          Some(FloatOfInt(arg))
-        }
+        // TODO: check
+        // ("minimbt_float_of_int", true) => {
+        //   let arg = args[0]
+        //   let arg = self.build_get_var(arg, stmts)
+        //   Some(FloatOfInt(arg))
+        // }
         _ => {
           let ty = self.world.ssa.get_method_type(label).unwrap()
           let ret_type = @closure.extract_return_type(ty)
