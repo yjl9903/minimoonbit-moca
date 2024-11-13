@@ -126,25 +126,54 @@ fn LinearAllocator::allocate_registor(
     }
     self.results.push(allocation)
 
-    // 2. Allocate defined register
+    // 2. Release outdated
+    let uses = body.stmts[i].uses
+    let released_reg = self
+      .release_register(active_reg, i)
+      .filter(
+        fn {
+          info => {
+            let vid = info.1.var.memory_id()
+            match uses.search_by(fn { use => use.memory_id() == vid }) {
+              Some(_) => true
+              None => false
+            }
+          }
+        },
+      )
+    let released_freg = self
+      .release_register(active_freg, i)
+      .filter(
+        fn {
+          info => {
+            let vid = info.1.var.memory_id()
+            match uses.search_by(fn { use => use.memory_id() == vid }) {
+              Some(_) => true
+              None => false
+            }
+          }
+        },
+      )
+
+    // 3. Allocate defined register
     while p < lifes.length() && i == lifes[p].from {
       let life = lifes[p]
       let var = lifes[p].var
       if var.width.is_float() {
-        let idx = allocate_registor_or_spill(self, active_freg, life)
+        let idx = allocate_registor_or_spill(
+          self, active_freg, life, released_freg,
+        )
         // @shared.debug("allocate \{var.memory_id()} to \{active_freg[idx].0}")
         self.allocated_freg[var.memory_id()] = (var, active_freg[idx].0)
       } else {
-        let idx = allocate_registor_or_spill(self, active_reg, life)
+        let idx = allocate_registor_or_spill(
+          self, active_reg, life, released_reg,
+        )
         // @shared.debug("allocate \{var.memory_id()} to \{active_reg[idx].0}")
         self.allocated_reg[var.memory_id()] = (var, active_reg[idx].0)
       }
       p = p + 1
     }
-
-    // 3. Release outdated
-    self.release_register(active_freg, i)
-    self.release_register(active_reg, i)
 
     // 4. Set allocation info after stmt
     for item in active_freg {
@@ -183,7 +212,7 @@ fn LinearAllocator::release_register[TReg](
   _self : LinearAllocator,
   active : Array[(TReg, LifeCycle?)],
   current : Int
-) -> Unit {
+) -> Array[(TReg, LifeCycle)] {
   let removed = []
   for idx, item in active {
     let (_, life) = item
@@ -192,25 +221,52 @@ fn LinearAllocator::release_register[TReg](
       None => ()
     }
   }
-  removed.each(fn { idx => active[idx] = (active[idx].0, None) })
+  removed.map(
+    fn {
+      idx => {
+        let origin = active[idx]
+        active[idx] = (active[idx].0, None)
+        (origin.0, origin.1.unwrap())
+      }
+    },
+  )
 }
 
-fn LinearAllocator::allocate_registor_or_spill[TReg](
+fn LinearAllocator::allocate_registor_or_spill[TReg : Eq](
   self : LinearAllocator,
   active : Array[(TReg, LifeCycle?)],
-  life : LifeCycle
+  life : LifeCycle,
+  released : Array[(TReg, LifeCycle)]
 ) -> Int {
   let mut found = None
-  for idx, item in active {
-    let (_, v) = item
-    match v {
-      Some(_) => ()
-      None => {
+  // 1. try released register
+  for _, item in released {
+    let (reg, _) = item
+    let idx = active.search_by(
+      fn { info => info.0 == reg && info.1.is_empty() },
+    )
+    match idx {
+      Some(idx) => {
         found = Some(idx)
         break
       }
+      None => ()
     }
   }
+  // 2. try other register from left to right
+  if found.is_empty() {
+    for idx, item in active {
+      let (_, v) = item
+      match v {
+        Some(_) => ()
+        None => {
+          found = Some(idx)
+          break
+        }
+      }
+    }
+  }
+  // 3. Found reg or spill
   match found {
     Some(idx) => {
       active[idx] = (active[idx].0, Some(life))
