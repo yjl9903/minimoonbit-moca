@@ -26,6 +26,7 @@ fn get_optimizing_manager(backend : Backends) -> @optimizing.Manager {
   optimizing_manager.add_opt_passes(
     [
       Pass::Knf(ConstProp),
+      Pass::Ssa(DeadCodeElimination),
       Pass::Ssa(ConstProp),
       Pass::Ssa(DeadCodeElimination),
       Pass::Machine(CopyPropagation),
