@@ -1,10 +1,16 @@
-pub fn transform_inst_fold(method : @riscv.AssemblyFunction) -> Unit {
+pub fn transform_inst_fold(
+  method : @riscv.AssemblyFunction,
+  ~depth : Int = 0
+) -> Unit {
   let ph = PeepholeFunc::new(method)
   ph.transform_return()
   ph.transform_single()
   ph.transform_pair()
   ph.transform_quad()
   // ph.transform_store_load()
+  if ph.changed && depth < 5 {
+    transform_inst_fold(method, depth=depth + 1)
+  }
 }
 
 fn PeepholeFunc::transform_single(self : PeepholeFunc) -> Unit {

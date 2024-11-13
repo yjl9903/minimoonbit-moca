@@ -2,6 +2,7 @@ struct PeepholeFunc {
   asm : @riscv.AssemblyFunction
   blocks : Array[Block]
   blocks_map : Map[Int, (Int, Int)]
+  mut changed : Bool
 }
 
 struct Block {
@@ -61,7 +62,7 @@ fn PeepholeFunc::new(asm : @riscv.AssemblyFunction) -> PeepholeFunc {
       _ => push(i, inst)
     }
   }
-  { asm, blocks, blocks_map }
+  { asm, blocks, blocks_map, changed: false }
 }
 
 fn PeepholeFunc::update(
@@ -72,4 +73,5 @@ fn PeepholeFunc::update(
   let (blk, pos) = self.blocks_map.get(i).unwrap()
   self.asm.body[i] = asm
   self.blocks[blk].insts[pos] = (i, asm)
+  self.changed = true
 }
