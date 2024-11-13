@@ -432,28 +432,16 @@ fn AssemblyFunction::emit_stmt_rvalue(
         true
       }
     IntOfFloat(var) => {
-      if self.allocator.is_spilled(def) {
-        let reg = self.emit_get_float_var(var, fallback=Ft0)
-        self.emit_asm(FcvtWD(T0, reg))
-        self.emit_asm(Sw(T0, MemAccess::new(Fp, def.offset)))
-      } else {
-        let def = self.allocator.get_global_allocated_reg(def)
-        let reg = self.emit_get_float_var(var, fallback=Ft0)
-        self.emit_asm(FcvtWD(def, reg))
-      }
-      true
+      let def = self.allocator.get_global_allocated_reg(def)
+      let freg = self.emit_get_float_var(var, fallback=Ft0)
+      self.emit_asm(FcvtWD(def, freg))
+      false
     }
     FloatOfInt(var) => {
-      if self.allocator.is_spilled(def) {
-        let reg = self.emit_get_int_var(var, fallback=T0)
-        self.emit_asm(FcvtDW(Ft0, reg))
-        self.emit_asm(Fsd(Ft0, MemAccess::new(Fp, def.offset)))
-      } else {
-        let def = self.allocator.get_global_allocated_freg(def)
-        let reg = self.emit_get_int_var(var, fallback=T0)
-        self.emit_asm(FcvtDW(def, reg))
-      }
-      true
+      let def = self.allocator.get_global_allocated_freg(def)
+      let reg = self.emit_get_int_var(var, fallback=T0)
+      self.emit_asm(FcvtDW(def, reg))
+      false
     }
     Neg(expr, Int) => {
       let def_reg = self.allocator.get_global_allocated_reg(def)
