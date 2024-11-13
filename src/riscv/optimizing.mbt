@@ -2,7 +2,8 @@ fn AssemblyFunction::optimize_tail_call(
   self : AssemblyFunction,
   saved_reg : Array[Reg],
   saved_freg : Array[FReg]
-) -> Unit {
+) -> Int {
+  let mut found = 0
   if not(self.machine.is_main) &&
     saved_reg.length() == 0 &&
     saved_freg.length() == 0 &&
@@ -30,6 +31,7 @@ fn AssemblyFunction::optimize_tail_call(
             if def.map(fn { v => v.memory_id() }) ==
               ret.map(fn { v => v.memory_id() }) ||
               ret.is_empty() {
+              found += 1
               self.machine.tail_calls.insert(stmts[i].slot)
               stmts[j].stmt = Nop
             }
@@ -43,6 +45,7 @@ fn AssemblyFunction::optimize_tail_call(
                 Some(_) => ()
                 // Our method
                 None => {
+                  found += 1
                   self.machine.tail_calls.insert(stmts[i].slot)
                   stmts[j].stmt = Nop
                 }
@@ -54,6 +57,7 @@ fn AssemblyFunction::optimize_tail_call(
       i = j
     }
   }
+  found
 }
 
 fn AssemblyFunction::optimize_leaf(self : AssemblyFunction) -> Bool {

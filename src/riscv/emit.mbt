@@ -182,11 +182,14 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
   // ------------- sp
 
   // 1. Prologue
-  if self.invokes > 0 && not(self.machine.is_main) {
+  let prologue = if self.invokes > 0 && not(self.machine.is_main) {
     self.emit_asm(Addi(Sp, Sp, -16))
     self.emit_asm(Sd(Ra, MemAccess::new(Sp, 8)))
     self.emit_asm(Sd(Fp, MemAccess::new(Sp, 0)))
     self.emit_asm(Mv(Fp, Sp))
+    true
+  } else {
+    false
   }
 
   // 1.1. Calc stack size
@@ -240,8 +243,15 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
     }
   }
 
-  // 2. Optimizing
-  self.optimize_tail_call(saved_reg, saved_freg)
+  // 2. Optimizing tail calls
+  let tail_calls = self.optimize_tail_call(saved_reg, saved_freg)
+  if tail_calls == 1 && self.invokes == 1 && prologue {
+    // leaf tail call: only a tail call
+    self.body[0] = Nop
+    self.body[1] = Nop
+    self.body[2] = Nop
+    self.body[3] = Nop
+  }
 
   // 3. Build stmts
   for block in self.machine.body.blocks {
@@ -830,10 +840,14 @@ fn AssemblyFunction::emit_invoke_closure(
   }
   if stack_size == 0 && self.machine.tail_calls.contains(stmt_slot) {
     // self.emit_asm(Addi(T6, T6, 8)) // Skip save ra, fp
-    self.emit_asm(Mv(Sp, Fp))
-    self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
-    self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
-    self.emit_asm(Addi(Sp, Sp, 16))
+    if self.invokes > 1 {
+      self.emit_asm(Mv(Sp, Fp))
+      self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
+      self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
+      self.emit_asm(Addi(Sp, Sp, 16))
+    } else {
+      self.emit_asm(Addi(Sp, Sp, self.machine.stack_size))
+    }
     self.emit_asm(Jalr2(T0, T6))
     self.emit_comment("--- invoke_closure tail \{callee.id} ---")
   } else {
@@ -881,10 +895,14 @@ fn AssemblyFunction::emit_invoke_direct(
     // self.emit_asm(Addi(Sp, Sp, self.machine.stack_size))
     // self.emit_asm(La(T6, label))
     // self.emit_asm(Addi(T6, T6, 8)) // Skip save ra, fp
-    self.emit_asm(Mv(Sp, Fp))
-    self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
-    self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
-    self.emit_asm(Addi(Sp, Sp, 16))
+    if self.invokes > 1 {
+      self.emit_asm(Mv(Sp, Fp))
+      self.emit_asm(Ld(Fp, MemAccess::new(Sp, 0)))
+      self.emit_asm(Ld(Ra, MemAccess::new(Sp, 8)))
+      self.emit_asm(Addi(Sp, Sp, 16))
+    } else {
+      self.emit_asm(Addi(Sp, Sp, self.machine.stack_size))
+    }
     self.emit_asm(Tail(label))
     self.emit_comment("--- invoke_direct tail \{label} ---")
   } else {

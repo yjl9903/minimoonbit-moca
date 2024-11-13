@@ -454,11 +454,7 @@ fn LinearAllocator::get_life_cycles(
 fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
   let vars_map = Map::new()
   for var in self.method.local_vars {
-    if not(var.const_value.is_empty()) {
-      var.is_stack = false
-    } else {
-      var.is_stack = false
-    }
+    var.is_stack = false
     vars_map.set(var.id, var)
   }
   // Spilled var should have stack slot
@@ -478,6 +474,10 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
         for vid, reg in result.reg_map_after {
           if def_id != vid &&
             not(self.is_spilled_by_id(vid)) &&
+            (
+              not(result.skip_store_vars.contains(vid)) ||
+              not(result.skip_load_vars.contains(vid))
+            ) &&
             reg_caller_saved_list.contains(reg) {
             let var = self.get_global_allocated_int_var(vid)
             if var.const_value.is_empty() {
@@ -491,6 +491,10 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
         for vid, freg in result.freg_map_after {
           if def_id != vid &&
             not(self.is_spilled_by_id(vid)) &&
+            (
+              not(result.skip_store_vars.contains(vid)) ||
+              not(result.skip_load_vars.contains(vid))
+            ) &&
             freg_caller_saved_list.contains(freg) {
             let var = self.get_global_allocated_float_var(vid)
             if var.const_value.is_empty() {
@@ -500,21 +504,6 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
               }
             }
           }
-        }
-        match rvalue {
-          InvokeClosure(_, args, _) | InvokeDirect(_, args, _) =>
-            args.each(
-              fn {
-                arg =>
-                  if not(arg.is_const()) {
-                    match arg.outcoming_var {
-                      Some(outcoming_var) => outcoming_var.is_stack = true
-                      None => arg.is_stack = true
-                    }
-                  }
-              },
-            )
-          _ => ()
         }
       }
       _ => ()
