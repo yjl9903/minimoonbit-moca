@@ -426,9 +426,9 @@ fn PeepholeFunc::transform_return(self : PeepholeFunc) -> Unit {
                       self.update(stmts[i3].0, FdivD(Fa0, rs1, rs2))
                       self.update(stmts[i2].0, Nop)
                     }
-                  FcvtDW(rd, rs1) =>
+                  FcvtDW(rd, rs1, mode) =>
                     if rd == t {
-                      self.update(stmts[i3].0, FcvtDW(Fa0, rs1))
+                      self.update(stmts[i3].0, FcvtDW(Fa0, rs1, mode))
                       self.update(stmts[i2].0, Nop)
                     }
                   _ => ()

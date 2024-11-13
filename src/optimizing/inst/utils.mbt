@@ -107,7 +107,7 @@ fn is_modify_freg(asm : @riscv.RvAsm, freg : @riscv.FReg) -> Bool {
       } else {
         false
       }
-    FmvDX(fr0, _) | Fld(fr0, _) | Fsd(fr0, _) | FcvtDW(fr0, _) =>
+    FmvDX(fr0, _) | Fld(fr0, _) | Fsd(fr0, _) | FcvtDW(fr0, _, _) =>
       if fr0 == freg {
         true
       } else {

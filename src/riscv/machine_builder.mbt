@@ -479,7 +479,7 @@ fn Builder::build_rvalue(
           match get_floor_int(x) {
             Some(x) => {
               let c = self.add_int_const_var(x)
-              Some(FloatOfInt(c))
+              Some(FloatOfInt(c, None))
             }
             None => {
               let label = add_double_const(self.world, x)
@@ -644,13 +644,12 @@ fn Builder::build_rvalue(
         ("minimbt_int_of_float" | "minimbt_truncate", true) => {
           let arg = args[0]
           let arg = self.build_get_var(arg, stmts)
-          Some(IntOfFloat(arg, Rtz))
+          Some(IntOfFloat(arg, Some(Rtz)))
         }
-        // TODO: check
         // ("minimbt_float_of_int", true) => {
         //   let arg = args[0]
         //   let arg = self.build_get_var(arg, stmts)
-        //   Some(FloatOfInt(arg))
+        //   Some(FloatOfInt(arg, Some(Rtz)))
         // }
         _ => {
           let ty = self.world.ssa.get_method_type(label).unwrap()
@@ -742,7 +741,7 @@ fn Builder::build_double_const(
     Some(value) => {
       let c = self.add_int_const_var(value)
       let local_const = self.add_temp_var(Double)
-      stmts.push(Definition(Some(local_const), FloatOfInt(c)))
+      stmts.push(Definition(Some(local_const), FloatOfInt(c, None)))
       local_const
     }
     None => {
