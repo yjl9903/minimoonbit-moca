@@ -61,6 +61,7 @@ fn create_asm_func(
   }
   asm_func.allocator.allocate_registor()
   asm_func.allocator.allocate_stack_vars()
+  asm_func.allocator.optimize_invoke_load_store()
   asm_func.calc_stack_size()
   asm_func
 }
@@ -925,6 +926,7 @@ fn AssemblyFunction::emit_invoke_save_register(
   for vid, reg in result.reg_map_after {
     if vid != def_id &&
       not(self.allocator.is_spilled_by_id(vid)) &&
+      not(result.skip_store_vars.contains(vid)) &&
       reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
@@ -939,6 +941,7 @@ fn AssemblyFunction::emit_invoke_save_register(
   for vid, freg in result.freg_map_after {
     if vid != def_id &&
       not(self.allocator.is_spilled_by_id(vid)) &&
+      not(result.skip_store_vars.contains(vid)) &&
       freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {
@@ -958,6 +961,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
   for vid, reg in result.reg_map_after {
     if vid != def_id &&
       not(self.allocator.is_spilled_by_id(vid)) &&
+      not(result.skip_load_vars.contains(vid)) &&
       reg_caller_saved_list.contains(reg) {
       let var = self.allocator.get_global_allocated_int_var(vid)
       if var.const_value.is_empty() {
@@ -972,6 +976,7 @@ fn AssemblyFunction::emit_invoke_restore_register(
   for vid, freg in result.freg_map_after {
     if vid != def_id &&
       not(self.allocator.is_spilled_by_id(vid)) &&
+      not(result.skip_load_vars.contains(vid)) &&
       freg_caller_saved_list.contains(freg) {
       let var = self.allocator.get_global_allocated_float_var(vid)
       if var.const_value.is_empty() {

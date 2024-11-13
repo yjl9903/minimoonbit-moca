@@ -8,10 +8,8 @@ struct LinearAllocator {
 }
 
 struct AllocationResult {
-  store_regs_before : Array[(Reg, MachineVar)]
-  store_fregs_before : Array[(FReg, MachineVar)]
-  load_regs : Array[(MachineVar, Reg)]
-  load_fregs : Array[(MachineVar, FReg)]
+  skip_store_vars : @hashset.T[Int]
+  skip_load_vars : @hashset.T[Int]
   reg_map_before : Map[Int, Reg] // Before this inst, Var -> Reg
   freg_map_before : Map[Int, FReg] // Before this inst, Var -> FReg
   reg_map_after : Map[Int, Reg] // After this inst, Var -> Reg
@@ -32,10 +30,8 @@ fn LinearAllocator::new(method : MachineMethod) -> LinearAllocator {
 
 fn AllocationResult::new() -> AllocationResult {
   {
-    store_regs_before: [],
-    store_fregs_before: [],
-    load_regs: [],
-    load_fregs: [],
+    skip_store_vars: @hashset.new(),
+    skip_load_vars: @hashset.new(),
     reg_map_before: Map::new(),
     freg_map_before: Map::new(),
     reg_map_after: Map::new(),
@@ -475,6 +471,38 @@ fn LinearAllocator::collect_saved_reg(
     .filter(fn { v => freg_callee_saved_list.contains(v) }),
   )
   (regs.iter().to_array(), fregs.iter().to_array())
+}
+
+fn LinearAllocator::collect_used_reg(
+  self : LinearAllocator
+) -> (Array[Reg], Array[FReg])? {
+  let has_invoke = self.method.body.stmts.search_by(
+    fn {
+      stmt =>
+        match stmt.stmt {
+          Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_)) => true
+          _ => false
+        }
+    },
+  )
+  // Have invoke, use all reg
+  if not(has_invoke.is_empty()) {
+    return None
+  }
+  // Otherwise
+  let regs = @hashset.from_iter(
+    self.allocated_reg
+    .values()
+    .map(fn { v => v.1 })
+    .filter(fn { v => reg_caller_saved_list.contains(v) }),
+  )
+  let fregs = @hashset.from_iter(
+    self.allocated_freg
+    .values()
+    .map(fn { v => v.1 })
+    .filter(fn { v => freg_caller_saved_list.contains(v) }),
+  )
+  Some((regs.iter().to_array(), fregs.iter().to_array()))
 }
 
 fn LinearAllocator::get_global_allocated_int_var(

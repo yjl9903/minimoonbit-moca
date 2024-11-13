@@ -194,6 +194,13 @@ fn Stmt::has_effect(self : Stmt) -> Bool {
   }
 }
 
+fn Stmt::is_invoke(self : Stmt) -> Bool {
+  match self.stmt {
+    Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_)) => true
+    _ => false
+  }
+}
+
 pub struct IR {
   stmts : Array[Stmt]
   blocks : Array[Block]
