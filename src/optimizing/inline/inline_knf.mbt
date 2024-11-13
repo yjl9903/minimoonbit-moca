@@ -1,5 +1,9 @@
 pub fn transform_knf_method_inline(knf : Knf) -> Knf {
-  let context = { funcs: Map::new(), path: [], local: @immut/hashmap.new() }
+  let context = InlineContext::{
+    funcs: Map::new(),
+    path: [],
+    local: @immut/hashmap.new(),
+  }
   context.collect_knf(knf)
   let knf = context.transform(knf)
   context.cleanup(knf)
@@ -154,7 +158,7 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
     }
     LetTuple(_, _, rest) => self.collect_knf(rest)
     LetRec(def, rest) => {
-      let info = { def, applied: 0, size: 0, count: 0 }
+      let info = FuncDefInfo::{ def, applied: 0, size: 0, count: 0 }
       info.size = info.calc_size(def.body)
       self.funcs.set(def.name, info)
       self.collect_knf(def.body)
