@@ -60,22 +60,29 @@ fn visit_knf_tail(knf : Knf) -> Knf {
 
 struct TailContext {
   def : @knf.FuncDef
+  /// Actual continue invoke args
+  actual_args : Array[@hashset.T[Name]]
   /// Recursive function call has no further continutaion
   mut valid : Bool
 }
 
 fn TailContext::new(def : @knf.FuncDef) -> TailContext {
-  { def, valid: true }
+  { def, actual_args: def.args.map(fn { _ => @hashset.new() }), valid: true }
 }
 
 fn TailContext::transform(self : TailContext) -> @knf.FuncDef {
   let has_recursion = self.collect_recursion(self.def.body)
   if has_recursion && self.valid {
     @shared.debug("Transform tail recursion: \{self.def.name}")
+    let params = self.def.args
+      .iter2()
+      .to_array()
+      .filter(fn { (i, _) => not(self.is_same_arg(i)) })
+      .map(fn { (_, a) => a })
     let loop_body = self.transform_stmt(self.def.body, true)
     let func_body = Knf::Loop(
       (self.def.name, @knf.extract_return_type(self.def.ty).unwrap()),
-      self.def.args,
+      params,
       loop_body,
     )
     let (new_args, func_body) = transform_args(self.def.args, func_body)
@@ -99,12 +106,12 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
       false
 
     // May directly use self pointer, which has side effects
-    Var(v) =>
+    Var(_v) =>
       // if v == self.def.name {
       //   self.valid = false
       // }
       false
-    Tuple(els) =>
+    Tuple(_els) =>
       // let found = els.search_by(fn { e => e == self.def.name })
       // match found {
       //   Some(_) => self.valid = false
@@ -140,7 +147,7 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
           None => self.collect_recursion(body)
         }
       }
-    Continue(_, args) =>
+    Continue(_, _args) =>
       // let found = args.search_by(fn { e => e == self.def.name })
       // match found {
       //   Some(_) => self.valid = false
@@ -161,16 +168,21 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
       }
 
     // Apply
-    Apply(callee, args) => {
-      let found = args.search_by(fn { e => e == self.def.name })
-      match found {
-        Some(_) =>
-          // self.valid = false
-          false
-        None => if callee == self.def.name { true } else { false }
+    Apply(callee, args) =>
+      // let found = args.search_by(fn { e => e == self.def.name })
+      // match found {
+      //   Some(_) =>
+      //     // self.valid = false
+      //     false
+      //   None => if callee == self.def.name { true } else { false }
+      // }
+      if callee == self.def.name {
+        args.eachi(fn { i, a => self.actual_args[i].insert(a) })
+        true
+      } else {
+        false
       }
-    }
-    ExternalFunctionApplication(_, args) =>
+    ExternalFunctionApplication(_, _args) =>
       // let found = args.search_by(fn { e => e == self.def.name })
       // match found {
       //   Some(_) => self.valid = false
@@ -206,6 +218,17 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
 
     // unused
     ExternalArray(_) => @util.die("unreachable")
+  }
+}
+
+fn TailContext::is_same_arg(self : TailContext, i : Int) -> Bool {
+  if self.actual_args[i].size() == 1 {
+    match self.actual_args[i].iter().head() {
+      Some(arg) => arg == self.def.args[i].0
+      None => false
+    }
+  } else {
+    false
   }
 }
 
@@ -253,6 +276,11 @@ fn TailContext::transform_stmt(
     // Apply
     Apply(callee, args) =>
       if top_level && callee == self.def.name {
+        let args = args
+          .iter2()
+          .to_array()
+          .filter(fn { (i, _) => not(self.is_same_arg(i)) })
+          .map(fn { (_, a) => a })
         Continue(self.def.name, args)
       } else {
         knf
