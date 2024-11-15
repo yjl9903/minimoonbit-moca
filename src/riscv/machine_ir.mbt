@@ -2,6 +2,7 @@ pub struct MachineWorld {
   globals : Map[Int, (String, MachineVar)]
   doubles : Map[Double, String]
   methods : Array[MachineMethod]
+  enable_malloc_arena : Bool
   ssa : @ssa.World
 }
 
@@ -197,6 +198,19 @@ fn Stmt::has_effect(self : Stmt) -> Bool {
 fn Stmt::is_invoke(self : Stmt) -> Bool {
   match self.stmt {
     Definition(_, InvokeClosure(_) | InvokeDirect(_) | Malloc(_)) => true
+    _ => false
+  }
+}
+
+fn Stmt::is_invoke_malloc(self : Stmt) -> Bool {
+  match self.stmt {
+    Definition(_, InvokeClosure(_) | InvokeDirect(_)) => true
+    Definition(_, Malloc(_)) =>
+      if get_world().enable_malloc_arena {
+        false
+      } else {
+        true
+      }
     _ => false
   }
 }
