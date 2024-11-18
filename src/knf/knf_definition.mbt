@@ -2,6 +2,8 @@ pub typealias Name = @types.Name
 
 pub typealias Type = @types.Type
 
+pub typealias Pattern = @types.Pattern
+
 pub enum Knf {
   Unit
   Int(Int)
@@ -20,12 +22,15 @@ pub enum Knf {
   Continue(Name, Array[Name])
   IfEq(Name, Name, Knf, Knf, Type)
   IfLe(Name, Name, Knf, Knf, Type)
+  Match(Name, Array[(Pattern, Knf)])
   Let((Name, Type), Knf, Knf)
   Var(Name)
   LetRec(FuncDef, Knf)
   Apply(Name, Array[Name])
   Tuple(Array[Name])
   LetTuple(Array[(Name, Type)], Name, Knf)
+  Enum(@types.EnumDef, @types.EnumKind, Array[Name])
+  LetEnum(@types.EnumDef, Knf)
   Get(Name, Name)
   Put(Name, Name, Name)
   ExternalArray(Name)

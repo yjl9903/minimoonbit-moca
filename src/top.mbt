@@ -19,7 +19,7 @@ pub enum Syntax {
   Let((String, Type), Syntax, Syntax) // let _: _ = _; _
   LetRec(Fundef, Syntax) // fn f() {} ; _
   LetTuple(Array[(String, Type)], Syntax, Syntax) // let (_ , _) : (_, _)= _; _
-  LetEnum(Enumdef, Syntax) // enum _ { ... }; _
+  LetEnum(EnumDef, Syntax) // enum _ { ... }; _
   Put(Syntax, Syntax, Syntax) // _[_] = _
 } derive(Show)
 
@@ -41,15 +41,15 @@ pub struct Fundef {
   body : Syntax
 } derive(Show)
 
-pub struct Enumdef {
+pub struct EnumDef {
   name : String
   kinds : Array[EnumKind]
-} derive(Show)
+} derive(Show, Eq)
 
 pub struct EnumKind {
   name : String
   fields : Array[Type]
-} derive(Show)
+} derive(Show, Eq)
 
 pub enum Pattern {
   Var(String?)
@@ -58,7 +58,7 @@ pub enum Pattern {
   Double(Double)
   Tuple(Array[Pattern])
   Enum(String, String, Array[Pattern])
-} derive(Show)
+} derive(Show, Eq)
 
 pub enum Type {
   Unit
