@@ -8,6 +8,7 @@ pub fn to_json(self : Type) -> Json {
       ["Fun", params.map(Type::to_json) |> Json::Array, result.to_json()]
     Tuple(types) => ["Tuple", types.map(Type::to_json) |> Json::Array]
     Array(t) => ["Array", t.to_json()]
+    Enum(t) => ["Enum", t.to_json()]
     Var({ val: None }) => ["Var", "None"]
     Var({ val: Some(t) }) => ["Var", ["Some", t.to_json()]]
     Ptr => "Ptr"
@@ -154,6 +155,7 @@ pub fn to_json(self : Syntax) -> Json {
     Get(arr, idx) => ["Get", arr.to_json(), idx.to_json()]
     Put(arr, idx, value) =>
       ["Put", arr.to_json(), idx.to_json(), value.to_json()]
+    _ => @util.die("todo")
   }
 }
 
