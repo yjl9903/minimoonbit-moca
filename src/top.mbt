@@ -4,19 +4,22 @@ pub enum Syntax {
   Int(Int) // int
   Double(Double) // double
   Var(String) // _
-  Tuple(Array[Syntax]) // (_, _, _)
   Not(Syntax) // not(_)
+  Tuple(Array[Syntax]) // (_, _, _)
+  Enum(String, String, Array[Syntax]) // _Enum::_Kind(...)
   Array(Syntax, Syntax) // Array::make(_, _)
   Neg(Syntax, mut ~kind : Kind?) // -_
   App(Syntax, Array[Syntax]) // _(_, _, _) or _()
   Get(Syntax, Syntax) // _[_]
   If(Syntax, Syntax, Syntax) // if _ { _ } else { _ }
+  Match(Syntax, Array[(Pattern, Syntax)]) // match _ { _ => ... }
   Prim(Syntax, Syntax, Op, mut ~kind : Kind?) // _+ - * / _
   Eq(Syntax, Syntax) // _==_
   LE(Syntax, Syntax) // _<=_
   Let((String, Type), Syntax, Syntax) // let _: _ = _; _
   LetRec(Fundef, Syntax) // fn f() {} ; _
   LetTuple(Array[(String, Type)], Syntax, Syntax) // let (_ , _) : (_, _)= _; _
+  LetEnum(Enumdef, Syntax) // enum _ { ... }; _
   Put(Syntax, Syntax, Syntax) // _[_] = _
 } derive(Show)
 
@@ -38,6 +41,25 @@ pub struct Fundef {
   body : Syntax
 } derive(Show)
 
+pub struct Enumdef {
+  name : String
+  kinds : Array[EnumKind]
+} derive(Show)
+
+pub struct EnumKind {
+  name : String
+  fields : Array[Type]
+} derive(Show)
+
+pub enum Pattern {
+  Var(String?)
+  Unit
+  Int(Int)
+  Double(Double)
+  Tuple(Array[Pattern])
+  Enum(String, String, Array[Pattern])
+} derive(Show)
+
 pub enum Type {
   Unit
   Bool
@@ -46,6 +68,7 @@ pub enum Type {
   Fun(Array[Type], Type) // (_, _, _) -> _
   Tuple(Array[Type]) // (_, _, _)
   Array(Type) // Array[_]
+  Enum(String) // _enum
   Var(Ref[Type?])
   Ptr
 } derive(Show)
@@ -80,7 +103,7 @@ pub fn Type::size_of(self : Type, size_of_ptr : Int) -> Int {
     Bool => 4
     Int => 4
     Double => 8
-    Tuple(_) | Fun(_, _) | Array(_) | Ptr => size_of_ptr
+    Tuple(_) | Fun(_, _) | Array(_) | Enum(_) | Ptr => size_of_ptr
     Var(t) =>
       match t.val {
         Some(t) => t.size_of(size_of_ptr)
@@ -99,6 +122,7 @@ pub fn Type::op_equal(self : Type, other : Type) -> Bool {
     (Tuple(xs), Tuple(ys)) => xs == ys
     (Array(x), Array(y)) => x == y
     (Ptr, Ptr) => true
+    (Enum(xs), Enum(ys)) => xs == ys
     // --- Add this dfs check
     (x, Var({ val: Some(y) })) => x == y
     (Var({ val: Some(x) }), y) => x == y
