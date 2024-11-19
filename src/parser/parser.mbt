@@ -681,16 +681,21 @@ fn pattern(state : State) -> @types.Pattern!ParseError{
       state.accept!(TokenKind::COLON)
       let id2 = state.peek!().raw;
       state.accept!(TokenKind::IDENTIFIER);
-      state.accept!(TokenKind::LPAREN);
-      let e = state.parse!(pattern)
-      let list = state.parse!(many(fn{
-        s => {
-          s.accept!(TokenKind::COMMA)
-          s.parse!(pattern)
-        }
-      }))
-      state.accept!(TokenKind::RPAREN)
-      @types.Pattern::Enum(id1,id2,[e,..list])
+      if (state.try_parse(TokenKind::LPAREN)){
+        state.accept!(TokenKind::LPAREN);
+        let e = state.parse!(pattern)
+        let list = state.parse!(many(fn{
+          s => {
+            s.accept!(TokenKind::COMMA)
+            s.parse!(pattern)
+          }
+        }))
+        state.accept!(TokenKind::RPAREN)
+        @types.Pattern::Enum(id1,id2,[e,..list])
+      }
+      else{
+        @types.Pattern::Enum(id1,id2,[])
+      }
     }
     else{
       if id1 == "_" {
