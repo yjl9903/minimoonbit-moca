@@ -120,15 +120,7 @@ fn top_let_decl(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::ASSIGN)
   let exp = state.parse!(expr)
   state.accept!(TokenKind::SEMICOLON)
-  let rvalue = match exp {
-    LetRec(_, r) => r
-    _ => exp
-  }
-  let result = Syntax::Let((id, value_ty), rvalue, Unit)
-  let result = match exp {
-    LetRec(fun, _) => Syntax::LetRec(fun, result)
-    _ => result
-  }
+  let result = Syntax::Let((id, value_ty), exp, Unit)
   debug("top_let_decl -> id : \{id}, type:\{value_ty} expr : \{exp} \n")
   result
 }
