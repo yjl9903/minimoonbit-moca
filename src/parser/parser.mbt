@@ -261,20 +261,12 @@ fn let_stmt(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::ASSIGN)
   let exp = state.parse!(expr)
   state.accept!(TokenKind::SEMICOLON)
-  let rvalue = match exp {
-    LetRec(_, r) => r
-    _ => exp
-  }
   let rest = state.parse!(stmt)
   let t : Type = match ty {
     None => Type::Var({ val: None })
     Some(val) => val
   }
-  let result = Syntax::Let((id, t), rvalue, rest)
-  let result = match exp {
-    LetRec(fun, _) => Syntax::LetRec(fun, result)
-    _ => result
-  }
+  let result = Syntax::Let((id, t), exp, rest)
   debug("let_stmt: -> \{result}\n")
   result
 }
@@ -475,13 +467,13 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
         Syntax::App(_, rhs) => rhs
         _ => raise ParseError("???")
       }
-      params.push(Syntax::Var(name.0))
+      params.push(Syntax::LetRec(fundef,Syntax::Var(name.0)))
       let result = match result {
         Syntax::App(lhs, _) => Syntax::App(lhs, params)
         _ => raise ParseError("???")
       }
       debug("fundef: \{fundef},result : \{result}")
-      Syntax::LetRec(fundef, result)
+      result
     } else {
       let e = state.peek!().raw
       state.accept!(TokenKind::IDENTIFIER)
@@ -500,13 +492,13 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
         Syntax::App(_, rhs) => rhs
         _ => raise ParseError("???")
       }
-      params.push(Syntax::Var(name.0))
+      params.push(Syntax::LetRec(fundef,Syntax::Var(name.0)))
       let result = match result {
         Syntax::App(lhs, _) => Syntax::App(lhs, params)
         _ => raise ParseError("???")
       }
       debug("fundef: \{fundef},result : \{result}")
-      Syntax::LetRec(fundef, result)
+      result
     }
   } else {
     result
