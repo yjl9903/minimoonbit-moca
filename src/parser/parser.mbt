@@ -78,7 +78,7 @@ fn top_level(state : State) -> Syntax!ParseError {
 fn enum_tuple(state : State) -> @types.EnumKind!ParseError {
   let name = state.peek!().raw
   state.accept!(TokenKind::IDENTIFIER)
-  if state.try_parse(TokenKind::LPAREN){
+  if state.try_parse(TokenKind::LPAREN) {
     let fields = match state.parse!(tuple_type_or_function_type) {
       Type::Tuple(array) => array
       error =>
@@ -86,9 +86,8 @@ fn enum_tuple(state : State) -> @types.EnumKind!ParseError {
     }
     let result : @types.EnumKind = { name, fields }
     result
-  }
-  else{
-    let result : @types.EnumKind = { name, fields:[] }
+  } else {
+    let result : @types.EnumKind = { name, fields: [] }
     result
   }
 }
@@ -97,15 +96,15 @@ fn top_enum_decl(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::ENUM)
   let name = state.peek!().raw
   state.accept!(TokenKind::IDENTIFIER)
-  if not(name[0].compare('A') >= 0 && name[0].compare('Z') <= 0){
+  if not(name[0].compare('A') >= 0 && name[0].compare('Z') <= 0) {
     raise ParseError("Enum must start with upper char !")
   }
   state.accept!(TokenKind::LCURLYBRACKET)
   let kinds = state.parse!(many(enum_tuple))
   state.accept!(TokenKind::RCURLYBRACKET)
   state.accept!(TokenKind::SEMICOLON)
-  let result : @types.EnumDef = {name,kinds}
-  Syntax::LetEnum(result,Syntax::Unit);
+  let result : @types.EnumDef = { name, kinds }
+  Syntax::LetEnum(result, Syntax::Unit)
 }
 
 fn top_let_decl(state : State) -> Syntax!ParseError {
@@ -138,6 +137,7 @@ fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
     state.accept!(TokenKind::SEMICOLON)
     Syntax::LetRec(func, Syntax::Unit)
   } else {
+    let generics = state.parse!(any(generic_type))
     state.accept!(TokenKind::LPAREN)
     let args = state.parse!(any(param_list))
     state.accept!(TokenKind::RPAREN)
@@ -149,15 +149,36 @@ fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
       Some(val) => val
       None => []
     }
-    let func : @types.Fundef = {
-      name: (raw, Type::Fun(args.map(fn { a => a.1 }), func_type)),
-      args,
-      body,
+    let return_type = match generics {
+      Some(array) =>
+        Type::Pi(array, Type::Fun(args.map(fn { a => a.1 }), func_type))
+      None => Type::Fun(args.map(fn { a => a.1 }), func_type)
     }
+    let func : @types.Fundef = { name: (raw, return_type), args, body }
     state.accept!(TokenKind::SEMICOLON)
     debug("Top_fn_decl -> \{func}\n")
     Syntax::LetRec(func, Syntax::Unit)
   }
+}
+
+fn generic_type(state : State) -> Array[String]!ParseError {
+  state.accept!(TokenKind::LBRACKET)
+  let id = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  let generics = state.parse!(
+    many(
+      fn {
+        s => {
+          s.accept!(TokenKind::COMMA)
+          let generic = state.peek!().raw
+          state.accept!(TokenKind::IDENTIFIER)
+          generic
+        }
+      },
+    ),
+  )
+  state.accept!(TokenKind::RBRACKET)
+  [id, ..generics]
 }
 
 fn fn_body(state : State) -> Syntax!ParseError {
@@ -458,8 +479,7 @@ fn value_type(state : State) -> Type!ParseError {
     return state.parse!(array_type)
   } else if state.try_parse(TokenKind::LPAREN) {
     return state.parse!(tuple_type_or_function_type)
-  }
-  else if state.try_parse(TokenKind::IDENTIFIER){
+  } else if state.try_parse(TokenKind::IDENTIFIER) {
     let ty = state.peek!().raw
     state.accept!(TokenKind::IDENTIFIER)
     return Type::Identifier(ty)
@@ -767,7 +787,9 @@ fn match_expr(state : State) -> Syntax!ParseError {
         s => {
           let lhs = s.parse!(pattern)
           s.accept!(TokenKind::RA)
+          s.accept!(TokenKind::LCURLYBRACKET)
           let rhs = s.parse!(expr)
+          s.accept!(TokenKind::RCURLYBRACKET)
           (lhs, rhs)
         }
       },
@@ -784,22 +806,26 @@ fn enum_expr(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::COLON)
   let id2 = state.peek!().raw
   state.accept!(TokenKind::IDENTIFIER)
-  if state.try_parse(TokenKind::LPAREN){
+  if state.try_parse(TokenKind::LPAREN) {
     state.accept!(TokenKind::LPAREN)
     let e = state.parse!(expr)
-    let list = state.parse!(many(fn{
-      s =>{
-        s.accept!(TokenKind::COMMA)
-        s.parse!(expr)
-      }
-    }))
+    let list = state.parse!(
+      many(
+        fn {
+          s => {
+            s.accept!(TokenKind::COMMA)
+            s.parse!(expr)
+          }
+        },
+      ),
+    )
     state.accept!(TokenKind::RPAREN)
-    return Syntax::Enum(id1,id2,[e,..list])
-  }
-  else{
-    return Syntax::Enum(id1,id2,[])
+    return Syntax::Enum(id1, id2, [e, ..list])
+  } else {
+    return Syntax::Enum(id1, id2, [])
   }
 }
+
 fn value_expr(state : State) -> Syntax!ParseError {
   if state.try_parse(TokenKind::LPAREN) {
     return state.parse!(
@@ -839,13 +865,19 @@ fn value_expr(state : State) -> Syntax!ParseError {
     if id == "match" {
       return state.parse!(match_expr)
     }
-    return state.parse!(or([enum_expr,fn {
-      s =>{
-         s.accept!(TokenKind::IDENTIFIER)
-         Syntax::Var(id)
-      }
-    }]))
-   
+    return state.parse!(
+      or(
+        [
+          enum_expr,
+          fn {
+            s => {
+              s.accept!(TokenKind::IDENTIFIER)
+              Syntax::Var(id)
+            }
+          },
+        ],
+      ),
+    )
   } else if state.try_parse(TokenKind::SUB) { // neg_expr
     state.accept!(TokenKind::SUB)
     return Syntax::Neg(state.parse!(value_expr), kind=None)
