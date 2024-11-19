@@ -51,6 +51,7 @@ fn prog(state : State) -> Syntax!ParseError {
       result = match list[i] {
         Let((p1, p2), p3, _) => Let((p1, p2), p3, result)
         LetRec(p1, _) => LetRec(p1, result)
+        LetEnum(p1, _) => LetEnum(p1, result)
         _ => Syntax::Unit
       }
     }
@@ -65,11 +66,41 @@ fn top_level(state : State) -> Syntax!ParseError {
     state.parse!(top_let_decl)
   } else if state.try_parse(TokenKind::FN) {
     state.parse!(toplevel_fn_decl)
+  } else if state.try_parse(TokenKind::ENUM) {
+    state.parse!(top_enum_decl)
   } else {
     raise ParseError(
       "top_level parse Error -> Except : let or fn \ but get \{state.peek!()}",
     )
   }
+}
+
+fn enum_type(state : State) -> @types.EnumKind!ParseError {
+  let name = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  if state.try_parse(TokenKind::LPAREN){
+    let fields = match state.parse!(tuple_type_or_function_type) {
+      Type::Tuple(array) => array
+      error =>
+        raise ParseError("Type Error : Except tuple type ,but get \{error}")
+    }
+    let result : @types.EnumKind = { name, fields }
+    result
+  }
+  else{
+    let result : @types.EnumKind = { name, fields:[] }
+    result
+  }
+}
+
+fn top_enum_decl(state : State) -> Syntax!ParseError {
+  state.accept!(TokenKind::ENUM)
+  let name = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  state.accept!(TokenKind::LCURLYBRACKET)
+  let kinds = state.parse!(many(enum_type))
+  let result : @types.EnumDef = {name,kinds}
+  Syntax::LetEnum(result,Syntax::Unit);
 }
 
 fn top_let_decl(state : State) -> Syntax!ParseError {
@@ -423,6 +454,16 @@ fn value_type(state : State) -> Type!ParseError {
   } else if state.try_parse(TokenKind::LPAREN) {
     return state.parse!(tuple_type_or_function_type)
   }
+  else if state.try_parse(TokenKind::IDENTIFIER){
+    let ty = state.peek!().raw
+    if ty[0].compare('A') >= 0 && ty[0].compare('Z') <= 0 {
+      state.accept!(TokenKind::IDENTIFIER)
+      return Type::Enum(ty)
+    }
+    else{
+      raise ParseError("Enum type must start with upper char")
+    }
+  }
   raise ParseError("Error value type !")
 }
 
@@ -736,6 +777,28 @@ fn match_expr(state : State) -> Syntax!ParseError {
   Syntax::Match(condition, list)
 }
 
+fn enum_expr(state : State) -> Syntax!ParseError {
+  let id1 = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  state.accept!(TokenKind::COLON)
+  state.accept!(TokenKind::COLON)
+  let id2 = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  if state.try_parse(TokenKind::LPAREN){
+    state.accept!(TokenKind::LPAREN)
+    let e = state.parse!(expr)
+    let list = state.parse!(many(fn{
+      s =>{
+        s.accept!(TokenKind::COMMA)
+        s.parse!(expr)
+      }
+    }))
+    return Syntax::Enum(id1,id2,[e,..list])
+  }
+  else{
+    return Syntax::Enum(id1,id2)
+  }
+}
 fn value_expr(state : State) -> Syntax!ParseError {
   if state.try_parse(TokenKind::LPAREN) {
     return state.parse!(

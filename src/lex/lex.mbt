@@ -44,6 +44,7 @@ pub enum TokenKind {
   SEMICOLON
   COMMA
   LESS
+  ENUM
 } derive(Eq, Show)
 
 pub struct Context {
@@ -140,6 +141,7 @@ fn Context::get_token(text : String) -> TokenKind {
     "else" => ELSE
     "fn" => FN
     "let" => LET
+    "enum" => ENUM
     _ => IDENTIFIER
   }
 }
