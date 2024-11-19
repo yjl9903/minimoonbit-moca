@@ -30,7 +30,6 @@ pub enum Knf {
   Tuple(Array[Name])
   LetTuple(Array[(Name, Type)], Name, Knf)
   Enum(@types.EnumDef, @types.EnumKind, Array[Name])
-  LetEnum(@types.EnumDef, Knf)
   Get(Name, Name)
   Put(Name, Name, Name)
   ExternalArray(Name)
