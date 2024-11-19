@@ -1,5 +1,7 @@
 type! ParseError String
 
+let recieve : Array[Int] = Array::make(1, 0)
+
 struct State {
   input : Array[Token]
   mut cursor : Int
@@ -118,8 +120,17 @@ fn top_let_decl(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::ASSIGN)
   let exp = state.parse!(expr)
   state.accept!(TokenKind::SEMICOLON)
+  let rvalue = match exp {
+    LetRec(_, r) => r
+    _ => exp
+  }
+  let result = Syntax::Let((id, value_ty), rvalue, Unit)
+  let result = match exp {
+    LetRec(fun, _) => Syntax::LetRec(fun, result)
+    _ => result
+  }
   debug("top_let_decl -> id : \{id}, type:\{value_ty} expr : \{exp} \n")
-  Syntax::Let((id, value_ty), exp, Unit)
+  result
 }
 
 fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
@@ -258,12 +269,20 @@ fn let_stmt(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::ASSIGN)
   let exp = state.parse!(expr)
   state.accept!(TokenKind::SEMICOLON)
+  let rvalue = match exp {
+    LetRec(_, r) => r
+    _ => exp
+  }
   let rest = state.parse!(stmt)
   let t : Type = match ty {
     None => Type::Var({ val: None })
     Some(val) => val
   }
-  let result = Syntax::Let((id, t), exp, rest)
+  let result = Syntax::Let((id, t), rvalue, rest)
+  let result = match exp {
+    LetRec(fun, _) => Syntax::LetRec(fun, result)
+    _ => result
+  }
   debug("let_stmt: -> \{result}\n")
   result
 }
@@ -424,8 +443,83 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
         }
     },
   )
-  debug("get_or_apply_level_expr: -> \{result} val: \{val}")
-  result
+  debug("get_or_apply_level_expr: -> \{result}")
+  let flag = match result {
+    Syntax::App(_, _) => true
+    _ => false
+  }
+  debug("flag : \{flag}")
+  if flag && state.try_parse(TokenKind::LCURLYBRACKET) {
+    state.accept!(TokenKind::LCURLYBRACKET)
+    if state.try_parse(TokenKind::LPAREN) {
+      state.accept!(TokenKind::LPAREN)
+      let e = state.peek!().raw
+      state.accept!(TokenKind::IDENTIFIER)
+      let list = state.parse!(
+        many(
+          fn {
+            s => {
+              s.accept!(TokenKind::COMMA)
+              let res = s.peek!().raw
+              s.accept!(TokenKind::IDENTIFIER)
+              res
+            }
+          },
+        ),
+      )
+      let identifiers = [e, ..list]
+      let args = identifiers.map(fn { s => (s, Type::Var({ val: None })) })
+      state.accept!(TokenKind::RPAREN)
+      state.accept!(TokenKind::RA)
+      let body = state.parse!(fn_body)
+      state.accept!(TokenKind::RCURLYBRACKET)
+      let name = (
+        "__receive__\{recieve[0]}",
+        Type::Fun(args.map(fn { a => a.1 }), Type::Var({ val: None })),
+      )
+      recieve[0] += 1
+      let fundef : @types.Fundef = { name, args, body }
+      let params = match result {
+        Syntax::App(_, rhs) => rhs
+        _ => raise ParseError("???")
+      }
+      params.push(Syntax::Var(name.0))
+      let result = match result {
+        Syntax::App(lhs, _) => Syntax::App(lhs, params)
+        _ => raise ParseError("???")
+      }
+      debug("fundef: \{fundef},result : \{result}")
+      Syntax::LetRec(fundef, result)
+    } else {
+      let e = state.peek!().raw
+      state.accept!(TokenKind::IDENTIFIER)
+      let identifiers = [e]
+      let args = identifiers.map(fn { s => (s, Type::Var({ val: None })) })
+      state.accept!(TokenKind::RA)
+      let body = state.parse!(fn_body)
+      state.accept!(TokenKind::RCURLYBRACKET)
+      let name = (
+        "__receiver_\{recieve[0]}",
+        Type::Fun(args.map(fn { a => a.1 }), Type::Var({ val: None })),
+      )
+      recieve[0] += 1
+      let fundef : @types.Fundef = { name, args, body }
+      let params = match result {
+        Syntax::App(_, rhs) => rhs
+        _ => raise ParseError("???")
+      }
+      params.push(Syntax::Var(name.0))
+      let result = match result {
+        Syntax::App(lhs, _) => Syntax::App(lhs, params)
+        _ => raise ParseError("???")
+      }
+      debug("fundef: \{fundef},result : \{result}")
+      Syntax::LetRec(fundef, result)
+    }
+  } else {
+    result
+  }
+  // result
 }
 
 fn expr_stmt(state : State) -> Syntax!ParseError {
