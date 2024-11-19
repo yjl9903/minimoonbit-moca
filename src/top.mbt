@@ -69,7 +69,8 @@ pub enum Type {
   Tuple(Array[Type]) // (_, _, _)
   Array(Type) // Array[_]
   Enum(String) // _enum
-  Generic(String) // Generic
+  Identifier(String) // type var or enum
+  Pi(Array[String], Type) // \forall T. _
   Var(Ref[Type?])
   Ptr
 } derive(Show)
@@ -110,7 +111,7 @@ pub fn Type::size_of(self : Type, size_of_ptr : Int) -> Int {
         Some(t) => t.size_of(size_of_ptr)
         None => @util.die("Uninstantiated type variable")
       }
-    Generic(_) => @util.die("Uninstantiated type variable")
+    Identifier(_) => @util.die("Uninstantiated type variable")
   }
 }
 
@@ -125,7 +126,7 @@ pub fn Type::op_equal(self : Type, other : Type) -> Bool {
     (Array(x), Array(y)) => x == y
     (Ptr, Ptr) => true
     (Enum(xs), Enum(ys)) => xs == ys
-    (Generic(xs), Generic(ys)) => xs == ys
+    (Identifier(xs), Identifier(ys)) => xs == ys
     // --- Add this dfs check
     (x, Var({ val: Some(y) })) => x == y
     (Var({ val: Some(x) }), y) => x == y
