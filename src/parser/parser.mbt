@@ -75,7 +75,7 @@ fn top_level(state : State) -> Syntax!ParseError {
   }
 }
 
-fn enum_type(state : State) -> @types.EnumKind!ParseError {
+fn enum_tuple(state : State) -> @types.EnumKind!ParseError {
   let name = state.peek!().raw
   state.accept!(TokenKind::IDENTIFIER)
   if state.try_parse(TokenKind::LPAREN){
@@ -97,8 +97,13 @@ fn top_enum_decl(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::ENUM)
   let name = state.peek!().raw
   state.accept!(TokenKind::IDENTIFIER)
+  if not(name[0].compare('A') >= 0 && name[0].compare('Z') <= 0){
+    raise ParseError("Enum must start with upper char !")
+  }
   state.accept!(TokenKind::LCURLYBRACKET)
-  let kinds = state.parse!(many(enum_type))
+  let kinds = state.parse!(many(enum_tuple))
+  state.accept!(TokenKind::RCURLYBRACKET)
+  state.accept!(TokenKind::SEMICOLON)
   let result : @types.EnumDef = {name,kinds}
   Syntax::LetEnum(result,Syntax::Unit);
 }
@@ -456,13 +461,8 @@ fn value_type(state : State) -> Type!ParseError {
   }
   else if state.try_parse(TokenKind::IDENTIFIER){
     let ty = state.peek!().raw
-    if ty[0].compare('A') >= 0 && ty[0].compare('Z') <= 0 {
-      state.accept!(TokenKind::IDENTIFIER)
-      return Type::Enum(ty)
-    }
-    else{
-      raise ParseError("Enum type must start with upper char")
-    }
+    state.accept!(TokenKind::IDENTIFIER)
+    return Type::Identifier(ty)
   }
   raise ParseError("Error value type !")
 }
@@ -793,10 +793,11 @@ fn enum_expr(state : State) -> Syntax!ParseError {
         s.parse!(expr)
       }
     }))
+    state.accept!(TokenKind::RPAREN)
     return Syntax::Enum(id1,id2,[e,..list])
   }
   else{
-    return Syntax::Enum(id1,id2)
+    return Syntax::Enum(id1,id2,[])
   }
 }
 fn value_expr(state : State) -> Syntax!ParseError {
@@ -838,8 +839,13 @@ fn value_expr(state : State) -> Syntax!ParseError {
     if id == "match" {
       return state.parse!(match_expr)
     }
-    state.accept!(TokenKind::IDENTIFIER)
-    return Syntax::Var(id)
+    return state.parse!(or([enum_expr,fn {
+      s =>{
+         s.accept!(TokenKind::IDENTIFIER)
+         Syntax::Var(id)
+      }
+    }]))
+   
   } else if state.try_parse(TokenKind::SUB) { // neg_expr
     state.accept!(TokenKind::SUB)
     return Syntax::Neg(state.parse!(value_expr), kind=None)
