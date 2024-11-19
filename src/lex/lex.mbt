@@ -32,6 +32,7 @@ pub enum TokenKind {
   ASSIGN
   EQ
   LE
+  RA
   LPAREN
   RPAREN
   LBRACKET
@@ -260,12 +261,18 @@ pub fn Context::lex(context : Context) -> UInt {
       lex(context)
     }
     '=' =>
-      if offset + 1 >= str.length() || str[offset + 1] != '=' {
+      if offset + 1 >= str.length() || (str[offset + 1] != '=' && str[offset + 1] != '>'){
         tokens.push({ kind: ASSIGN, raw: "=", pos: { row, col } })
         context.offset += 1
         context.col += 1
         lex(context)
-      } else {
+      } else if str[offset + 1] == '>'{
+        tokens.push({ kind: RA, raw: "=>", pos: { row, col } })
+        context.offset += 2
+        context.col += 2
+        lex(context)
+      }
+       else {
         tokens.push({ kind: EQ, raw: "==", pos: { row, col } })
         context.offset += 2
         context.col += 2
