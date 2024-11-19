@@ -626,6 +626,105 @@ fn tuple_expr(state : State) -> Syntax!ParseError {
   result
 }
 
+fn pattern(state : State) -> @types.Pattern!ParseError{
+  if state.try_parse(TokenKind::LPAREN){
+    state.accept!(TokenKind::LPAREN)
+    if state.try_parse(TokenKind::RPAREN){
+      state.accept!(TokenKind::RPAREN)
+      return @types.Pattern::Unit
+    }
+    else{
+      let e = state.parse!(pattern)
+      let list = state.parse!(many(fn{
+        s => {
+          s.accept!(TokenKind::COMMA)
+          s.parse!(pattern)
+        }
+      }))
+      state.accept!(TokenKind::RPAREN)
+      return @types.Pattern::Tuple([e,..list])
+    }
+  }
+  else if state.try_parse(TokenKind::FALSE){
+    state.accept!(TokenKind::FALSE)
+    return @types.Pattern::Bool(false)
+  }
+  else if state.try_parse(TokenKind::TRUE){
+    state.accept!(TokenKind::TRUE)
+    return @types.Pattern::Bool(true)
+  } else if state.try_parse(TokenKind::NUMBER) || state.try_parse(TokenKind::SUB) { // Double ,int 
+    let mut op = 1;
+    if (state.try_parse(TokenKind::SUB)){
+      state.accept!(TokenKind::SUB)
+      op = -1;
+    }
+    let lhs = state.peek!().raw
+    state.accept!(TokenKind::NUMBER)
+    if state.try_parse(TokenKind::DOT) {
+      state.accept!(TokenKind::DOT)
+      if state.try_parse(TokenKind::NUMBER) {
+        let rhs = state.peek!().raw
+        state.accept!(TokenKind::NUMBER)
+        return @types.Pattern::Double(op.to_double() * @strconv.parse_double?(lhs + "." + rhs).unwrap())
+      } else {
+        return @types.Pattern::Double(op.to_double() * @strconv.parse_double?(lhs + ".0").unwrap())
+      }
+    } else {
+      return @types.Pattern::Int(op * @strconv.parse_int?(lhs).unwrap())
+    }
+  }
+  else {
+    let id1 = state.peek!().raw;
+    state.accept!(TokenKind::IDENTIFIER);
+    if state.try_parse(TokenKind::COLON){
+      state.accept!(TokenKind::COLON)
+      state.accept!(TokenKind::COLON)
+      let id2 = state.peek!().raw;
+      state.accept!(TokenKind::IDENTIFIER);
+      state.accept!(TokenKind::LPAREN);
+      let e = state.parse!(pattern)
+      let list = state.parse!(many(fn{
+        s => {
+          s.accept!(TokenKind::COMMA)
+          s.parse!(pattern)
+        }
+      }))
+      state.accept!(TokenKind::RPAREN)
+      @types.Pattern::Enum(id1,id2,[e,..list])
+    }
+    else{
+      if id1 == "_" {
+        @types.Pattern::Var(None)
+      }
+      else{
+        @types.Pattern::Var(Some(id1))
+      }
+    }
+  }
+}
+fn match_expr(state : State) -> Syntax!ParseError{
+  let raw = state.peek!().raw;
+  if raw != "match" {
+      raise ParseError("match_expr Error -> Except : match , but got : \{raw}")
+  }
+  state.accept!(TokenKind::IDENTIFIER)
+  debug("Into match_expr")
+  let condition = state.parse!(expr)
+  debug("condition: \{condition}")
+  state.accept!(TokenKind::LCURLYBRACKET)
+  let list = state.parse!(many(fn {
+     s=>{
+      let lhs = s.parse!(pattern)
+      debug("lhs : \{lhs}")
+      s.accept!(TokenKind::RA)
+      let rhs = s.parse!(expr)
+      (lhs,rhs)
+     }
+  }))
+  state.accept!(TokenKind::RCURLYBRACKET)
+  Syntax::Match(condition,list)
+}
+
 fn value_expr(state : State) -> Syntax!ParseError {
   if state.try_parse(TokenKind::LPAREN) {
     return state.parse!(
@@ -662,6 +761,9 @@ fn value_expr(state : State) -> Syntax!ParseError {
     return Syntax::Bool(false)
   } else if state.try_parse(TokenKind::IDENTIFIER) {
     let id = state.peek!().raw
+    if id == "match" {
+      return state.parse!(match_expr)
+    }
     state.accept!(TokenKind::IDENTIFIER)
     return Syntax::Var(id)
   } else if state.try_parse(TokenKind::SUB) { // neg_expr
