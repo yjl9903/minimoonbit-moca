@@ -708,14 +708,11 @@ fn match_expr(state : State) -> Syntax!ParseError{
       raise ParseError("match_expr Error -> Except : match , but got : \{raw}")
   }
   state.accept!(TokenKind::IDENTIFIER)
-  debug("Into match_expr")
   let condition = state.parse!(expr)
-  debug("condition: \{condition}")
   state.accept!(TokenKind::LCURLYBRACKET)
   let list = state.parse!(many(fn {
      s=>{
       let lhs = s.parse!(pattern)
-      debug("lhs : \{lhs}")
       s.accept!(TokenKind::RA)
       let rhs = s.parse!(expr)
       (lhs,rhs)
