@@ -467,7 +467,7 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
         Syntax::App(_, rhs) => rhs
         _ => raise ParseError("???")
       }
-      params.push(Syntax::LetRec(fundef,Syntax::Var(name.0)))
+      params.push(Syntax::LetRec(fundef, Syntax::Var(name.0)))
       let result = match result {
         Syntax::App(lhs, _) => Syntax::App(lhs, params)
         _ => raise ParseError("???")
@@ -492,7 +492,7 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
         Syntax::App(_, rhs) => rhs
         _ => raise ParseError("???")
       }
-      params.push(Syntax::LetRec(fundef,Syntax::Var(name.0)))
+      params.push(Syntax::LetRec(fundef, Syntax::Var(name.0)))
       let result = match result {
         Syntax::App(lhs, _) => Syntax::App(lhs, params)
         _ => raise ParseError("???")
