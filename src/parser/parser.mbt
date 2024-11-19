@@ -51,6 +51,7 @@ fn prog(state : State) -> Syntax!ParseError {
       result = match list[i] {
         Let((p1, p2), p3, _) => Let((p1, p2), p3, result)
         LetRec(p1, _) => LetRec(p1, result)
+        LetEnum(p1, _) => LetEnum(p1, result)
         _ => Syntax::Unit
       }
     }
@@ -65,11 +66,45 @@ fn top_level(state : State) -> Syntax!ParseError {
     state.parse!(top_let_decl)
   } else if state.try_parse(TokenKind::FN) {
     state.parse!(toplevel_fn_decl)
+  } else if state.try_parse(TokenKind::ENUM) {
+    state.parse!(top_enum_decl)
   } else {
     raise ParseError(
       "top_level parse Error -> Except : let or fn \ but get \{state.peek!()}",
     )
   }
+}
+
+fn enum_tuple(state : State) -> @types.EnumKind!ParseError {
+  let name = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  if state.try_parse(TokenKind::LPAREN) {
+    let fields = match state.parse!(tuple_type_or_function_type) {
+      Type::Tuple(array) => array
+      error =>
+        raise ParseError("Type Error : Except tuple type ,but get \{error}")
+    }
+    let result : @types.EnumKind = { name, fields }
+    result
+  } else {
+    let result : @types.EnumKind = { name, fields: [] }
+    result
+  }
+}
+
+fn top_enum_decl(state : State) -> Syntax!ParseError {
+  state.accept!(TokenKind::ENUM)
+  let name = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  if not(name[0].compare('A') >= 0 && name[0].compare('Z') <= 0) {
+    raise ParseError("Enum must start with upper char !")
+  }
+  state.accept!(TokenKind::LCURLYBRACKET)
+  let kinds = state.parse!(many(enum_tuple))
+  state.accept!(TokenKind::RCURLYBRACKET)
+  state.accept!(TokenKind::SEMICOLON)
+  let result : @types.EnumDef = { name, kinds }
+  Syntax::LetEnum(result, Syntax::Unit)
 }
 
 fn top_let_decl(state : State) -> Syntax!ParseError {
@@ -102,6 +137,7 @@ fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
     state.accept!(TokenKind::SEMICOLON)
     Syntax::LetRec(func, Syntax::Unit)
   } else {
+    let generics = state.parse!(any(generic_type))
     state.accept!(TokenKind::LPAREN)
     let args = state.parse!(any(param_list))
     state.accept!(TokenKind::RPAREN)
@@ -113,15 +149,36 @@ fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
       Some(val) => val
       None => []
     }
-    let func : @types.Fundef = {
-      name: (raw, Type::Fun(args.map(fn { a => a.1 }), func_type)),
-      args,
-      body,
+    let return_type = match generics {
+      Some(array) =>
+        Type::Pi(array, Type::Fun(args.map(fn { a => a.1 }), func_type))
+      None => Type::Fun(args.map(fn { a => a.1 }), func_type)
     }
+    let func : @types.Fundef = { name: (raw, return_type), args, body }
     state.accept!(TokenKind::SEMICOLON)
     debug("Top_fn_decl -> \{func}\n")
     Syntax::LetRec(func, Syntax::Unit)
   }
+}
+
+fn generic_type(state : State) -> Array[String]!ParseError {
+  state.accept!(TokenKind::LBRACKET)
+  let id = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  let generics = state.parse!(
+    many(
+      fn {
+        s => {
+          s.accept!(TokenKind::COMMA)
+          let generic = state.peek!().raw
+          state.accept!(TokenKind::IDENTIFIER)
+          generic
+        }
+      },
+    ),
+  )
+  state.accept!(TokenKind::RBRACKET)
+  [id, ..generics]
 }
 
 fn fn_body(state : State) -> Syntax!ParseError {
@@ -422,6 +479,10 @@ fn value_type(state : State) -> Type!ParseError {
     return state.parse!(array_type)
   } else if state.try_parse(TokenKind::LPAREN) {
     return state.parse!(tuple_type_or_function_type)
+  } else if state.try_parse(TokenKind::IDENTIFIER) {
+    let ty = state.peek!().raw
+    state.accept!(TokenKind::IDENTIFIER)
+    return Type::Identifier(ty)
   }
   raise ParseError("Error value type !")
 }
@@ -626,6 +687,145 @@ fn tuple_expr(state : State) -> Syntax!ParseError {
   result
 }
 
+fn pattern(state : State) -> @types.Pattern!ParseError {
+  if state.try_parse(TokenKind::LPAREN) {
+    state.accept!(TokenKind::LPAREN)
+    if state.try_parse(TokenKind::RPAREN) {
+      state.accept!(TokenKind::RPAREN)
+      return @types.Pattern::Unit
+    } else {
+      let e = state.parse!(pattern)
+      let list = state.parse!(
+        many(
+          fn {
+            s => {
+              s.accept!(TokenKind::COMMA)
+              s.parse!(pattern)
+            }
+          },
+        ),
+      )
+      state.accept!(TokenKind::RPAREN)
+      return @types.Pattern::Tuple([e, ..list])
+    }
+  } else if state.try_parse(TokenKind::FALSE) {
+    state.accept!(TokenKind::FALSE)
+    return @types.Pattern::Bool(false)
+  } else if state.try_parse(TokenKind::TRUE) {
+    state.accept!(TokenKind::TRUE)
+    return @types.Pattern::Bool(true)
+  } else if state.try_parse(TokenKind::NUMBER) ||
+    state.try_parse(TokenKind::SUB) { // Double ,int 
+    let mut op = 1
+    if state.try_parse(TokenKind::SUB) {
+      state.accept!(TokenKind::SUB)
+      op = -1
+    }
+    let lhs = state.peek!().raw
+    state.accept!(TokenKind::NUMBER)
+    if state.try_parse(TokenKind::DOT) {
+      state.accept!(TokenKind::DOT)
+      if state.try_parse(TokenKind::NUMBER) {
+        let rhs = state.peek!().raw
+        state.accept!(TokenKind::NUMBER)
+        return @types.Pattern::Double(
+          op.to_double() * @strconv.parse_double?(lhs + "." + rhs).unwrap(),
+        )
+      } else {
+        return @types.Pattern::Double(
+          op.to_double() * @strconv.parse_double?(lhs + ".0").unwrap(),
+        )
+      }
+    } else {
+      return @types.Pattern::Int(op * @strconv.parse_int?(lhs).unwrap())
+    }
+  } else {
+    let id1 = state.peek!().raw
+    state.accept!(TokenKind::IDENTIFIER)
+    if state.try_parse(TokenKind::COLON) {
+      state.accept!(TokenKind::COLON)
+      state.accept!(TokenKind::COLON)
+      let id2 = state.peek!().raw
+      state.accept!(TokenKind::IDENTIFIER)
+      if state.try_parse(TokenKind::LPAREN) {
+        state.accept!(TokenKind::LPAREN)
+        let e = state.parse!(pattern)
+        let list = state.parse!(
+          many(
+            fn {
+              s => {
+                s.accept!(TokenKind::COMMA)
+                s.parse!(pattern)
+              }
+            },
+          ),
+        )
+        state.accept!(TokenKind::RPAREN)
+        @types.Pattern::Enum(id1, id2, [e, ..list])
+      } else {
+        @types.Pattern::Enum(id1, id2, [])
+      }
+    } else if id1 == "_" {
+      @types.Pattern::Var(None)
+    } else {
+      @types.Pattern::Var(Some(id1))
+    }
+  }
+}
+
+fn match_expr(state : State) -> Syntax!ParseError {
+  let raw = state.peek!().raw
+  if raw != "match" {
+    raise ParseError("match_expr Error -> Except : match , but got : \{raw}")
+  }
+  state.accept!(TokenKind::IDENTIFIER)
+  let condition = state.parse!(expr)
+  state.accept!(TokenKind::LCURLYBRACKET)
+  let list = state.parse!(
+    many(
+      fn {
+        s => {
+          let lhs = s.parse!(pattern)
+          s.accept!(TokenKind::RA)
+          s.accept!(TokenKind::LCURLYBRACKET)
+          let rhs = s.parse!(expr)
+          s.accept!(TokenKind::RCURLYBRACKET)
+          (lhs, rhs)
+        }
+      },
+    ),
+  )
+  state.accept!(TokenKind::RCURLYBRACKET)
+  Syntax::Match(condition, list)
+}
+
+fn enum_expr(state : State) -> Syntax!ParseError {
+  let id1 = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  state.accept!(TokenKind::COLON)
+  state.accept!(TokenKind::COLON)
+  let id2 = state.peek!().raw
+  state.accept!(TokenKind::IDENTIFIER)
+  if state.try_parse(TokenKind::LPAREN) {
+    state.accept!(TokenKind::LPAREN)
+    let e = state.parse!(expr)
+    let list = state.parse!(
+      many(
+        fn {
+          s => {
+            s.accept!(TokenKind::COMMA)
+            s.parse!(expr)
+          }
+        },
+      ),
+    )
+    state.accept!(TokenKind::RPAREN)
+    return Syntax::Enum(id1, id2, [e, ..list])
+  } else {
+    return Syntax::Enum(id1, id2, [])
+  }
+}
+
 fn value_expr(state : State) -> Syntax!ParseError {
   if state.try_parse(TokenKind::LPAREN) {
     return state.parse!(
@@ -662,8 +862,22 @@ fn value_expr(state : State) -> Syntax!ParseError {
     return Syntax::Bool(false)
   } else if state.try_parse(TokenKind::IDENTIFIER) {
     let id = state.peek!().raw
-    state.accept!(TokenKind::IDENTIFIER)
-    return Syntax::Var(id)
+    if id == "match" {
+      return state.parse!(match_expr)
+    }
+    return state.parse!(
+      or(
+        [
+          enum_expr,
+          fn {
+            s => {
+              s.accept!(TokenKind::IDENTIFIER)
+              Syntax::Var(id)
+            }
+          },
+        ],
+      ),
+    )
   } else if state.try_parse(TokenKind::SUB) { // neg_expr
     state.accept!(TokenKind::SUB)
     return Syntax::Neg(state.parse!(value_expr), kind=None)

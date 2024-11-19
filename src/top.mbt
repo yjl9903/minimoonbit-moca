@@ -54,6 +54,7 @@ pub struct EnumKind {
 pub enum Pattern {
   Var(String?)
   Unit
+  Bool(Bool)
   Int(Int)
   Double(Double)
   Tuple(Array[Pattern])
