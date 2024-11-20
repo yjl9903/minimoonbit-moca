@@ -100,10 +100,7 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
     }
 
     // Match
-    Match(_, pats) => {
-      let _ = pats.map(fn { pat => self.collect_knf(pat.2) })
-
-    }
+    Match(_, pats) => pats.each(fn { pat => self.collect_knf(pat.2) })
 
     // Var
     Var(var) =>
@@ -172,7 +169,16 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
     }
 
     // Enum
-    Enum(_) => ()
+    Enum(_, _, array) =>
+      array.each(
+        fn {
+          var =>
+            match self.funcs.get(var) {
+              Some(def) => def.count += 1
+              None => ()
+            }
+        },
+      )
 
     // Unused
     ExternalArray(_) => ()

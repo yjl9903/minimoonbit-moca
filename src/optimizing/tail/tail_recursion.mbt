@@ -173,7 +173,10 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
       }
 
     // Match
-    Match(_) => false
+    Match(_) => {
+      self.valid = false
+      false
+    }
 
     // Apply
     Apply(callee, args) =>
