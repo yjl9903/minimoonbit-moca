@@ -70,6 +70,14 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf!InlineError {
         replace_stmt!(map, false_branch),
         ty,
       )
+    // Match
+    Match(expr, pats) => {
+      let new_pats = []
+      for pat in pats {
+        new_pats.push((pat.0, pat.1, replace_stmt!(map, pat.2)))
+      }
+      Match(map.get_or_default(expr, expr), new_pats)
+    }
 
     // Array
     Get(recv, idx) =>
@@ -120,6 +128,10 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf!InlineError {
         replace_stmt!(map, rest),
       )
     }
+    // Enum
+    Enum(lhs, rhs, array) =>
+      Enum(lhs, rhs, array.map(fn { it => map.get_or_default(it, it) }))
+
     LetRec(_) => raise InlineError(())
 
     // Unused
@@ -142,7 +154,11 @@ fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
     IfEq(_, _, true_branch, false_branch, _)
     | IfLe(_, _, true_branch, false_branch, _) =>
       1 + self.calc_size(true_branch) + self.calc_size(false_branch)
-
+    
+    // Match
+    Match(_, pats) =>
+      pats.fold(init=1, fn { sum, pat => sum + self.calc_size(pat.2) })
+    
     // Array
     Get(_) => 1
     Put(_) => 1
@@ -159,7 +175,10 @@ fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
     Let(_, expr, rest) => 1 + self.calc_size(expr) + self.calc_size(rest)
     LetTuple(els, _, rest) => els.length() + self.calc_size(rest)
     LetRec(_) => disable_inline_size
-
+    
+    // Enum
+    Enum(_) => disable_inline_size
+   
     // Unused
     ExternalArray(_) => @util.die("unreachable")
   }
