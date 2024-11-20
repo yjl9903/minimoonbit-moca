@@ -46,7 +46,7 @@ fn visit_knf_tail(knf : Knf) -> Knf {
         expr,
         pats.map(
           fn {
-            pat => (pat.0, pat.1, self.transform_stmt(pat.2, acc, return_value))
+            pat => (pat.0, pat.1, visit_knf_tail(pat.2))
           },
         ),
       )
