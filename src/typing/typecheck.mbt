@@ -43,6 +43,17 @@ fn Gamma::inherit(
           }
         _ => raise TypeError("Type mismatch: should be tuple \{syntax}")
       }
+    Enum(name, _, _) =>
+      match expected {
+        Enum(t) | Var({ val: Some(Enum(t)) }) =>
+          if t == name {
+            let _ = self.synthesis!(syntax)
+            ()
+          } else {
+            raise TypeError("Type mismatch: should be enum \{name}")
+          }
+        _ => raise TypeError("Type mismatch: should be enum \{name}")
+      }
     Array(n, el) => {
       self.fork().inherit!(n, Type::Int)
       match expected {
@@ -155,6 +166,13 @@ fn Gamma::inherit(
       self.fork().inherit!(true_branch, expected)
       self.fork().inherit!(false_branch, expected)
     }
+    Match(expr, pats) => {
+      let expr_type = self.fork().synthesis!(expr)
+      let _ = self.inherit_patterns!(expr_type, pats)
+      for i = 0; i < pats.length(); i = i + 1 {
+        self.fork().inherit!(pats[i].1, expected)
+      }
+    }
 
     // Array
     Get(recv, idx) => {
@@ -184,6 +202,10 @@ fn Gamma::inherit(
     }
     LetTuple(els, expr, rest) => {
       self.inherit_let_tuple!(els, expr)
+      self.inherit!(rest, expected)
+    }
+    LetEnum(def, rest) => {
+      self.inherit_let_enum(def)
       self.inherit!(rest, expected)
     }
   }
@@ -287,6 +309,10 @@ fn Gamma::inherit_let_tuple(
   }
 }
 
+fn Gamma::inherit_let_enum(self : Gamma, def : @types.EnumDef) -> Unit {
+  self.enums = self.enums.add(def.name, def)
+}
+
 fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
   match syntax {
     // Literal
@@ -318,6 +344,24 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
         None => types.map(fn { t => t.unwrap() })
       }
       Type::Tuple(types)
+    }
+    Enum(name, kind, args) => {
+      let enum_kind = self.enums
+        .find(name)
+        .map(fn { def => def.get_kind(kind) })
+        .flatten()
+      match enum_kind {
+        Some(kind) =>
+          if kind.fields.length() == args.length() {
+            for i = 0; i < args.length(); i = i + 1 {
+              self.inherit!(args[i], kind.fields[i])
+            }
+            Type::Enum(name)
+          } else {
+            raise TypeError("Unknown enum \{name}::\{kind}")
+          }
+        None => raise TypeError("Unknown enum \{name}::\{kind}")
+      }
     }
     Array(n, el) => {
       self.fork().inherit!(n, Type::Int)
@@ -396,6 +440,16 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       let false_type = self.fork().synthesis!(false_branch)
       unify!(true_type, false_type)
     }
+    Match(expr, pats) => {
+      let expr_type = self.fork().synthesis!(expr)
+      let _ = self.inherit_patterns!(expr_type, pats)
+      let mut result_type = Type::Var({ val: None })
+      for i = 0; i < pats.length(); i = i + 1 {
+        let pat_type = self.fork().synthesis!(pats[i].1)
+        result_type = unify!(result_type, pat_type)
+      }
+      result_type
+    }
 
     // Array
     Get(recv, idx) => {
@@ -430,6 +484,10 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
     }
     LetTuple(els, expr, rest) => {
       self.inherit_let_tuple!(els, expr)
+      self.synthesis!(rest)
+    }
+    LetEnum(def, rest) => {
+      self.inherit_let_enum(def)
       self.synthesis!(rest)
     }
   }

@@ -32,6 +32,24 @@ pub fn unify(lhs : Type, rhs : Type) -> Type!TypeError {
       } else {
         raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
       }
+    (Enum(l_enum), Enum(r_enum)) =>
+      if l_enum == r_enum {
+        Enum(l_enum)
+      } else {
+        raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
+      }
+    (Enum(l_enum), Identifier(r_id)) =>
+      if l_enum == r_id {
+        Enum(l_enum)
+      } else {
+        raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
+      }
+    (Identifier(l_id), Enum(r_enum)) =>
+      if l_id == r_enum {
+        Enum(r_enum)
+      } else {
+        raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
+      }
     (Array(lhs), Array(rhs)) => Array(unify!(lhs, rhs))
 
     // Unify literal
@@ -60,6 +78,11 @@ pub fn unify(lhs : Type, rhs : Type) -> Type!TypeError {
     }
     (Tuple(_) as base, Var({ val: None } as ref))
     | (Var({ val: None } as ref), Tuple(_) as base) => {
+      ref.val = Some(base)
+      base
+    }
+    (Enum(_) as base, Var({ val: None } as ref))
+    | (Var({ val: None } as ref), Enum(_) as base) => {
       ref.val = Some(base)
       base
     }

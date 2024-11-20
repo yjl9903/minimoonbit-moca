@@ -1,4 +1,3 @@
-
 fn main {
   let a = match 1 {
     () => {1}
