@@ -1,6 +1,6 @@
 type! ParseError String
 
-let recieve : Array[Int] = Array::make(1, 0)
+let reciever_count : Ref[Int] = { val: 0 }
 
 struct State {
   input : Array[Token]
@@ -458,10 +458,10 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
       let body = state.parse!(fn_body)
       state.accept!(TokenKind::RCURLYBRACKET)
       let name = (
-        "__receive__\{recieve[0]}",
+        "__receive__\{reciever_count.val}",
         Type::Fun(args.map(fn { a => a.1 }), Type::Var({ val: None })),
       )
-      recieve[0] += 1
+      reciever_count.val += 1
       let fundef : @types.Fundef = { name, args, body }
       let params = match result {
         Syntax::App(_, rhs) => rhs
@@ -483,10 +483,10 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
       let body = state.parse!(fn_body)
       state.accept!(TokenKind::RCURLYBRACKET)
       let name = (
-        "__receiver_\{recieve[0]}",
+        "__receiver_\{reciever_count.val}",
         Type::Fun(args.map(fn { a => a.1 }), Type::Var({ val: None })),
       )
-      recieve[0] += 1
+      reciever_count.val += 1
       let fundef : @types.Fundef = { name, args, body }
       let params = match result {
         Syntax::App(_, rhs) => rhs
