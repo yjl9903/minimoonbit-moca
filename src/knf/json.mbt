@@ -25,12 +25,15 @@ pub fn Knf::to_json(self : Knf) -> Json {
       ["IfEq", n1.to_json(), n2.to_json(), k1.to_json(), k2.to_json()]
     IfLe(n1, n2, k1, k2, _) =>
       ["IfLe", n1.to_json(), n2.to_json(), k1.to_json(), k2.to_json()]
+    Match(name, body) => ["Match", name.to_json(), body.to_json()]
     Let((n, t), k1, k2) =>
       ["Let", [n.to_json(), t.to_json()], k1.to_json(), k2.to_json()]
     Var(n) => ["Var", n.to_json()]
     LetRec(f, k) => ["LetRec", f.to_json(), k.to_json()]
     Apply(n, ns) => ["Apply", n.to_json(), ns.to_json()]
     Tuple(ns) => ["Tuple", ns.to_json()]
+    Enum(name, kind, ns) =>
+      ["Enum", name.name.to_json(), kind.name.to_json(), ns.to_json()]
     LetTuple(n_ts, n, k) => {
       let n_ts_res = []
       for it in n_ts {

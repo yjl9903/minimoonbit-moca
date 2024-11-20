@@ -112,6 +112,7 @@ pub fn Type::size_of(self : Type, size_of_ptr : Int) -> Int {
         Some(t) => t.size_of(size_of_ptr)
         None => @util.die("Uninstantiated type variable")
       }
+    Pi(_) => @util.die("Uninstantiated type variable")
     Identifier(_) => @util.die("Uninstantiated type variable")
   }
 }
@@ -134,5 +135,18 @@ pub fn Type::op_equal(self : Type, other : Type) -> Bool {
     // ----------------------
     (Var(x), Var(y)) => x.val == y.val
     _ => false
+  }
+}
+
+pub fn Pattern::to_json(self : Pattern) -> Json {
+  match self {
+    Var(None) => "_"
+    Var(Some(id)) => id.to_json()
+    Unit => "()"
+    Bool(value) => value.to_json()
+    Int(value) => value.to_json()
+    Double(value) => value.to_json()
+    Tuple(pats) => pats.to_json()
+    Enum(name, kind, pats) => [name.to_json(), kind.to_json(), pats.to_json()]
   }
 }

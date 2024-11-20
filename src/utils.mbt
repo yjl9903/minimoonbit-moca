@@ -9,6 +9,8 @@ pub fn to_json(self : Type) -> Json {
     Tuple(types) => ["Tuple", types.map(Type::to_json) |> Json::Array]
     Array(t) => ["Array", t.to_json()]
     Enum(t) => ["Enum", t.to_json()]
+    Identifier(id) => ["Identifier", id.to_json()]
+    Pi(args, typ) => ["Pi", args.to_json(), typ.to_json()]
     Var({ val: None }) => ["Var", "None"]
     Var({ val: Some(t) }) => ["Var", ["Some", t.to_json()]]
     Ptr => "Ptr"
