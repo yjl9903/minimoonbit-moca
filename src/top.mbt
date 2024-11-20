@@ -51,6 +51,13 @@ pub struct EnumKind {
   fields : Array[Type]
 } derive(Show, Eq)
 
+pub fn EnumDef::get_kind(self : EnumDef, kind_name : String) -> EnumKind? {
+  match self.kinds.search_by(fn { kind => kind.name == kind_name }) {
+    Some(idx) => Some(self.kinds[idx])
+    None => None
+  }
+}
+
 pub enum Pattern {
   Var(String?)
   Unit
