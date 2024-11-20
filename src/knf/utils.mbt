@@ -29,6 +29,13 @@ pub fn knf_max_counter(knf : Knf) -> Int {
           @math.maximum(knf_max_counter(e1), knf_max_counter(e2)),
         ),
       )
+    Match(expr, pats) =>
+      @math.maximum(
+        pats
+        .map(fn(p) { knf_max_counter(p.2) })
+        .fold(init=0, fn(a, b) { @math.maximum(a, b) }),
+        expr.slot,
+      )
     Loop(_, args, body) =>
       @math.maximum(
         args
@@ -54,6 +61,8 @@ pub fn knf_max_counter(knf : Knf) -> Int {
         x.slot,
         xs.map(fn(x) { x.slot }).fold(init=0, fn(a, b) { @math.maximum(a, b) }),
       )
+    Enum(_, _, xs) =>
+      xs.map(fn(x) { x.slot }).fold(init=0, fn(a, b) { @math.maximum(a, b) })
     Tuple(xs) =>
       xs.map(fn(x) { x.slot }).fold(init=0, fn(a, b) { @math.maximum(a, b) })
     LetTuple(xts, n, e) =>

@@ -54,9 +54,10 @@ fn PrettyKnf::print_one_level(
       logger.outdent()
       logger.write_string("\n}")
     }
-    // TODO: print loop
+    // TODO: print loop and match
     Loop(_) => ()
     Continue(_) => ()
+    Match(_) => ()
     Let((name, ty), e1, e2) => {
       logger.write_string("let \{name}: \{ty} = ")
       match e1 {
@@ -121,6 +122,16 @@ fn PrettyKnf::print_one_level(
         logger.write_string(", ")
       }
       logger.write_string("])")
+    }
+    Enum(name, kind, args) => {
+      logger.write_string(name.name)
+      logger.write_string("::")
+      logger.write_string(kind.name)
+      logger.write_string("(")
+      for a in args {
+        logger.write_string(a.to_string())
+      }
+      logger.write_string(")")
     }
     Put(e1, e2, e3) => logger.write_string("Put \{e1}[\{e2}] = \{e3}")
     Get(e1, e2) => logger.write_string("Get \{e1}[\{e2}]")

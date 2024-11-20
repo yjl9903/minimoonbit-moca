@@ -22,7 +22,7 @@ pub enum Knf {
   Continue(Name, Array[Name])
   IfEq(Name, Name, Knf, Knf, Type)
   IfLe(Name, Name, Knf, Knf, Type)
-  Match(Name, Array[(Pattern, Knf)])
+  Match(Name, Array[(Pattern, Array[(Name, Type)], Knf)]) // match <expr> { pattern (bind args) => body }
   Let((Name, Type), Knf, Knf)
   Var(Name)
   LetRec(FuncDef, Knf)

@@ -68,6 +68,22 @@ pub enum Pattern {
   Enum(String, String, Array[Pattern])
 } derive(Show, Eq)
 
+pub fn Pattern::extract_vars(self : Pattern) -> Array[(String, Type)] {
+  let res = []
+  fn extract(pattern : Pattern) -> Unit {
+    match pattern {
+      Var(None, _) => ()
+      Var(Some(def), typ) => res.push((def, typ))
+      Unit | Bool(_) | Int(_) | Double(_) => ()
+      Tuple(els) => els.each(fn { el => extract(el) })
+      Enum(_, _, els) => els.each(fn { el => extract(el) })
+    }
+  }
+
+  extract(self)
+  res
+}
+
 pub enum Type {
   Unit
   Bool
