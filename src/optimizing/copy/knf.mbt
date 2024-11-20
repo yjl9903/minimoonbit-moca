@@ -99,6 +99,14 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
         ty,
       )
     }
+    // Match
+    Match(expr, pats) => {
+      let expr = self.replace(expr)
+      Match(
+        expr,
+        pats.map(fn { pat => (pat.0, pat.1, self.fork().transform(pat.2)) }),
+      )
+    }
 
     // Let
     Let(binding, expr, rest) =>
@@ -142,7 +150,10 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
       let def = { ..def, body: new_ctx.transform(def.body) }
       LetRec(def, self.transform(rest))
     }
+    // Enum
 
+    Enum(lhs, rhs, array) =>
+      Enum(lhs, rhs, array.map(fn { it => self.replace(it) }))
     // unused
     ExternalArray(_) => @util.die("unreachable")
   }
