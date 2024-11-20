@@ -59,7 +59,7 @@ pub fn EnumDef::get_kind(self : EnumDef, kind_name : String) -> EnumKind? {
 }
 
 pub enum Pattern {
-  Var(String?)
+  Var(String?, Type)
   Unit
   Bool(Bool)
   Int(Int)
@@ -147,8 +147,8 @@ pub fn Type::op_equal(self : Type, other : Type) -> Bool {
 
 pub fn Pattern::to_json(self : Pattern) -> Json {
   match self {
-    Var(None) => "_"
-    Var(Some(id)) => id.to_json()
+    Var(None, _) => "_"
+    Var(Some(id), _) => id.to_json()
     Unit => "()"
     Bool(value) => value.to_json()
     Int(value) => value.to_json()

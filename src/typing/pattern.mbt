@@ -8,6 +8,11 @@ fn Gamma::inherit_patterns(
   for i = 0; i < pats.length(); i = i + 1 {
     expr_type = self.inherit_pattern!(expr_type, pats[i].0)
   }
+  // Typing unknown pattern vars
+  for i = 0; i < pats.length(); i = i + 1 {
+    let _ = self.inherit_pattern!(expr_type, pats[i].0)
+    ()
+  }
   if is_known_type(expr_type) {
     expr_type
   } else {
@@ -22,10 +27,10 @@ fn Gamma::inherit_pattern(
 ) -> Type!TypeError {
   match (expr_type, pattern) {
     (Var({ val: None }), Var(_)) => expr_type
-    (Var({ val: None }) | Unit, Unit) | (Unit, Var(_)) => Unit
-    (Var({ val: None }) | Int, Int(_)) | (Int, Var(_)) => Int
-    (Var({ val: None }) | Bool, Bool(_)) | (Bool, Var(_)) => Bool
-    (Var({ val: None }) | Double, Double(_)) | (Double, Var(_)) => Double
+    (Var({ val: None }) | Unit, Unit) => Unit
+    (Var({ val: None }) | Int, Int(_)) => Int
+    (Var({ val: None }) | Bool, Bool(_)) => Bool
+    (Var({ val: None }) | Double, Double(_)) => Double
     (Var({ val: None }), Tuple(pats)) => {
       let typs = []
       for i = 0; i < pats.length(); i = i + 1 {
@@ -55,7 +60,34 @@ fn Gamma::inherit_pattern(
       }
     }
     (Var({ val: Some(t) }), _) => self.inherit_pattern!(t, pattern)
-    (Tuple(els), Var(_)) => Tuple(els)
+
+    // Unknown pattern
+    (Unit, Var(_, Var(typ))) => {
+      typ.val = Some(Unit)
+      Unit
+    }
+    (Int, Var(_, Var(typ))) => {
+      typ.val = Some(Int)
+      Int
+    }
+    (Bool, Var(_, Var(typ))) => {
+      typ.val = Some(Bool)
+      Bool
+    }
+    (Double, Var(_, Var(typ))) => {
+      typ.val = Some(Double)
+      Double
+    }
+    (Tuple(els), Var(_, Var(typ))) => {
+      typ.val = Some(Tuple(els))
+      Tuple(els)
+    }
+    (Enum(t_name), Var(_, Var(typ))) => {
+      typ.val = Some(Enum(t_name))
+      Enum(t_name)
+    }
+
+    // Check pattern
     (Tuple(els), Tuple(pats)) =>
       if els.length() == pats.length() {
         let res = []
@@ -67,7 +99,6 @@ fn Gamma::inherit_pattern(
       } else {
         raise TypeError("Pattern mismatch: \{expr_type} in \{pattern}")
       }
-    (Enum(t_name), Var(_)) => Enum(t_name)
     (Enum(t_name), Enum(p_name, p_kind, pats)) =>
       if t_name == p_name {
         let kind = self.enums

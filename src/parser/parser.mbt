@@ -766,9 +766,9 @@ fn pattern(state : State) -> @types.Pattern!ParseError {
         @types.Pattern::Enum(id1, id2, [])
       }
     } else if id1 == "_" {
-      @types.Pattern::Var(None)
+      @types.Pattern::Var(None, Var({ val: None }))
     } else {
-      @types.Pattern::Var(Some(id1))
+      @types.Pattern::Var(Some(id1), Var({ val: None }))
     }
   }
 }
