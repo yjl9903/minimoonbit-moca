@@ -150,6 +150,53 @@ fn KnfContext::visit_knf(self : KnfContext, knf : Knf) -> (Knf, KnfConstValue?) 
           (IfLe(lhs, rhs, true_branch.0, false_branch.0, ty), None)
         }
       }
+    
+    // Match
+    Match(expr, pats) =>
+      match self.get(expr) {
+        Some(knf_val) => {
+          let mut res = None
+          for pat in pats {
+            let flag : Bool = match pat.0 {
+              Var(_, _) => {
+                res = Some(self.visit_knf(pat.2))
+                true
+              }
+              Int(expr) =>
+                match knf_val {
+                  Int(val) =>
+                    if expr == val {
+                      res = Some(self.visit_knf(pat.2))
+                      true
+                    } else {
+                      false
+                    }
+                  _ => false
+                }
+              Double(expr) =>
+                match knf_val {
+                  Double(val) =>
+                    if expr == val {
+                      res = Some(self.visit_knf(pat.2))
+                      true
+                    } else {
+                      false
+                    }
+                  _ => false
+                }
+              _ => false
+            }
+            if flag {
+              break
+            }
+          }
+          match res {
+            Some(val) => val
+            None => (knf, None)
+          }
+        }
+        _ => (knf, None)
+      }
 
     // Var
     Var(var) =>
@@ -183,7 +230,8 @@ fn KnfContext::visit_knf(self : KnfContext, knf : Knf) -> (Knf, KnfConstValue?) 
       let rest = self.visit_knf(rest)
       (LetTuple(els, expr, rest.0), rest.1)
     }
-
+    // Enum
+    Enum(_) => (knf, None)
     // unused
     ExternalArray(_) => (knf, None)
   }
