@@ -205,7 +205,7 @@ fn Gamma::inherit(
       self.inherit!(rest, expected)
     }
     LetEnum(def, rest) => {
-      self.inherit_let_enum(def)
+      self.inherit_let_enum!(def)
       self.inherit!(rest, expected)
     }
   }
@@ -309,8 +309,14 @@ fn Gamma::inherit_let_tuple(
   }
 }
 
-fn Gamma::inherit_let_enum(self : Gamma, def : @types.EnumDef) -> Unit {
-  self.enums = self.enums.add(def.name, def)
+fn Gamma::inherit_let_enum(
+  self : Gamma,
+  def : @types.EnumDef
+) -> Unit!TypeError {
+  match self.enums.find(def.name) {
+    Some(_) => raise TypeError("Enum error: duplicate enum \{def.name}")
+    None => self.enums = self.enums.add(def.name, def)
+  }
 }
 
 fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
@@ -487,7 +493,7 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       self.synthesis!(rest)
     }
     LetEnum(def, rest) => {
-      self.inherit_let_enum(def)
+      self.inherit_let_enum!(def)
       self.synthesis!(rest)
     }
   }
