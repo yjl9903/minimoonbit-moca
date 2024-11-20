@@ -150,7 +150,7 @@ fn KnfContext::visit_knf(self : KnfContext, knf : Knf) -> (Knf, KnfConstValue?) 
           (IfLe(lhs, rhs, true_branch.0, false_branch.0, ty), None)
         }
       }
-    
+
     // Match
     Match(expr, pats) =>
       match self.get(expr) {

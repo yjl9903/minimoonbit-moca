@@ -151,7 +151,7 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
       LetRec(def, self.transform(rest))
     }
     // Enum
-    
+
     Enum(lhs, rhs, array) =>
       Enum(lhs, rhs, array.map(fn { it => self.replace(it) }))
     // unused

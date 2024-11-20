@@ -262,10 +262,10 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
         }
         None => @util.die("unreachable")
       }
-    
+
     // Enum
     Enum(_) => knf
-    
+
     // Unused
     ExternalArray(_) => knf
   }

@@ -84,7 +84,7 @@ fn ValidateContext::validate_knf(self : ValidateContext, knf : Knf) -> Int {
       }
 
     // Match
-    Match(_) =>{
+    Match(_) => {
       self.valid = false
       0
     }
@@ -128,7 +128,7 @@ fn ValidateContext::validate_knf(self : ValidateContext, knf : Knf) -> Int {
     }
     LetTuple(_, _, rest) => self.validate_knf(rest)
     LetRec(_, rest) => self.validate_knf(rest)
-    
+
     // Enum
     Enum(_) => 0
     // unused

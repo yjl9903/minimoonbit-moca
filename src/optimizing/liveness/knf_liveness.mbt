@@ -132,14 +132,17 @@ fn visit_knf(knf : Knf) -> (Knf, @immut/hashset.T[Name], Bool) {
     }
 
     // Enum
-    Enum(lhs,rhs,array) =>{
-      let used = array.fold(init= @immut/hashset.new(),fn {
-        res,elem => {
-          let uesd = res.add(elem);
-          uesd
-        }
-      })
-      (Enum(lhs,rhs,array),used,false)
+    Enum(lhs, rhs, array) => {
+      let used = array.fold(
+        init=@immut/hashset.new(),
+        fn {
+          res, elem => {
+            let uesd = res.add(elem)
+            uesd
+          }
+        },
+      )
+      (Enum(lhs, rhs, array), used, false)
     }
     //
     ExternalArray(_) => @util.die("unreachable")
