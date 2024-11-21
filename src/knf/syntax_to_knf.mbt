@@ -7,14 +7,14 @@ struct KnfEnv {
   externals : @immut/hashmap.T[String, Type]
 }
 
-enum Edge {
-  Ints(Array[(Int, Node)], Node?)
-  Doubles(Array[(Double, Node)], Node?)
-  Unit(Node, Node?)
-  Bool(Node?, Node?, Node?)
-  Tuple(Node, Node?)
-  Enums(Array[(String, String, Node)], Node?)
-  Var(Node)
+enum Edge { // 最后一个是加defaul的边 倒数第二个是通配符(Var)
+  Ints(Array[(Int, Node)], Node?, Node?)
+  Doubles(Array[(Double, Node)], Node?, Node?)
+  Unit(Node, Node?, Node?)
+  Bool(Node?, Node?, Node?, Node?)
+  Tuple(Node, Node?, Node?)
+  Enums(Array[(String, String, Node)], Node?, Node?)
+  Var(Node, Node?)
   Default
 }
 
@@ -22,10 +22,21 @@ struct Node {
   mut edges : Edge
   mut syntax : @types.Syntax?
   vars : Array[String]
+  id : Int
+  mut leaf : Bool
 }
 
+pub let node_counter : Ref[Int] = { val: 0 }
+
 fn Node::new() -> Node {
-  let node = { edges: Default, syntax: None, vars: [] }
+  let node = {
+    edges: Default,
+    syntax: None,
+    vars: [],
+    id: node_counter.val,
+    leaf: false,
+  }
+  node_counter.val += 1
   node
 }
 
@@ -37,14 +48,14 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
       Unit => {
         vars.push(prefix + index.to_string())
         node.edges = match node.edges {
-          Default => Unit(Node::new(), None)
+          Default => Unit(Node::new(), None, None)
           Var(_) | Unit(_) => node.edges
           _ => @util.die("Type Error")
         }
         // 如果先有var 就走 var
         node = match node.edges {
-          Var(exp) => exp
-          Unit(lhs, _) => lhs
+          Var(exp, _) => exp
+          Unit(lhs, _, _) => lhs
           _ => @util.die("Impossible")
         }
       }
@@ -55,30 +66,33 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         node.edges = match node.edges {
           Default =>
             if val == false {
-              Bool(Some(Node::new()), None, None)
+              Bool(Some(Node::new()), None, None, None)
             } else {
-              Bool(None, Some(Node::new()), None)
+              Bool(None, Some(Node::new()), None, None)
             }
           Var(_) | Bool(_) => node.edges
           _ => @util.die("Type Error")
         }
+
         // 新加节点
         if val == false {
           node.edges = match node.edges {
-            Bool(_, _, Some(val)) => node.edges
-            Bool(None, lhs, rhs) => Bool(Some(Node::new()), lhs, rhs)
+            Bool(_, _, Some(val), _) => node.edges
+            Bool(None, lhs, rhs, None) =>
+              Bool(Some(Node::new()), lhs, rhs, None)
             _ => node.edges
           }
         } else {
           node.edges = match node.edges {
-            Bool(_, _, Some(val)) => node.edges
-            Bool(lhs, None, rhs) => Bool(lhs, Some(Node::new()), rhs)
+            Bool(_, _, Some(val), _) => node.edges
+            Bool(lhs, None, rhs, None) =>
+              Bool(lhs, Some(Node::new()), rhs, None)
             _ => node.edges
           }
         }
         next = match node.edges {
-          Var(exp) => Some(exp)
-          Bool(lhs, rhs, last) =>
+          Var(exp, None) => Some(exp)
+          Bool(lhs, rhs, last, None) =>
             if val == false {
               if lhs.is_empty() {
                 last
@@ -100,24 +114,25 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         if name.is_empty() == false {
           vars.push(prefix + index.to_string())
         }
+        // 如果之前有别的类型，就加对应的通配符
         node.edges = match node.edges {
-          Default => Var(Node::new())
-          Unit(lhs, None) => Unit(lhs, Some(Node::new()))
-          Bool(lhs, rhs, None) => Bool(lhs, rhs, Some(Node::new()))
-          Ints(array, None) => Ints(array, Some(Node::new()))
-          Doubles(array, None) => Doubles(array, Some(Node::new()))
-          Enums(array, None) => Enums(array, Some(Node::new()))
-          Tuple(val, None) => Tuple(val, Some(Node::new()))
+          Default => Var(Node::new(), None)
+          Unit(lhs, None, None) => Unit(lhs, Some(Node::new()), None)
+          Bool(lhs, rhs, None, None) => Bool(lhs, rhs, Some(Node::new()), None)
+          Ints(array, None, None) => Ints(array, Some(Node::new()), None)
+          Doubles(array, None, None) => Doubles(array, Some(Node::new()), None)
+          Enums(array, None, None) => Enums(array, Some(Node::new()), None)
+          Tuple(val, None, None) => Tuple(val, Some(Node::new()), None)
           _ => node.edges
         }
         let next = match node.edges {
-          Unit(_, Some(val)) => val
-          Bool(_, _, Some(val)) => val
-          Ints(_, Some(val)) => val
-          Doubles(_, Some(val)) => val
-          Enums(_, Some(val)) => val
-          Tuple(_, Some(val)) => val
-          Var(val) => val
+          Unit(_, Some(val), None) => val
+          Bool(_, _, Some(val), None) => val
+          Ints(_, Some(val), None) => val
+          Doubles(_, Some(val), None) => val
+          Enums(_, Some(val), None) => val
+          Tuple(_, Some(val), None) => val
+          Var(val, None) => val
         }
         node = next
       }
@@ -125,12 +140,12 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         vars.push(prefix + index.to_string())
         node.edges = match node.edges {
           Var(_) | Ints(_) => node.edges
-          Default => Ints(Array::new(), None)
+          Default => Ints(Array::new(), None, None)
           _ => @util.die("Type Error")
         }
         let next = match node.edges {
-          Var(exp) => exp
-          Ints(array, defalut) => {
+          Var(exp, None) => exp
+          Ints(array, defalut, None) => {
             let mut res = None
             for item in array {
               if item.0 == val {
@@ -138,13 +153,13 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
               }
             }
             if res.is_empty() {
-              if defalut.is_empty() {
+              if defalut.is_empty() { // 如果通配符不在 新建一个节点
                 let new_node = Node::new()
                 array.push((val, new_node))
-                node.edges = Ints(array, defalut)
+                node.edges = Ints(array, defalut, None)
                 res = Some(new_node)
               } else {
-                res = defalut
+                res = defalut // 通配符在走通配符
               }
             }
             res.unwrap()
@@ -157,12 +172,12 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         vars.push(prefix + index.to_string())
         node.edges = match node.edges {
           Var(_) | Doubles(_) => node.edges
-          Default => Doubles(Array::new(), None)
+          Default => Doubles(Array::new(), None, None)
           _ => @util.die("Type Error")
         }
         let next = match node.edges {
-          Var(exp) => exp
-          Doubles(array, defalut) => {
+          Var(exp, None) => exp
+          Doubles(array, defalut, None) => {
             let mut res = None
             for item in array {
               if item.0 == val {
@@ -173,7 +188,7 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
               if defalut.is_empty() {
                 let new_node = Node::new()
                 array.push((val, new_node))
-                node.edges = Doubles(array, defalut)
+                node.edges = Doubles(array, defalut, None)
                 res = Some(new_node)
               } else {
                 res = defalut
@@ -189,14 +204,14 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         // Into Tuple Node
         let mut new_index = 0
         node.edges = match node.edges {
-          Default => Tuple(Node::new(), None)
+          Default => Tuple(Node::new(), None, None)
           Var(_) | Tuple(_) => node.edges
           _ => @util.die("Type Error")
         }
         let mut flag = false
         let next = match node.edges {
-          Var(exp) => exp
-          Tuple(exp, _) => {
+          Var(exp, None) => exp
+          Tuple(exp, _, None) => {
             flag = true
             exp
           }
@@ -214,14 +229,14 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         // Into Tuple Node
         let mut new_index = 0
         node.edges = match node.edges {
-          Default => Tuple(Node::new(), None)
+          Default => Tuple(Node::new(), None,None)
           Var(_) | Enums(_) => node.edges
           _ => @util.die("Type Error")
         }
         let mut flag = false
         let next = match node.edges {
-          Var(exp) => exp
-          Enums(array, defalut) => {
+          Var(exp, None) => exp // 有通配符 后面就都不需要了
+          Enums(array, defalut, None) => {
             let mut res = None
             for item in array {
               if item.0 == lhs && item.1 == rhs {
@@ -232,7 +247,7 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
               if defalut.is_empty() {
                 let new_node = Node::new()
                 array.push((lhs, rhs, new_node))
-                node.edges = Enums(array, defalut)
+                node.edges = Enums(array, defalut, None)
                 res = Some(new_node)
               } else {
                 res = defalut
@@ -256,6 +271,151 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
   dfs(root, pattern, "temp", 0)
   node.syntax = Some(syntax)
   node.vars.append(vars)
+  node.leaf = true
+}
+
+//添加 一条default边，建立AC自动机
+fn add_edge(source : Node, target : Node, edge : Edge) -> Unit {
+  source.edges = match source.edges {
+    Var(var, None) => Var(var, Some(target))
+    Unit(lhs, rhs, None) => Unit(lhs, rhs, Some(target))
+    Bool(lhs, rhs, exp, None) => Bool(lhs, rhs, exp, Some(target))
+    Ints(array, exp, None) => Ints(array, exp, Some(target))
+    Doubles(array, exp, None) => Doubles(array, exp, Some(target))
+    Tuple(expr, exp, None) => Tuple(expr, exp, Some(target))
+    Enums(array, exp, None) => Enums(array, exp, Some(target))
+    _ => source.edges
+  }
+}
+
+// 添加default边
+fn add_default(root : Node) -> Unit {
+  let mut mp : @hashmap.T[Int, Int] = @hashmap.new() // 存储 每个Node的 default的儿子
+  let mut identifier : @hashmap.T[Int, Node] = @hashmap.new()
+  let stack : Array[Int] = Array::new()
+  fn dfs(node : Node, is_default : Bool) {
+    identifier[node.id] = node
+    stack.push(node.id)
+    if is_default || node.leaf { // 寻找到祖先中分叉的default
+      for i = stack.length() - 2; i >= 0; i = i - 1 {
+        if mp.contains(stack[i]) && mp[stack[i]].unwrap() != stack[i + 1] {
+          add_edge(node, identifier[stack[i]].unwrap(), Default)
+          break
+        }
+      }
+    }
+    // 下面的 add_edge 是兄弟向default点连边
+    match node.edges {
+      Var(next, _) => {
+        mp[node.id] = next.id 
+        dfs(next, true)
+      }
+      Unit(next_node, defalut_node, _) =>
+        if defalut_node.is_empty() {
+          dfs(next_node, false)
+        } else {
+          mp[node.id] = defalut_node.unwrap().id
+          dfs(defalut_node.unwrap(), true)
+          add_edge(next_node, defalut_node.unwrap(), Edge::Default) 
+          dfs(next_node, false)
+        }
+      Bool(lhs, rhs, defalut_node, _) =>
+        if defalut_node.is_empty() {
+          if lhs.is_empty() {
+            dfs(lhs.unwrap(), false)
+          }
+          if rhs.is_empty() {
+            dfs(rhs.unwrap(), false)
+          }
+        } else {
+          mp[node.id] = defalut_node.unwrap().id
+          dfs(defalut_node.unwrap(), true)
+          if lhs.is_empty() {
+            add_edge(lhs.unwrap(), defalut_node.unwrap(), Edge::Default)
+            dfs(lhs.unwrap(), false)
+          }
+          if rhs.is_empty() {
+            add_edge(lhs.unwrap(), defalut_node.unwrap(), Edge::Default)
+            dfs(rhs.unwrap(), false)
+          }
+        }
+      Ints(array, defalut_node, _) => {
+        if defalut_node.is_empty() == false {
+          mp[node.id] = defalut_node.unwrap().id
+          dfs(defalut_node.unwrap(), true)
+        }
+        array.each(
+          fn {
+            item => {
+              if defalut_node.is_empty() == false {
+                add_edge(item.1, defalut_node.unwrap(), Edge::Default)
+              }
+              dfs(item.1, false)
+            }
+          },
+        )
+      }
+      Doubles(array, defalut_node, _) => {
+        if defalut_node.is_empty() == false {
+          mp[node.id] = defalut_node.unwrap().id
+          dfs(defalut_node.unwrap(), true)
+        }
+        array.each(
+          fn {
+            item => {
+              if defalut_node.is_empty() == false {
+                add_edge(item.1, defalut_node.unwrap(), Edge::Default)
+              }
+              dfs(item.1, false)
+            }
+          },
+        )
+      }
+      Enums(array, defalut_node, _) => {
+        if defalut_node.is_empty() == false {
+          mp[node.id] = defalut_node.unwrap().id
+          dfs(defalut_node.unwrap(), true)
+        }
+        array.each(
+          fn {
+            item => {
+              if defalut_node.is_empty() == false {
+                add_edge(item.2, defalut_node.unwrap(), Edge::Default)
+              }
+              dfs(item.2, false)
+            }
+          },
+        )
+      }
+      Tuple(next_node, defalut_node, _) =>
+        if defalut_node.is_empty() {
+          dfs(next_node, false)
+        } else {
+          mp[node.id] = defalut_node.unwrap().id
+          dfs(defalut_node.unwrap(), true)
+          add_edge(next_node, defalut_node.unwrap(), Edge::Default)
+          dfs(next_node, false)
+        }
+    }
+    let _ = stack.pop()
+
+  }
+
+  // DFS END
+  let new_node = Node::new()
+  new_node.syntax = Some(Var("Unreachable"))
+  let default = match root.edges {
+    Var(val, _) => val
+    Ints(_, Some(val), _) => val
+    Doubles(_, Some(val), _) => val
+    Enums(_, Some(val), _) => val
+    Unit(_, Some(val), _) => val
+    Bool(_, _, Some(val), _) => val
+    Tuple(_, Some(val), _) => val
+    _ => new_node
+  }
+  mp[root.id] = default.id
+  dfs(root, false)
 }
 
 pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
