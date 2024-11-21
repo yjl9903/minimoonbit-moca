@@ -439,7 +439,7 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
   )
   debug("get_or_apply_level_expr: -> \{result}")
   let flag = match result {
-    Syntax::App(_, _) => true
+    Syntax::App(_) => true
     _ => false
   }
   debug("flag : \{flag}")
@@ -472,14 +472,19 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
         Type::Fun(args.map(fn { a => a.1 }), Type::Var({ val: None })),
       )
       reciever_count.val += 1
-      let fundef : @types.Fundef = { name, args, body }
+      let fundef : @types.Fundef = {
+        id: @types.generate_fun_def_id(),
+        name,
+        args,
+        body,
+      }
       let params = match result {
-        Syntax::App(_, rhs) => rhs
+        Syntax::App(_, _, rhs) => rhs
         _ => raise ParseError("???")
       }
       params.push(Syntax::LetRec(fundef, Syntax::Var(name.0)))
       let result = match result {
-        Syntax::App(lhs, _) => Syntax::App(lhs, params)
+        Syntax::App(lhs, typs, _) => Syntax::App(lhs, typs, params)
         _ => raise ParseError("???")
       }
       debug("fundef: \{fundef},result : \{result}")
@@ -497,14 +502,19 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
         Type::Fun(args.map(fn { a => a.1 }), Type::Var({ val: None })),
       )
       reciever_count.val += 1
-      let fundef : @types.Fundef = { name, args, body }
+      let fundef : @types.Fundef = {
+        id: @types.generate_fun_def_id(),
+        name,
+        args,
+        body,
+      }
       let params = match result {
-        Syntax::App(_, rhs) => rhs
+        Syntax::App(_, _, rhs) => rhs
         _ => raise ParseError("???")
       }
       params.push(Syntax::LetRec(fundef, Syntax::Var(name.0)))
       let result = match result {
-        Syntax::App(lhs, _) => Syntax::App(lhs, params)
+        Syntax::App(lhs, typs, _) => Syntax::App(lhs, typs, params)
         _ => raise ParseError("???")
       }
       debug("fundef: \{fundef},result : \{result}")
