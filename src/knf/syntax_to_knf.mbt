@@ -7,6 +7,258 @@ struct KnfEnv {
   externals : @immut/hashmap.T[String, Type]
 }
 
+enum Edge {
+  Ints(Array[(Int, Node)], Node?)
+  Doubles(Array[(Double, Node)], Node?)
+  Unit(Node, Node?)
+  Bool(Node?, Node?, Node?)
+  Tuple(Node, Node?)
+  Enums(Array[(String, String, Node)], Node?)
+  Var(Node)
+  Default
+}
+
+struct Node {
+  mut edges : Edge
+  mut syntax : @types.Syntax?
+  vars : Array[String]
+}
+
+fn Node::new() -> Node {
+  let node = { edges: Default, syntax: None, vars: [] }
+  node
+}
+
+fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
+  let mut node = root
+  let vars : Array[String] = Array::new()
+  fn dfs(root : Node, pattern : Pattern, prefix : String, index : Int) -> Unit {
+    match pattern {
+      Unit => {
+        vars.push(prefix + index.to_string())
+        node.edges = match node.edges {
+          Default => Unit(Node::new(), None)
+          Var(_) | Unit(_) => node.edges
+          _ => @util.die("Type Error")
+        }
+        // 如果先有var 就走 var
+        node = match node.edges {
+          Var(exp) => exp
+          Unit(lhs, _) => lhs
+          _ => @util.die("Impossible")
+        }
+      }
+      Bool(val) => {
+        vars.push(prefix + index.to_string())
+        let mut next = None
+        // 初始化
+        node.edges = match node.edges {
+          Default =>
+            if val == false {
+              Bool(Some(Node::new()), None, None)
+            } else {
+              Bool(None, Some(Node::new()), None)
+            }
+          Var(_) | Bool(_) => node.edges
+          _ => @util.die("Type Error")
+        }
+        // 新加节点
+        if val == false {
+          node.edges = match node.edges {
+            Bool(_, _, Some(val)) => node.edges
+            Bool(None, lhs, rhs) => Bool(Some(Node::new()), lhs, rhs)
+            _ => node.edges
+          }
+        } else {
+          node.edges = match node.edges {
+            Bool(_, _, Some(val)) => node.edges
+            Bool(lhs, None, rhs) => Bool(lhs, Some(Node::new()), rhs)
+            _ => node.edges
+          }
+        }
+        next = match node.edges {
+          Var(exp) => Some(exp)
+          Bool(lhs, rhs, last) =>
+            if val == false {
+              if lhs.is_empty() {
+                last
+              } else {
+                lhs
+              }
+            } else if rhs.is_empty() {
+              last
+            } else {
+              rhs
+            }
+        }
+        node = match next {
+          Some(v) => v
+          None => @util.die("Impossible")
+        }
+      }
+      Var(name, ty) => {
+        if name.is_empty() == false {
+          vars.push(prefix + index.to_string())
+        }
+        node.edges = match node.edges {
+          Default => Var(Node::new())
+          Unit(lhs, None) => Unit(lhs, Some(Node::new()))
+          Bool(lhs, rhs, None) => Bool(lhs, rhs, Some(Node::new()))
+          Ints(array, None) => Ints(array, Some(Node::new()))
+          Doubles(array, None) => Doubles(array, Some(Node::new()))
+          Enums(array, None) => Enums(array, Some(Node::new()))
+          Tuple(val, None) => Tuple(val, Some(Node::new()))
+          _ => node.edges
+        }
+        let next = match node.edges {
+          Unit(_, Some(val)) => val
+          Bool(_, _, Some(val)) => val
+          Ints(_, Some(val)) => val
+          Doubles(_, Some(val)) => val
+          Enums(_, Some(val)) => val
+          Tuple(_, Some(val)) => val
+          Var(val) => val
+        }
+        node = next
+      }
+      Int(val) => {
+        vars.push(prefix + index.to_string())
+        node.edges = match node.edges {
+          Var(_) | Ints(_) => node.edges
+          Default => Ints(Array::new(), None)
+          _ => @util.die("Type Error")
+        }
+        let next = match node.edges {
+          Var(exp) => exp
+          Ints(array, defalut) => {
+            let mut res = None
+            for item in array {
+              if item.0 == val {
+                res = Some(item.1)
+              }
+            }
+            if res.is_empty() {
+              if defalut.is_empty() {
+                let new_node = Node::new()
+                array.push((val, new_node))
+                node.edges = Ints(array, defalut)
+                res = Some(new_node)
+              } else {
+                res = defalut
+              }
+            }
+            res.unwrap()
+          }
+          _ => @util.die("Impossible")
+        }
+
+      }
+      Double(val) => {
+        vars.push(prefix + index.to_string())
+        node.edges = match node.edges {
+          Var(_) | Doubles(_) => node.edges
+          Default => Doubles(Array::new(), None)
+          _ => @util.die("Type Error")
+        }
+        let next = match node.edges {
+          Var(exp) => exp
+          Doubles(array, defalut) => {
+            let mut res = None
+            for item in array {
+              if item.0 == val {
+                res = Some(item.1)
+              }
+            }
+            if res.is_empty() {
+              if defalut.is_empty() {
+                let new_node = Node::new()
+                array.push((val, new_node))
+                node.edges = Doubles(array, defalut)
+                res = Some(new_node)
+              } else {
+                res = defalut
+              }
+            }
+            res.unwrap()
+          }
+          _ => @util.die("Impossible")
+        }
+
+      }
+      Tuple(array) => {
+        // Into Tuple Node
+        let mut new_index = 0
+        node.edges = match node.edges {
+          Default => Tuple(Node::new(), None)
+          Var(_) | Tuple(_) => node.edges
+          _ => @util.die("Type Error")
+        }
+        let mut flag = false
+        let next = match node.edges {
+          Var(exp) => exp
+          Tuple(exp, _) => {
+            flag = true
+            exp
+          }
+        }
+        node = next
+        // flag 来判断走的是不是Tuple节点，走Var的就不需要展开
+        if flag {
+          for item in array {
+            dfs(node, item, get_tuple_name(), new_index)
+            new_index += 1
+          }
+        }
+      }
+      Enum(lhs, rhs, array) => {
+         // Into Tuple Node
+        let mut new_index = 0
+        node.edges = match node.edges {
+          Default => Tuple(Node::new(), None)
+          Var(_) | Enums(_) => node.edges
+          _ => @util.die("Type Error")
+        }
+        let mut flag = false
+        let next = match node.edges {
+          Var(exp) => exp
+          Enums(array,defalut) => {
+            let mut res = None
+            for item in array{
+              if item.0 == lhs && item.1 == rhs {
+                res = Some(item.2)
+              }
+            }
+            if res.is_empty() {
+              if defalut.is_empty() {
+                let new_node = Node::new()
+                array.push((lhs,rhs, new_node))
+                node.edges = Enums(array, defalut)
+                res = Some(new_node)
+              } else {
+                res = defalut
+              }
+            }
+            res.unwrap()
+          }
+        }
+        node = next
+        // flag 来判断走的是不是Tuple节点，走Var的就不需要展开
+        if flag {
+          for item in array {
+            dfs(node, item, get_Enum_name(), new_index)
+            new_index += 1
+          }
+        }
+      }
+    }
+  }
+
+  dfs(root, pattern, "temp", 0)
+  node.syntax = Some(syntax)
+  node.vars.append(vars)
+  
+}
+
 pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
   let knf_env = { env: @immut/hashmap.new(), externals }
   externals.each(
