@@ -211,7 +211,7 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         }
       }
       Enum(lhs, rhs, array) => {
-         // Into Tuple Node
+        // Into Tuple Node
         let mut new_index = 0
         node.edges = match node.edges {
           Default => Tuple(Node::new(), None)
@@ -221,9 +221,9 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         let mut flag = false
         let next = match node.edges {
           Var(exp) => exp
-          Enums(array,defalut) => {
+          Enums(array, defalut) => {
             let mut res = None
-            for item in array{
+            for item in array {
               if item.0 == lhs && item.1 == rhs {
                 res = Some(item.2)
               }
@@ -231,7 +231,7 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
             if res.is_empty() {
               if defalut.is_empty() {
                 let new_node = Node::new()
-                array.push((lhs,rhs, new_node))
+                array.push((lhs, rhs, new_node))
                 node.edges = Enums(array, defalut)
                 res = Some(new_node)
               } else {
@@ -256,7 +256,6 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
   dfs(root, pattern, "temp", 0)
   node.syntax = Some(syntax)
   node.vars.append(vars)
-  
 }
 
 pub fn KnfEnv::new(externals : @immut/hashmap.T[String, Type]) -> KnfEnv {
