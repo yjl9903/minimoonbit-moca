@@ -32,6 +32,24 @@ pub fn unify(lhs : Type, rhs : Type) -> Type!TypeError {
       } else {
         raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
       }
+    (Param(lhs, l_id), Param(_, r_id)) =>
+      if l_id == r_id {
+        Param(lhs, l_id)
+      } else {
+        raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
+      }
+    (Param(lhs, l_id), Identifier(rhs)) =>
+      if lhs == rhs {
+        Param(lhs, l_id)
+      } else {
+        raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
+      }
+    (Identifier(lhs), Param(rhs, r_id)) =>
+      if lhs == rhs {
+        Param(rhs, r_id)
+      } else {
+        raise TypeError("Unify mismatch: \{lhs} - \{rhs}")
+      }
     (Enum(l_enum), Enum(r_enum)) =>
       if l_enum == r_enum {
         Enum(l_enum)

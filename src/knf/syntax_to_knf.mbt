@@ -188,7 +188,7 @@ fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
     fn { (name, typ) => (new_env.new_let_binding(name, typ), typ) },
   )
   let (body, _) = new_env.visit_stmt(def.body)
-  { id: generate_func_id(), name, ty: def.name.1, args, body }
+  { id: def.id, name, ty: def.name.1, args, body }
 }
 
 fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
@@ -412,7 +412,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
         None => @util.die("miss typing information : Neg(expr, None)")
       }
     /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...)) 
-    App(sig, args) =>
+    App(sig, type_vars, args) =>
       match sig {
         Var(name) =>
           match self.env.find(name) {

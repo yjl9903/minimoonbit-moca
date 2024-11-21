@@ -1,6 +1,6 @@
 struct Gamma {
   mut env : @immut/hashmap.T[String, Type]
-  mut type_env : @immut/hashset.T[String]
+  mut type_env : @immut/hashmap.T[String, Type]
   mut enums : @immut/hashmap.T[String, @types.EnumDef]
 }
 
@@ -9,7 +9,7 @@ fn Gamma::new(
 ) -> Gamma {
   {
     env: externals,
-    type_env: @immut/hashset.new(),
+    type_env: @immut/hashmap.new(),
     enums: @immut/hashmap.new(),
   }
 }
@@ -20,6 +20,10 @@ fn Gamma::fork(self : Gamma) -> Gamma {
 
 fn Gamma::add(self : Gamma, name : String, typ : Type) -> Unit {
   self.env = @immut/hashmap.add(self.env, name, typ)
+}
+
+fn Gamma::add_type_var(self : Gamma, name : String) -> Unit {
+  self.type_env = @immut/hashmap.add(self.type_env, name, Var({ val: None }))
 }
 
 fn Gamma::find(self : Gamma, name : String) -> Type? {

@@ -129,6 +129,7 @@ fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
   if raw == "main" || raw == "init" {
     let body = state.parse!(fn_body)
     let func : @types.Fundef = {
+      id: @types.generate_fun_def_id(),
       name: (raw, Type::Fun([], Type::Unit)),
       args: [],
       body,
@@ -151,10 +152,18 @@ fn toplevel_fn_decl(state : State) -> Syntax!ParseError {
     }
     let return_type = match generics {
       Some(array) =>
-        Type::Pi(array, Type::Fun(args.map(fn { a => a.1 }), func_type))
+        Type::Pi(
+          array.map(fn { a => (a, @types.generate_type_params_id()) }),
+          Type::Fun(args.map(fn { a => a.1 }), func_type),
+        )
       None => Type::Fun(args.map(fn { a => a.1 }), func_type)
     }
-    let func : @types.Fundef = { name: (raw, return_type), args, body }
+    let func : @types.Fundef = {
+      id: @types.generate_fun_def_id(),
+      name: (raw, return_type),
+      args,
+      body,
+    }
     state.accept!(TokenKind::SEMICOLON)
     debug("Top_fn_decl -> \{func}\n")
     Syntax::LetRec(func, Syntax::Unit)
@@ -305,6 +314,7 @@ fn nontop_fn_decl(state : State) -> @types.Fundef!ParseError {
     Some(val) => val
   }
   let func : @types.Fundef = {
+    id: @types.generate_fun_def_id(),
     name: (raw, Type::Fun(args.map(fn { a => a.1 }), ty)),
     args,
     body,
@@ -401,7 +411,7 @@ fn lowel_level_expr(state : State) -> Syntax!ParseError {
       Some(val) => val
       _ => []
     }
-    let result = Syntax::App(Syntax::Unit, array)
+    let result = Syntax::App(Syntax::Unit, [], array)
     debug("() lowel_level_expr :  \{result}")
     return result
   }
@@ -419,7 +429,7 @@ fn get_or_apply_level_expr(state : State) -> Syntax!ParseError {
       val, expr =>
         match expr {
           Syntax::Get(_, rest) => Syntax::Get(val, rest)
-          Syntax::App(_, rest) => Syntax::App(val, rest)
+          Syntax::App(_, typs, rest) => Syntax::App(val, typs, rest)
           _ => Syntax::Unit
         }
     },

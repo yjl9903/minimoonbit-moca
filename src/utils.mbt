@@ -9,6 +9,7 @@ pub fn to_json(self : Type) -> Json {
     Tuple(types) => ["Tuple", types.map(Type::to_json) |> Json::Array]
     Array(t) => ["Array", t.to_json()]
     Enum(t) => ["Enum", t.to_json()]
+    Param(t, _) => ["Param", t.to_json()]
     Identifier(id) => ["Identifier", id.to_json()]
     Pi(args, typ) => ["Pi", args.to_json(), typ.to_json()]
     Var({ val: None }) => ["Var", "None"]
@@ -115,7 +116,7 @@ pub fn Fundef::from_json(json : Json) -> Fundef!Error {
       let ty = ty |> Type::from_json!()
       let args = from_json!(args)
       let body = body |> Syntax::from_json!()
-      Fundef::{ name: (name, ty), args, body }
+      Fundef::{ id: generate_fun_def_id(), name: (name, ty), args, body }
     }
     _ =>
       fail!(
@@ -144,7 +145,8 @@ pub fn to_json(self : Syntax) -> Json {
       ["Let", [x |> Json::String, t.to_json()], e1.to_json(), e2.to_json()]
     Var(id) => ["Var", id |> Json::String]
     LetRec(funcdef, e) => ["LetRec", funcdef.to_json(), e.to_json()]
-    App(e, es) => ["App", e.to_json(), es.map(Syntax::to_json) |> Json::Array]
+    App(e, _, es) =>
+      ["App", e.to_json(), es.map(Syntax::to_json) |> Json::Array]
     Tuple(es) => ["Tuple", es.map(Syntax::to_json) |> Json::Array]
     LetTuple(def, value, body) =>
       [
@@ -276,7 +278,7 @@ pub fn Syntax::from_json(json : Json) -> Syntax! {
         array
       }
 
-      App(e |> Syntax::from_json!(), from_json!(es))
+      App(e |> Syntax::from_json!(), [], from_json!(es))
     }
     ["Tuple", [.. as es]] => {
       fn from_json(values : ArrayView[Json]) -> Array[Syntax]! {
@@ -336,13 +338,13 @@ pub fn Syntax::from_json(json : Json) -> Syntax! {
 
 test {
   inspect!(
-    Syntax::App(Syntax::Var("f"), []).to_json().stringify(),
+    Syntax::App(Syntax::Var("f"), [], []).to_json().stringify(),
     content=
       #|["App",["Var","f"],[]]
     ,
   )
   inspect!(
-    Syntax::App(Syntax::Var("f"), [Syntax::Int(1)]).to_json().stringify(),
+    Syntax::App(Syntax::Var("f"), [], [Syntax::Int(1)]).to_json().stringify(),
     content=
       #|["App",["Var","f"],[["Int",1]]]
     ,

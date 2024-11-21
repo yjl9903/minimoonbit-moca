@@ -36,9 +36,6 @@ pub enum Knf {
   ExternalFunctionApplication(String, Array[Name])
 } derive(Show, Eq)
 
-/// Generate unique function id, 0 is kept for the main function
-let func_def_id : Ref[Int] = Ref::new(1)
-
 pub struct FuncDef {
   id : Int
   name : Name
@@ -46,9 +43,3 @@ pub struct FuncDef {
   args : Array[(Name, Type)]
   body : Knf
 } derive(Show, Eq)
-
-fn generate_func_id() -> Int {
-  let id = func_def_id.val
-  func_def_id.val = func_def_id.val + 1
-  id
-}
