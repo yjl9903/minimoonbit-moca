@@ -36,7 +36,7 @@ pub enum Op {
 } derive(Show, Eq, Hash)
 
 /// Generate unique function id, 0 is kept for the main function
-let fun_def_id : Ref[Int] = Ref::new(1)
+pub let fun_def_id : Ref[Int] = Ref::new(1)
 
 pub fn generate_fun_def_id() -> Int {
   let id = fun_def_id.val
@@ -123,7 +123,7 @@ pub enum Type {
   Ptr
 } derive(Show)
 
-let type_params_id : Ref[Int] = Ref::new(0)
+pub let type_params_id : Ref[Int] = Ref::new(0)
 
 pub fn generate_type_params_id() -> Int {
   let id = type_params_id.val
