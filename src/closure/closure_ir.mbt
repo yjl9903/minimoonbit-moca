@@ -8,6 +8,8 @@ pub typealias Type = @types.Type
 
 pub typealias Knf = @knf.Knf
 
+pub typealias Pattern = @types.Pattern
+
 pub enum Expr {
   Unit
   Int(Int)
@@ -26,12 +28,14 @@ pub enum Expr {
   Continue(Name, Array[Name])
   IfEq(Name, Name, Expr, Expr, LowType)
   IfLe(Name, Name, Expr, Expr, LowType)
+  Match(Name, Array[(Pattern, Array[(Name, Type)], Expr)])
   Let((Name, LowType), Expr, Expr)
   Var(Name)
   MakeClosure((Name, LowType), Closure, Expr)
   CallClosure(Name, Array[Name])
   CallDirect(Label, Array[Name])
   MakeTuple(Array[Name])
+  MakeEnum(@types.EnumDef, @types.EnumKind, Array[Name])
   LetTuple(Array[(Name, LowType)], Name, Expr)
   ArrayGet(Name, Name)
   ArrayPut(Name, Name, Name)
