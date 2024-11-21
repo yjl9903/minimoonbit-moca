@@ -92,6 +92,8 @@ fn ClosureContext::collect_closure(
       self.collect_closure(false_branch)
     }
 
+    // Match
+    Match(_, pats) => pats.each(fn { pat => self.collect_closure(pat.2) })
     // Var
     Var(var) =>
       match self.closures.get(var) {
@@ -108,6 +110,9 @@ fn ClosureContext::collect_closure(
             }
         },
       )
+
+    // MakeEnum
+    MakeEnum(_) => ()
 
     // Array
     ArrayGet(_) => ()

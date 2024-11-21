@@ -28,7 +28,7 @@ pub enum Expr {
   Continue(Name, Array[Name])
   IfEq(Name, Name, Expr, Expr, LowType)
   IfLe(Name, Name, Expr, Expr, LowType)
-  Match(Name, Array[(Pattern, Array[(Name, Type)], Expr)])
+  Match(Name, Array[(Pattern, Array[(Name, LowType)], Expr)])
   Let((Name, LowType), Expr, Expr)
   Var(Name)
   MakeClosure((Name, LowType), Closure, Expr)
