@@ -70,6 +70,7 @@ fn KnfEnv::find_name_by_string(self : KnfEnv, name : String) -> Name? {
 }
 
 pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  let syntax = self.syntax_preprocess(syntax)
   self.visit_top_level_defs(syntax)
 }
 

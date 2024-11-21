@@ -46,7 +46,7 @@ pub fn generate_fun_def_id() -> Int {
 
 pub struct Fundef {
   id : Int
-  name : (String, Type)
+  mut name : (String, Type)
   args : Array[(String, Type)]
   body : Syntax
 } derive(Show)

@@ -83,20 +83,20 @@ fn Gamma::inherit(
         _ => raise TypeError("Type mismatch: should be numeric")
       }
     Prim(lhs, rhs, _, ..) as prim =>
-      match expected {
-        Int | Var({ val: Some(Int) }) => {
+      match expected.flattern() {
+        Int => {
           prim.kind = Some(Kind::Int)
           self.fork().inherit!(lhs, Type::Int)
           self.fork().inherit!(rhs, Type::Int)
         }
-        Double | Var({ val: Some(Double) }) => {
+        Double => {
           prim.kind = Some(Kind::Double)
           self.fork().inherit!(lhs, Type::Double)
           self.fork().inherit!(rhs, Type::Double)
         }
         Var({ val: None } as vt) => {
-          let lhs_typ = self.fork().synthesis!(lhs)
-          let rhs_typ = self.fork().synthesis!(rhs)
+          let lhs_typ = self.fork().synthesis!(lhs).flattern()
+          let rhs_typ = self.fork().synthesis!(rhs).flattern()
           match unify!(lhs_typ, rhs_typ) {
             Int => {
               vt.val = Some(Int)
@@ -110,6 +110,12 @@ fn Gamma::inherit(
               self.fork().inherit!(lhs, Type::Double)
               self.fork().inherit!(rhs, Type::Double)
             }
+            Param(_) as p => {
+              // Keep type param
+              vt.val = Some(p)
+              self.fork().inherit!(lhs, p)
+              self.fork().inherit!(rhs, p)
+            }
             _ => raise TypeError("Type mismatch: should be numeric")
           }
         }
@@ -118,11 +124,11 @@ fn Gamma::inherit(
     Eq(lhs, rhs) | LE(lhs, rhs) =>
       match expected {
         Bool | Var({ val: Some(Bool) }) => {
-          let lhs_typ = self.fork().synthesis!(lhs)
-          let rhs_typ = self.fork().synthesis!(rhs)
+          let lhs_typ = self.fork().synthesis!(lhs).flattern()
+          let rhs_typ = self.fork().synthesis!(rhs).flattern()
           let unified = unify!(lhs_typ, rhs_typ)
           match unified {
-            Int | Bool | Double | Var({ val: Some(Int | Bool | Double) }) => ()
+            Int | Bool | Double | Param(_) => ()
             _ =>
               raise TypeError(
                 "Type mismatch: should be Int, Bool, Double, \{syntax}",
@@ -255,6 +261,8 @@ fn Gamma::inherit_let_rec(self : Gamma, def : @types.Fundef) -> Unit!TypeError {
           fn { arg => self.mark_type_params(params_map, arg) },
         )
         let t_ret = self.mark_type_params(params_map, t_ret)
+        // Update type def
+        def.name = (def.name.0, Pi(type_params, Fun(t_args, t_ret)))
         // Here
         self.add(def.name.0, Pi(type_params, Fun(t_args, t_ret)))
         let new_env = self.fork()
@@ -457,7 +465,7 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       }
     Eq(lhs, rhs) | LE(lhs, rhs) =>
       match unify!(self.fork().synthesis!(lhs), self.fork().synthesis!(rhs)) {
-        Int | Double | Bool => Bool
+        Int | Double | Bool | Param(_) => Bool
         _ => raise TypeError("Type mismatch: should be Int, Bool, Double")
       }
     App(sig, type_args, args) => {
