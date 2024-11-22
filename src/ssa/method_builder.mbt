@@ -710,7 +710,8 @@ fn MethodBuilder::visit_expr(
         cont(final_value)
       }
     }
-    Match(_expr, _pats) => @util.die("todo")
+    Match(expr, pats) =>
+      self.visit_pattern_matching(expr, pats, cont, ~visiting_loop)
 
     // Loop
     Loop((label, loop_type), raw_args, body) => {
