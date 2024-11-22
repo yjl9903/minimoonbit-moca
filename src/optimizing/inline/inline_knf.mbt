@@ -100,7 +100,7 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
     }
 
     // Match
-    Match(_, pats) => pats.each(fn { pat => self.collect_knf(pat.2) })
+    Match(_, pats) => pats.each(fn { pat => self.collect_knf(pat.1) })
 
     // Var
     Var(var) =>
@@ -219,10 +219,7 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
 
     // Match
     Match(expr, pats) =>
-      Match(
-        expr,
-        pats.map(fn { pat => (pat.0, pat.1, self.fork().transform(pat.2)) }),
-      )
+      Match(expr, pats.map(fn { pat => (pat.0, self.fork().transform(pat.1)) }))
 
     // Var
     Var(_) | Tuple(_) => knf
@@ -299,7 +296,7 @@ fn InlineContext::cleanup(self : InlineContext, knf : Knf) -> Knf {
 
     // Match
     Match(expr, pats) =>
-      Match(expr, pats.map(fn { pat => (pat.0, pat.1, self.cleanup(pat.2)) }))
+      Match(expr, pats.map(fn { pat => (pat.0, self.cleanup(pat.1)) }))
     // Var
     Var(_) | Tuple(_) => knf
 

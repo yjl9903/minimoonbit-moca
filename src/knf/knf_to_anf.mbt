@@ -35,10 +35,7 @@ fn visit_knf(knf : Knf, cont : (Knf) -> Knf) -> Knf {
       )
     Match(expr, pats) =>
       cont(
-        Match(
-          expr,
-          pats.map(fn { pat => (pat.0, pat.1, visit_knf(pat.2, identity)) }),
-        ),
+        Match(expr, pats.map(fn { pat => (pat.0, visit_knf(pat.1, identity)) })),
       )
 
     // Var

@@ -42,7 +42,7 @@ fn visit_knf_tail(knf : Knf) -> Knf {
 
     // Match
     Match(expr, pats) =>
-      Match(expr, pats.map(fn { pat => (pat.0, pat.1, visit_knf_tail(pat.2)) }))
+      Match(expr, pats.map(fn { pat => (pat.0, visit_knf_tail(pat.1)) }))
     // Let
     Let(binding, expr, rest) => Let(binding, expr, visit_knf_tail(rest))
     LetTuple(binding, expr, rest) =>
@@ -286,9 +286,7 @@ fn TailContext::transform_stmt(
     Match(expr, pats) =>
       Match(
         expr,
-        pats.map(
-          fn { pat => (pat.0, pat.1, self.transform_stmt(pat.2, top_level)) },
-        ),
+        pats.map(fn { pat => (pat.0, self.transform_stmt(pat.1, top_level)) }),
       )
 
     // Loop

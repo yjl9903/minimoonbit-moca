@@ -56,8 +56,8 @@ fn visit_knf(knf : Knf) -> (Knf, @immut/hashset.T[Name], Bool) {
 
     // Match
     Match(expr, pats) => {
-      let array = pats.map(fn { pat => visit_knf(pat.2) })
-      let new_pats = pats.map(fn { pat => (pat.0, pat.1, visit_knf(pat.2).0) })
+      let array = pats.map(fn { pat => visit_knf(pat.1) })
+      let new_pats = pats.map(fn { pat => (pat.0, visit_knf(pat.1).0) })
       let (used, effect) = array.fold(
         init=(@immut/hashset.new().add(expr), false),
         fn {

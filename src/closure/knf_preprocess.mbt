@@ -137,12 +137,14 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
     Match(expr, pats) => {
       self.collect_free_var(expr)
       pats.each(
-        fn { pat => pat.1.each(fn { item => self.collect_free_var(item.0) }) },
+        fn {
+          pat =>
+            pat.0
+            .extract_vars()
+            .each(fn { (name, _) => self.add_local_var(name) })
+        },
       )
-      Match(
-        expr,
-        pats.map(fn { pat => (pat.0, pat.1, self.visit_stmt(pat.2)) }),
-      )
+      Match(expr, pats.map(fn { pat => (pat.0, self.visit_stmt(pat.1)) }))
     }
     // Loop
     Loop(label, args, body) => {

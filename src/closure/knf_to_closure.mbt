@@ -144,8 +144,7 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
             pat =>
               (
                 pat.0,
-                pat.1.map(fn { it => (it.0, to_closure_fn_low_type(it.1)) }),
-                self.visit_stmt(pat.2, is_top_level),
+                self.visit_stmt(pat.1, is_top_level),
               )
           },
         ),

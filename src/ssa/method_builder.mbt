@@ -274,6 +274,13 @@ fn SsaBuilder::get_var(self : SsaBuilder, name : Name) -> Var {
   }
 }
 
+fn SsaBuilder::get_const_one(self : SsaBuilder) -> Var {
+  self.world_builder.global_vars
+  .values()
+  .find_first(fn { v => v.name == Some(@shared.one_binding_name) })
+  .unwrap()
+}
+
 fn SsaBuilder::emit(self : SsaBuilder, stmt : StmtKind) -> Stmt {
   let stmt = Stmt::new(self.stmts.length(), stmt)
   self.stmts.push(stmt)
@@ -674,11 +681,11 @@ fn MethodBuilder::visit_expr(
             let _phi_stmt = self.ssa_builder.emit(
               Definition(Some(phi_var), Phi([true_var, false_var])),
             )
-            Var(phi_var)
+            RValue::Var(phi_var)
           }
           _ => {
             let _ = self.ssa_builder.emit(Nop)
-            Unit
+            RValue::Unit
           }
         }
 

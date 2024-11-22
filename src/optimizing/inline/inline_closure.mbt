@@ -93,7 +93,7 @@ fn ClosureContext::collect_closure(
     }
 
     // Match
-    Match(_, pats) => pats.each(fn { pat => self.collect_closure(pat.2) })
+    Match(_, pats) => pats.each(fn { pat => self.collect_closure(pat.1) })
     // Var
     Var(var) =>
       match self.closures.get(var) {

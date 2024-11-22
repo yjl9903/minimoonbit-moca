@@ -159,14 +159,14 @@ fn KnfContext::visit_knf(self : KnfContext, knf : Knf) -> (Knf, KnfConstValue?) 
           for pat in pats {
             let flag : Bool = match pat.0 {
               Var(_, _) => {
-                res = Some(self.visit_knf(pat.2))
+                res = Some(self.visit_knf(pat.1))
                 true
               }
               Int(expr) =>
                 match knf_val {
                   Int(val) =>
                     if expr == val {
-                      res = Some(self.visit_knf(pat.2))
+                      res = Some(self.visit_knf(pat.1))
                       true
                     } else {
                       false
@@ -177,7 +177,7 @@ fn KnfContext::visit_knf(self : KnfContext, knf : Knf) -> (Knf, KnfConstValue?) 
                 match knf_val {
                   Double(val) =>
                     if expr == val {
-                      res = Some(self.visit_knf(pat.2))
+                      res = Some(self.visit_knf(pat.1))
                       true
                     } else {
                       false

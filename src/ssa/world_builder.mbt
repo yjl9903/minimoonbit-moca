@@ -167,10 +167,7 @@ fn WorldBuilder::preprocess(
         if_type,
       )
     Match(expr, pats) =>
-      Match(
-        expr,
-        pats.map(fn { pat => (pat.0, pat.1, self.preprocess(pat.2)) }),
-      )
+      Match(expr, pats.map(fn { pat => (pat.0, self.preprocess(pat.1)) }))
 
     // Loop
     Loop(label, args, body) => Loop(label, args, self.preprocess(body))

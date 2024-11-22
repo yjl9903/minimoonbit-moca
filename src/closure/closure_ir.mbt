@@ -8,7 +8,7 @@ pub typealias Type = @types.Type
 
 pub typealias Knf = @knf.Knf
 
-pub typealias Pattern = @types.Pattern
+pub typealias Pattern = @knf.Pattern
 
 pub enum Expr {
   Unit
@@ -28,7 +28,7 @@ pub enum Expr {
   Continue(Name, Array[Name])
   IfEq(Name, Name, Expr, Expr, LowType)
   IfLe(Name, Name, Expr, Expr, LowType)
-  Match(Name, Array[(Pattern, Array[(Name, LowType)], Expr)])
+  Match(Name, Array[(Pattern, Expr)])
   Let((Name, LowType), Expr, Expr)
   Var(Name)
   MakeClosure((Name, LowType), Closure, Expr)

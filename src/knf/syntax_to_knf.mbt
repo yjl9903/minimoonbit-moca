@@ -413,7 +413,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
         None => @util.die("miss typing information : Neg(expr, None)")
       }
     /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...)) 
-    App(sig, type_vars, args) =>
+    App(sig, _, args) =>
       match sig {
         Var(name) =>
           match self.env.find(name) {
@@ -577,19 +577,14 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             let bodys = pats.map(
               fn {
                 pat => {
-                  let vars = @types.extract_vars(pat.0)
                   let new_env = self.fork()
-                  let args = vars.map(
-                    fn {
-                      (name, typ) => (new_env.new_let_binding(name, typ), typ)
-                    },
-                  )
+                  let pattern = new_env.transform_pattern(pat.0)
                   let (body, body_typ) = new_env.visit_stmt(pat.1)
                   match @typing.unify?(match_typ, body_typ) {
                     Ok(typ) => match_typ = typ
                     Err(_) => @util.die("Unknown match expr type")
                   }
-                  (pat.0, args, body)
+                  (pattern, body)
                 }
               },
             )
@@ -667,5 +662,22 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
     LetEnum(_) => self.visit_stmt(syntax)
     LetRec(_) => self.visit_stmt(syntax)
     LetTuple(_) => self.visit_stmt(syntax)
+  }
+}
+
+fn transform_pattern(self : KnfEnv, pattern : @types.Pattern) -> Pattern {
+  match pattern {
+    Unit => Unit
+    Int(x) => Int(x)
+    Bool(x) => Bool(x)
+    Double(x) => Double(x)
+    Var(None, ty) => Var(None, ty)
+    Var(Some(def), typ) => Var(Some(self.new_let_binding(def, typ)), typ)
+    Tuple(els) => Tuple(els.map(fn { el => self.transform_pattern(el) }))
+    Enum(name, kind, els) => {
+      let def = enum_defs.get_def(name).unwrap()
+      let kind = def.get_kind(kind).unwrap()
+      Enum(def, kind, els.map(fn { el => self.transform_pattern(el) }))
+    }
   }
 }

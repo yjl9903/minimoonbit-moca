@@ -32,7 +32,7 @@ pub fn knf_max_counter(knf : Knf) -> Int {
     Match(expr, pats) =>
       @math.maximum(
         pats
-        .map(fn(p) { knf_max_counter(p.2) })
+        .map(fn(p) { knf_max_counter(p.1) })
         .fold(init=0, fn(a, b) { @math.maximum(a, b) }),
         expr.slot,
       )

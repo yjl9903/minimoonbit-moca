@@ -74,7 +74,7 @@ fn replace_stmt(map : Map[Name, Name], knf : Knf) -> Knf!InlineError {
     Match(expr, pats) => {
       let new_pats = []
       for pat in pats {
-        new_pats.push((pat.0, pat.1, replace_stmt!(map, pat.2)))
+        new_pats.push((pat.0, replace_stmt!(map, pat.1)))
       }
       Match(map.get_or_default(expr, expr), new_pats)
     }
@@ -156,7 +156,7 @@ fn FuncDefInfo::calc_size(self : FuncDefInfo, knf : Knf) -> Int {
 
     // Match
     Match(_, pats) =>
-      pats.fold(init=1, fn { sum, pat => sum + self.calc_size(pat.2) })
+      pats.fold(init=1, fn { sum, pat => sum + self.calc_size(pat.1) })
 
     // Array
     Get(_) => 1

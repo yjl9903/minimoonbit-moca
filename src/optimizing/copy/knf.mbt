@@ -102,10 +102,7 @@ fn Context::transform(self : Context, knf : Knf) -> Knf {
     // Match
     Match(expr, pats) => {
       let expr = self.replace(expr)
-      Match(
-        expr,
-        pats.map(fn { pat => (pat.0, pat.1, self.fork().transform(pat.2)) }),
-      )
+      Match(expr, pats.map(fn { pat => (pat.0, self.fork().transform(pat.1)) }))
     }
 
     // Let
