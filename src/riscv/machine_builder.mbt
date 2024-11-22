@@ -535,6 +535,44 @@ fn Builder::build_rvalue(
         }
         None => None
       }
+    Enum(enum_def, kind, els) =>
+      match def {
+        Some(def) => {
+          let mut offset = 0
+          let size = get_enum_types_size(els)
+          stmts.push(Definition(Some(def), Malloc(size)))
+          // 1. store kind index
+          let const_idx = self.add_int_const_var(
+            enum_def.get_kind_index(kind).or(-1),
+          )
+          stmts.push(Store((def, offset), const_idx, Int, 240))
+          offset += int_size
+          // 2. store elements
+          for i = 0; i < els.length(); i = i + 1 {
+            let el = els[i]
+            let width = Width::from_low_type(el.ty)
+            match width {
+              Int => {
+                let el = self.build_get_var(el, stmts)
+                stmts.push(Store((def, offset), el, width, 240))
+                offset += width.to_int()
+              }
+              Double => {
+                let el = self.build_get_var(el, stmts)
+                stmts.push(Store((def, offset), el, width, 230))
+                offset += width.to_int()
+              }
+              Ptr => {
+                let el = self.build_get_var(el, stmts)
+                stmts.push(Store((def, offset), el, width, 230))
+                offset += width.to_int()
+              }
+            }
+          }
+          None
+        }
+        None => None
+      }
     Closure(label, fvs) =>
       match def {
         Some(def) => {
@@ -595,6 +633,23 @@ fn Builder::build_rvalue(
       let offset = get_tuple_size(types, slice=Some(idx))
       let base = self.build_get_var(base, stmts)
       Some(Load((base, offset), Width::from_low_type(el_type), 204))
+    }
+    GetEnum(_, kind, base, idx) => {
+      if def.is_empty() {
+        return None
+      }
+      let types = kind.fields
+      if idx == 0 {
+        // 0 is enum tag
+        let base = self.build_get_var(base, stmts)
+        Some(Load((base, 0), Width::Int, 204))
+      } else {
+        // other is its args
+        let el_type = @closure.to_closure_fn_low_type(types[idx - 1])
+        let offset = get_enum_size(kind, slice=Some(idx - 1))
+        let base = self.build_get_var(base, stmts)
+        Some(Load((base, offset), Width::from_low_type(el_type), 204))
+      }
     }
     GetClosure(recv, fv, all_fvs) => {
       if def.is_empty() {

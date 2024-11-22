@@ -68,6 +68,13 @@ pub fn EnumDef::get_kind(self : EnumDef, kind_name : String) -> EnumKind? {
   }
 }
 
+pub fn EnumDef::get_kind_index(self : EnumDef, kind : EnumKind) -> Int? {
+  match self.kinds.search_by(fn { k => k == kind }) {
+    Some(idx) => Some(idx)
+    None => None
+  }
+}
+
 pub enum Pattern {
   Var(String?, Type)
   Unit
