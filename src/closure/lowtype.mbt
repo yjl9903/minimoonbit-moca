@@ -7,6 +7,7 @@ pub enum LowType {
   ClosureFn(Array[LowType], LowType) // (fn_ptr, closure_args...)
   DirectFn(Array[LowType], LowType) // fn_ptr itself
   Tuple(Array[LowType])
+  Enum(@types.EnumDef)
   Array(LowType)
   Ptr
 } derive(Eq)
@@ -33,6 +34,7 @@ pub fn LowType::to_string(self : LowType) -> String {
       let els = els.map(fn { p => p.to_string() }).join(", ")
       "(\{els})"
     }
+    Enum(def) => "\{def.name}"
     Array(arr) => "Array[\{arr}]"
     Ptr => "Pointer"
   }
@@ -97,9 +99,11 @@ pub fn to_closure_fn_low_type(typ : Type) -> LowType {
         to_closure_fn_low_type(ret),
       )
     Tuple(els) => Tuple(els.map(fn { el => to_closure_fn_low_type(el) }))
+    Enum(def) => Enum(@knf.enum_defs.get_def(def).unwrap())
     Array(arr) => Array(to_closure_fn_low_type(arr))
     Var({ val: Some(t) }) => to_closure_fn_low_type(t)
     Var({ val: None }) => @util.die("Unknown type \{typ}")
+    Pi(_) | Param(_) | Identifier(_) => @util.die("Unknown type \{typ}")
   }
 }
 
@@ -116,8 +120,10 @@ pub fn to_direct_fn_low_type(typ : Type) -> LowType {
         to_closure_fn_low_type(ret),
       )
     Tuple(els) => Tuple(els.map(fn { el => to_closure_fn_low_type(el) }))
+    Enum(def) => Enum(@knf.enum_defs.get_def(def).unwrap())
     Array(arr) => Array(to_closure_fn_low_type(arr))
     Var({ val: Some(t) }) => to_closure_fn_low_type(t)
     Var({ val: None }) => @util.die("Unknown type \{typ}")
+    Pi(_) | Param(_) | Identifier(_) => @util.die("Unknown type \{typ}")
   }
 }

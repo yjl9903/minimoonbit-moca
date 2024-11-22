@@ -148,6 +148,7 @@ pub fn LowType::to_json(self : LowType) -> Json {
     LowType::Ptr => ["Ptr"]
     LowType::Double => ["Double"]
     LowType::Tuple(ts) => ["Tuple", ts.to_json()]
+    LowType::Enum(def) => ["Enum", def.name.to_json()]
     LowType::Array(t) => ["Array", t.to_json()]
     LowType::DirectFn(ts, t) => ["DirectFunction", ts.to_json(), t.to_json()]
     LowType::ClosureFn(ts, t) => ["ClosureFunction", ts.to_json(), t.to_json()]
