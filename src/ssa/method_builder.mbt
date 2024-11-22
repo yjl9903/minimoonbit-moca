@@ -555,6 +555,8 @@ fn MethodBuilder::visit_expr(
     }
     MakeTuple(els) =>
       cont(Tuple(els.map(fn { el => self.ssa_builder.get_var(el) })))
+    MakeEnum(def, kind, args) =>
+      cont(Enum(def, kind, args.map(fn { el => self.ssa_builder.get_var(el) })))
 
     // If
     IfEq(lhs, rhs, true_branch, false_branch, if_type)
@@ -708,6 +710,7 @@ fn MethodBuilder::visit_expr(
         cont(final_value)
       }
     }
+    Match(_expr, _pats) => @util.die("todo")
 
     // Loop
     Loop((label, loop_type), raw_args, body) => {

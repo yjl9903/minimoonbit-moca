@@ -145,7 +145,8 @@ fn WorldBuilder::preprocess(
     | FAdd(_, _)
     | FSub(_, _)
     | FMul(_, _)
-    | FDiv(_, _) | MakeTuple(_) | ArrayGet(_) | ArrayPut(_) | ExternalArray(_) =>
+    | FDiv(_, _)
+    | MakeTuple(_) | MakeEnum(_) | ArrayGet(_) | ArrayPut(_) | ExternalArray(_) =>
       expr
 
     // If
@@ -164,6 +165,11 @@ fn WorldBuilder::preprocess(
         self.preprocess(true_branch),
         self.preprocess(false_branch),
         if_type,
+      )
+    Match(expr, pats) =>
+      Match(
+        expr,
+        pats.map(fn { pat => (pat.0, pat.1, self.preprocess(pat.2)) }),
       )
 
     // Loop
