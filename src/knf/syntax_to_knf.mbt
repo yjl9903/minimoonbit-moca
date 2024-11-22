@@ -229,7 +229,7 @@ fn insert(root : Node, pattern : Pattern, syntax : @types.Syntax) -> Unit {
         // Into Tuple Node
         let mut new_index = 0
         node.edges = match node.edges {
-          Default => Tuple(Node::new(), None,None)
+          Default => Tuple(Node::new(), None, None)
           Var(_) | Enums(_) => node.edges
           _ => @util.die("Type Error")
         }
@@ -296,18 +296,17 @@ fn add_default(root : Node) -> Unit {
   fn dfs(node : Node, is_default : Bool) {
     identifier[node.id] = node
     stack.push(node.id)
-    if is_default || node.leaf { // 寻找到祖先中分叉的default
-      for i = stack.length() - 2; i >= 0; i = i - 1 {
-        if mp.contains(stack[i]) && mp[stack[i]].unwrap() != stack[i + 1] {
-          add_edge(node, identifier[stack[i]].unwrap(), Default)
-          break
-        }
+    // 寻找到祖先中分叉的default
+    for i = stack.length() - 2; i >= 0; i = i - 1 {
+      if mp.contains(stack[i]) && mp[stack[i]].unwrap() != stack[i + 1] {
+        add_edge(node, identifier[stack[i]].unwrap(), Default)
+        break
       }
     }
     // 下面的 add_edge 是兄弟向default点连边
     match node.edges {
       Var(next, _) => {
-        mp[node.id] = next.id 
+        mp[node.id] = next.id
         dfs(next, true)
       }
       Unit(next_node, defalut_node, _) =>
@@ -316,7 +315,7 @@ fn add_default(root : Node) -> Unit {
         } else {
           mp[node.id] = defalut_node.unwrap().id
           dfs(defalut_node.unwrap(), true)
-          add_edge(next_node, defalut_node.unwrap(), Edge::Default) 
+          add_edge(next_node, defalut_node.unwrap(), Edge::Default)
           dfs(next_node, false)
         }
       Bool(lhs, rhs, defalut_node, _) =>
