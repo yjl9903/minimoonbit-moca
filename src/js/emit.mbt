@@ -208,8 +208,17 @@ fn JsEmitter::emit_method_rvalue(
     Unit => "undefined"
     Int(x) => x.to_string()
     Double(x) => x.to_string()
-    Prim(lhs, rhs, op, _) =>
-      self.emit_var(lhs) + " " + op.to_string() + " " + self.emit_var(rhs)
+    Prim(lhs, rhs, op, kind) => {
+      let stmt = self.emit_var(lhs) +
+        " " +
+        op.to_string() +
+        " " +
+        self.emit_var(rhs)
+      match kind {
+        Int => "Math.floor(\{stmt})"
+        Double => stmt
+      }
+    }
     Neg(expr, _) => "-" + self.emit_var(expr)
     Var(var) => self.emit_var(var)
     Tuple(els) => {
