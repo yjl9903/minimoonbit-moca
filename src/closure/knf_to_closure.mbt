@@ -139,15 +139,7 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
     Match(expr, pats) =>
       Match(
         expr,
-        pats.map(
-          fn {
-            pat =>
-              (
-                pat.0,
-                self.visit_stmt(pat.1, is_top_level),
-              )
-          },
-        ),
+        pats.map(fn { pat => (pat.0, self.visit_stmt(pat.1, is_top_level)) }),
       )
     // Loop
     Loop((label, ty), args, body) => {
