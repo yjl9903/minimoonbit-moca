@@ -33,8 +33,8 @@ fn get_optimizing_manager(backend : Backends) -> @optimizing.Manager {
       Pass::Ssa(ConstProp),
       Pass::Ssa(DeadCodeElimination),
       Pass::Machine(CopyPropagation),
-      Pass::Machine(CommonSubExpr),
-      Pass::Machine(CopyPropagation),
+      // Pass::Machine(CommonSubExpr),
+      // Pass::Machine(CopyPropagation),
       Pass::Assembly(InstFold),
     ],
   )
