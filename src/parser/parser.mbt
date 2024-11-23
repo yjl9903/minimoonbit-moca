@@ -438,27 +438,42 @@ fn array_type(state : State) -> Type!ParseError {
 fn tuple_type_or_function_type(state : State) -> Type!ParseError {
   debug("Into tuple_type_or_function_type , peek : \{state.peek!()}")
   state.accept!(TokenKind::LPAREN)
-  let t1 = state.parse!(value_type)
-  debug("t1: \{t1}")
-  let list = state.parse!(
-    many(
+  let op = state.parse!(
+    any(
       fn {
-        s => {
-          s.accept!(TokenKind::COMMA)
-          s.parse!(value_type)
+        s_0 => {
+          let t1 = s_0.parse!(value_type)
+          debug("t1: \{t1}")
+          let list = s_0.parse!(
+            many(
+              fn {
+                s => {
+                  s.accept!(TokenKind::COMMA)
+                  s.parse!(value_type)
+                }
+              },
+            ),
+          )
+          [t1, ..list]
         }
       },
     ),
   )
   state.accept!(TokenKind::RPAREN)
-  let array = [t1, ..list]
+  let array = if op.is_empty() { [] } else { op.unwrap() }
   debug("array: \{array}")
   if state.try_parse(TokenKind::ARROW) {
     state.accept!(TokenKind::ARROW)
     let fun_type = state.parse!(value_type)
     return Type::Fun(array, fun_type)
   }
-  Type::Tuple(array)
+  if array.length() > 1 {
+    Type::Tuple(array)
+  } else if array.length() == 1 {
+    array[0]
+  } else {
+    Type::Unit
+  }
 }
 
 fn expr(state : State) -> Syntax!ParseError {
@@ -579,21 +594,7 @@ fn if_level_expr(state : State) -> Syntax!ParseError {
     debug("if_expr: -> \{result}\n")
     result
   } else {
-    let result = state.parse!(
-      or(
-        [
-          get_or_apply_level_expr,
-          fn {
-            s => {
-              s.accept!(TokenKind::LPAREN)
-              let res = s.parse!(expr)
-              s.accept!(TokenKind::RPAREN)
-              res
-            }
-          },
-        ],
-      ),
-    )
+    let result = state.parse!(get_or_apply_level_expr)
     debug("If_level_expr : \{result}")
     result
   }
@@ -608,8 +609,6 @@ fn unit_expr(state : State) -> Syntax!ParseError {
 fn tuple_expr(state : State) -> Syntax!ParseError {
   state.accept!(TokenKind::LPAREN)
   let e1 = state.parse!(expr)
-  state.accept!(TokenKind::COMMA)
-  let e2 = state.parse!(expr)
   let list = state.parse!(
     many(
       fn {
@@ -621,39 +620,18 @@ fn tuple_expr(state : State) -> Syntax!ParseError {
     ),
   )
   state.accept!(TokenKind::RPAREN)
-  let result = Syntax::Tuple([e1, e2, ..list])
+  let result = Syntax::Tuple([e1, ..list])
   debug("tuple_expr: -> \{result}\n")
-  result
+  if list.is_empty() {
+    e1
+  } else {
+    result
+  }
 }
 
 fn value_expr(state : State) -> Syntax!ParseError {
   if state.try_parse(TokenKind::LPAREN) {
-    return state.parse!(
-      or(
-        [
-          unit_expr,
-          tuple_expr,
-          fn {
-            s => {
-              s.accept!(TokenKind::LPAREN)
-              let result = s.parse!(expr)
-              s.accept!(TokenKind::RPAREN)
-              debug("get_or_apply_level_expr: \{result}")
-              result
-            }
-          },
-          fn {
-            s => {
-              s.accept!(TokenKind::LPAREN)
-              let result = s.parse!(get_or_apply_level_expr)
-              debug("value_expr: \{result}")
-              s.accept!(TokenKind::RPAREN)
-              result
-            }
-          },
-        ],
-      ),
-    )
+    return state.parse!(or([unit_expr, tuple_expr]))
   } else if state.try_parse(TokenKind::TRUE) {
     state.accept!(TokenKind::TRUE)
     return Syntax::Bool(true)
