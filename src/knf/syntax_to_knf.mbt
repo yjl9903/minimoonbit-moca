@@ -201,18 +201,43 @@ fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
       (Knf::LetRec(funcdef, rest), rest_type)
     }
     LetTuple(names, expr, rest) =>
-      self.to_let_temp(
-        expr,
-        fn {
-          (expr, _) => {
-            let bindings = names.map(
-              fn { (name, typ) => (self.new_let_binding(name, typ), typ) },
-            )
-            let (rest, rest_type) = self.visit_stmt(rest)
-            (Knf::LetTuple(bindings, expr, rest), rest_type)
-          }
-        },
-      )
+      match expr {
+        Tuple(syns) => {
+          let n = syns.length()
+          // Build expr syntaxs
+          let syns = syns.map(fn { syn => self.visit_expr(syn) })
+          let bindings = names.map(
+            fn { (name, typ) => (self.new_let_binding(name, typ), typ) },
+          )
+          // Build rest syntaxs
+          let (rest, rest_type) = self.visit_stmt(rest)
+          (
+            bindings.rev_foldi(
+              fn {
+                i, acc, binding => {
+                  let syn = syns[n - 1 - i]
+                  Let(binding, syn.0, acc)
+                }
+              },
+              init=rest,
+            ),
+            rest_type,
+          )
+        }
+        _ =>
+          self.to_let_temp(
+            expr,
+            fn {
+              (expr, _) => {
+                let bindings = names.map(
+                  fn { (name, typ) => (self.new_let_binding(name, typ), typ) },
+                )
+                let (rest, rest_type) = self.visit_stmt(rest)
+                (Knf::LetTuple(bindings, expr, rest), rest_type)
+              }
+            },
+          )
+      }
     _ => self.visit_expr(syntax)
   }
 }
