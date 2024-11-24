@@ -467,8 +467,18 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
   // Saved invoke var should have stack slot
   for i = 0; i < self.method.body.stmts.length(); i = i + 1 {
     let stmt = self.method.body.stmts[i]
-    match stmt.stmt {
-      Definition(def, InvokeClosure(_) | InvokeDirect(_) | Malloc(_)) => {
+    let def = match stmt.stmt {
+      Definition(def, InvokeClosure(_) | InvokeDirect(_)) => Some(def)
+      Definition(def, Malloc(_)) =>
+        if get_world().enable_malloc_arena {
+          None
+        } else {
+          Some(def)
+        }
+      _ => None
+    }
+    match def {
+      Some(def) => {
         let def_id = def.map(fn { d => d.memory_id() }).or(-1)
         let result = self.results[i]
         for vid, reg in result.reg_map_after {
@@ -506,7 +516,7 @@ fn LinearAllocator::allocate_stack_vars(self : LinearAllocator) -> Unit {
           }
         }
       }
-      _ => ()
+      None => ()
     }
   }
 }

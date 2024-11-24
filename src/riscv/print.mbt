@@ -1,13 +1,22 @@
 pub fn print_assembly(asm : AssemblyProgram) -> String {
   let logger = Buffer::new()
+  // 1. Data
   asm.output_data_section(logger)
+  if asm.world.enable_malloc_arena {
+    output_malloc_arena_globals(logger)
+  }
+  // 2. Funcs
   let funcs = asm.functions
   for f in funcs {
     f.output(logger)
     logger.write_string("\n")
   }
+  // 3. Builtin
   if enable_sanitizer {
     output_sanitizer(logger)
+  }
+  if asm.world.enable_malloc_arena {
+    output_malloc_arena(logger)
   }
   logger.to_string()
 }

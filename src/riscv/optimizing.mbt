@@ -97,7 +97,7 @@ fn LinearAllocator::optimize_invoke_load_store(
         for i = 0; i < block.stmts.length(); i = i + 1 {
           let stmt = block.stmts[i]
           let slot = stmt.slot
-          if stmt.is_invoke() {
+          if stmt.is_invoke_malloc() {
             if prev_invoke_id == -1 {
               prev_invoke_id = i
             } else {

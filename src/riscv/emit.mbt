@@ -192,10 +192,15 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
     false
   }
 
-  // 1.1. Calc stack size
+  // 1.2. Init main malloc arena
+  if self.machine.is_main && self.world.enable_malloc_arena {
+    init_malloc_arena().each(fn { asm => self.emit_asm(asm) })
+  }
+
+  // 1.3. Calc stack size
   self.emit_asm(Addi(Sp, Sp, -self.machine.stack_size))
 
-  // 1.2. Save reg
+  // 1.4. Save reg
   let (saved_reg, saved_freg) = self.allocator.collect_saved_reg()
   if not(self.machine.is_main) &&
     (saved_reg.length() > 0 || saved_freg.length() > 0) {
@@ -212,7 +217,7 @@ fn AssemblyFunction::emit_method_body(self : AssemblyFunction) -> Unit {
     self.emit_asm(Addi(Sp, Sp, -i))
   }
 
-  // 1.3. store the spilled params
+  // 1.5. store the spilled params
   for var in self.machine.params {
     if self.allocator.is_spilled(var) {
       match var.param_offset {
@@ -954,17 +959,57 @@ fn AssemblyFunction::emit_invoke_malloc(
   size : Int
 ) -> Unit {
   self.emit_comment("--- malloc \{size} ---")
-  self.emit_invoke_save_register(stmt_slot, Some(def), [])
-  self.emit_asm(Li(A0, size.to_string()))
-  self.emit_asm(Call("minimbt_malloc"))
-  self.emit_sanitizer(A0, 142)
-  if self.allocator.is_spilled(def) {
-    self.emit_asm(Sd(A0, MemAccess::new(Fp, def.offset)))
+  if get_world().enable_malloc_arena {
+    let result = self.allocator.results[stmt_slot]
+    // 1. Save T6
+    for vid, reg in result.reg_map_after {
+      if reg == T6 && not(self.allocator.is_spilled_by_id(vid)) {
+        let var = self.allocator.get_global_allocated_int_var(vid)
+        if var.const_value.is_empty() {
+          match var.width {
+            Int => self.emit_asm(Sw(reg, MemAccess::new(Sp, -8)))
+            Double => @util.die("unreachable")
+            Ptr => self.emit_asm(Sd(reg, MemAccess::new(Sp, -8)))
+          }
+        }
+      }
+    }
+    // 2. Use custom malloc arena
+    self.emit_asm(Li(T0, size.to_string()))
+    self.emit_asm(Call(malloc_arena_label))
+    if self.allocator.is_spilled(def) {
+      self.emit_asm(Sd(T1, MemAccess::new(Fp, def.offset)))
+    } else {
+      let def_reg = self.allocator.get_global_allocated_reg(def)
+      self.emit_asm(Mv(def_reg, T1))
+    }
+    // 3. Restore T6
+    for vid, reg in result.reg_map_after {
+      if reg == T6 && not(self.allocator.is_spilled_by_id(vid)) {
+        let var = self.allocator.get_global_allocated_int_var(vid)
+        if var.const_value.is_empty() {
+          match var.width {
+            Int => self.emit_asm(Lw(reg, MemAccess::new(Sp, -8)))
+            Double => @util.die("unreachable")
+            Ptr => self.emit_asm(Ld(reg, MemAccess::new(Sp, -8)))
+          }
+        }
+      }
+    }
   } else {
-    let def_reg = self.allocator.get_global_allocated_reg(def)
-    self.emit_asm(Mv(def_reg, A0))
+    // Use external malloc
+    self.emit_invoke_save_register(stmt_slot, Some(def), [])
+    self.emit_asm(Li(A0, size.to_string()))
+    self.emit_asm(Call("minimbt_malloc"))
+    self.emit_sanitizer(A0, 142)
+    if self.allocator.is_spilled(def) {
+      self.emit_asm(Sd(A0, MemAccess::new(Fp, def.offset)))
+    } else {
+      let def_reg = self.allocator.get_global_allocated_reg(def)
+      self.emit_asm(Mv(def_reg, A0))
+    }
+    self.emit_invoke_restore_register(stmt_slot, Some(def))
   }
-  self.emit_invoke_restore_register(stmt_slot, Some(def))
   self.emit_comment("--- malloc \{size} ---")
 }
 

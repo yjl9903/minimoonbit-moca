@@ -6,6 +6,7 @@ pub fn build_machine_world(world : @ssa.World) -> MachineWorld {
     globals: Map::new(),
     doubles: Map::new(),
     methods: [],
+    enable_malloc_arena: false,
     ssa: world,
   }
   // 1. Add global variables
@@ -25,6 +26,34 @@ pub fn build_machine_world(world : @ssa.World) -> MachineWorld {
   world.methods
   .values()
   .each(fn { m => machine.methods.push(create_machine_method(machine, m)) })
+
+  // 3. Optimize malloc arena
+  let machine = if enable_malloc_arena {
+    let mut malloc = 0
+    machine.methods.each(
+      fn {
+        method =>
+          method.body.stmts.each(
+            fn {
+              stmt =>
+                match stmt.stmt {
+                  Definition(Some(_), Malloc(_)) => malloc += 1
+                  _ => ()
+                }
+            },
+          )
+      },
+    )
+    if malloc >= 10 {
+      { ..machine, enable_malloc_arena: true }
+    } else {
+      machine
+    }
+  } else {
+    machine
+  }
+
+  // 4. Return
   cached_world.val = Some(machine)
   machine
 }
