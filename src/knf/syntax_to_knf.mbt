@@ -70,6 +70,7 @@ fn KnfEnv::find_name_by_string(self : KnfEnv, name : String) -> Name? {
 }
 
 pub fn KnfEnv::to_knf(self : KnfEnv, syntax : @types.Syntax) -> Knf {
+  let syntax = self.syntax_preprocess(syntax)
   self.visit_top_level_defs(syntax)
 }
 
@@ -89,6 +90,10 @@ fn KnfEnv::visit_top_level_defs(self : KnfEnv, syntax : @types.Syntax) -> Knf {
         let (expr, _) = self.fork().visit_expr(expr)
         let name = self.new_let_binding(name, typ)
         inits.push(Let((name, typ), expr))
+        visitor(rest)
+      }
+      LetEnum(def, rest) => {
+        enum_defs.enums.set(def.name, def)
         visitor(rest)
       }
       LetRec(def, rest) =>
@@ -184,7 +189,7 @@ fn KnfEnv::visit_let_rec(self : KnfEnv, def : @types.Fundef) -> FuncDef {
     fn { (name, typ) => (new_env.new_let_binding(name, typ), typ) },
   )
   let (body, _) = new_env.visit_stmt(def.body)
-  { id: generate_func_id(), name, ty: def.name.1, args, body }
+  { id: def.id, name, ty: def.name.1, args, body }
 }
 
 fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
@@ -195,6 +200,7 @@ fn KnfEnv::visit_stmt(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
       let (rest, rest_type) = self.visit_stmt(rest)
       (Knf::Let((name, typ), expr, rest), rest_type)
     }
+    LetEnum(_, rest) => self.visit_stmt(rest)
     LetRec(def, rest) => {
       let funcdef = self.visit_let_rec(def)
       let (rest, rest_type) = self.visit_stmt(rest)
@@ -334,6 +340,26 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             )
         },
       )
+    Enum(name, kind, args) =>
+      /// let a_0 = args[0] in
+      ///   let a_1 = args[1] in
+      ///     ...
+      ///       Enum(name, kind, [a_0, a_1, ...])
+      self.to_let_temps(
+        args,
+        fn {
+          names =>
+            match enum_defs.get_def(name) {
+              Some(def) =>
+                match def.get_kind(kind) {
+                  Some(kind) =>
+                    (Enum(def, kind, names.map(fn { n => n.0 })), Enum(name))
+                  None => @util.die("unknown enum \{name}::\{kind}")
+                }
+              None => @util.die("unknown enum \{name}::\{kind}")
+            }
+        },
+      )
     Not(expr) =>
       /// let _expr = (expr) in Sub(%const_1, _expr)
       self.to_let_temp(
@@ -387,7 +413,7 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
         None => @util.die("miss typing information : Neg(expr, None)")
       }
     /// let _sig = (sig) in let _arg0 = (arg0) in ... in Apply(_sig, (_arg0, ...)) 
-    App(sig, args) =>
+    App(sig, _, args) =>
       match sig {
         Var(name) =>
           match self.env.find(name) {
@@ -542,6 +568,31 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
             },
           )
       }
+    Match(expr, pats) => {
+      let mut match_typ = Type::Var({ val: None })
+      self.to_let_temp(
+        expr,
+        fn {
+          expr => {
+            let bodys = pats.map(
+              fn {
+                pat => {
+                  let new_env = self.fork()
+                  let pattern = new_env.transform_pattern(pat.0)
+                  let (body, body_typ) = new_env.visit_stmt(pat.1)
+                  match @typing.unify?(match_typ, body_typ) {
+                    Ok(typ) => match_typ = typ
+                    Err(_) => @util.die("Unknown match expr type")
+                  }
+                  (pattern, body)
+                }
+              },
+            )
+            (Match(expr.0, bodys), match_typ)
+          }
+        },
+      )
+    }
     Prim(lhs, rhs, op, ~kind) =>
       /// let _lhs = (lhs) in let _rhs = (rhs) in Add / Sub / Mul / Div (_lhs, _rhs)
       match kind {
@@ -608,7 +659,25 @@ fn KnfEnv::visit_expr(self : KnfEnv, syntax : @types.Syntax) -> (Knf, Type) {
         },
       )
     Let(_) => self.visit_stmt(syntax)
+    LetEnum(_) => self.visit_stmt(syntax)
     LetRec(_) => self.visit_stmt(syntax)
     LetTuple(_) => self.visit_stmt(syntax)
+  }
+}
+
+fn transform_pattern(self : KnfEnv, pattern : @types.Pattern) -> Pattern {
+  match pattern {
+    Unit => Unit
+    Int(x) => Int(x)
+    Bool(x) => Bool(x)
+    Double(x) => Double(x)
+    Var(None, ty) => Var(None, ty)
+    Var(Some(def), typ) => Var(Some(self.new_let_binding(def, typ)), typ)
+    Tuple(els) => Tuple(els.map(fn { el => self.transform_pattern(el) }))
+    Enum(name, kind, els) => {
+      let def = enum_defs.get_def(name).unwrap()
+      let kind = def.get_kind(kind).unwrap()
+      Enum(def, kind, els.map(fn { el => self.transform_pattern(el) }))
+    }
   }
 }

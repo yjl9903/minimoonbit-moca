@@ -20,20 +20,19 @@ pub enum Knf {
   Continue(Name, Array[Name])
   IfEq(Name, Name, Knf, Knf, Type)
   IfLe(Name, Name, Knf, Knf, Type)
+  Match(Name, Array[(Pattern, Knf)]) // match <expr> { pattern => body }
   Let((Name, Type), Knf, Knf)
   Var(Name)
   LetRec(FuncDef, Knf)
   Apply(Name, Array[Name])
   Tuple(Array[Name])
   LetTuple(Array[(Name, Type)], Name, Knf)
+  Enum(@types.EnumDef, @types.EnumKind, Array[Name])
   Get(Name, Name)
   Put(Name, Name, Name)
   ExternalArray(Name)
   ExternalFunctionApplication(String, Array[Name])
 } derive(Show, Eq)
-
-/// Generate unique function id, 0 is kept for the main function
-let func_def_id : Ref[Int] = Ref::new(1)
 
 pub struct FuncDef {
   id : Int
@@ -43,8 +42,28 @@ pub struct FuncDef {
   body : Knf
 } derive(Show, Eq)
 
-fn generate_func_id() -> Int {
-  let id = func_def_id.val
-  func_def_id.val = func_def_id.val + 1
-  id
+pub enum Pattern {
+  Var(Name?, Type)
+  Unit
+  Bool(Bool)
+  Int(Int)
+  Double(Double)
+  Tuple(Array[Pattern])
+  Enum(@types.EnumDef, @types.EnumKind, Array[Pattern])
+} derive(Show, Eq)
+
+pub fn Pattern::extract_vars(self : Pattern) -> Array[(Name, Type)] {
+  let res = []
+  fn extract(pattern : Pattern) -> Unit {
+    match pattern {
+      Var(None, _) => ()
+      Var(Some(def), typ) => res.push((def, typ))
+      Unit | Bool(_) | Int(_) | Double(_) => ()
+      Tuple(els) => els.each(fn { el => extract(el) })
+      Enum(_, _, els) => els.each(fn { el => extract(el) })
+    }
+  }
+
+  extract(self)
+  res
 }

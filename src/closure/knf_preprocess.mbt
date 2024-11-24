@@ -133,7 +133,19 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       let false_branch = self.visit_stmt(false_branch)
       IfLe(lhs, rhs, true_branch, false_branch, typ)
     }
-
+    // Match
+    Match(expr, pats) => {
+      self.collect_free_var(expr)
+      pats.each(
+        fn {
+          pat =>
+            pat.0
+            .extract_vars()
+            .each(fn { (name, _) => self.add_local_var(name) })
+        },
+      )
+      Match(expr, pats.map(fn { pat => (pat.0, self.visit_stmt(pat.1)) }))
+    }
     // Loop
     Loop(label, args, body) => {
       self.collect_free_vars(args.map(fn { a => a.0 }).iter())
@@ -150,6 +162,12 @@ fn KnfEnv::visit_stmt(self : KnfEnv, knf : Knf) -> Knf {
       knf
     }
     Tuple(els) => {
+      self.collect_free_vars(els.iter())
+      knf
+    }
+
+    // Enum
+    Enum(_, _, els) => {
       self.collect_free_vars(els.iter())
       knf
     }

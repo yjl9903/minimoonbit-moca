@@ -43,6 +43,17 @@ fn Gamma::inherit(
           }
         _ => raise TypeError("Type mismatch: should be tuple \{syntax}")
       }
+    Enum(name, _, _) =>
+      match expected {
+        Enum(t) | Var({ val: Some(Enum(t)) }) =>
+          if t == name {
+            let _ = self.synthesis!(syntax)
+            ()
+          } else {
+            raise TypeError("Type mismatch: should be enum \{name}")
+          }
+        _ => raise TypeError("Type mismatch: should be enum \{name}")
+      }
     Array(n, el) => {
       self.fork().inherit!(n, Type::Int)
       match expected {
@@ -72,20 +83,20 @@ fn Gamma::inherit(
         _ => raise TypeError("Type mismatch: should be numeric")
       }
     Prim(lhs, rhs, _, ..) as prim =>
-      match expected {
-        Int | Var({ val: Some(Int) }) => {
+      match expected.flattern() {
+        Int => {
           prim.kind = Some(Kind::Int)
           self.fork().inherit!(lhs, Type::Int)
           self.fork().inherit!(rhs, Type::Int)
         }
-        Double | Var({ val: Some(Double) }) => {
+        Double => {
           prim.kind = Some(Kind::Double)
           self.fork().inherit!(lhs, Type::Double)
           self.fork().inherit!(rhs, Type::Double)
         }
         Var({ val: None } as vt) => {
-          let lhs_typ = self.fork().synthesis!(lhs)
-          let rhs_typ = self.fork().synthesis!(rhs)
+          let lhs_typ = self.fork().synthesis!(lhs).flattern()
+          let rhs_typ = self.fork().synthesis!(rhs).flattern()
           match unify!(lhs_typ, rhs_typ) {
             Int => {
               vt.val = Some(Int)
@@ -99,6 +110,12 @@ fn Gamma::inherit(
               self.fork().inherit!(lhs, Type::Double)
               self.fork().inherit!(rhs, Type::Double)
             }
+            Param(_) as p => {
+              // Keep type param
+              vt.val = Some(p)
+              self.fork().inherit!(lhs, p)
+              self.fork().inherit!(rhs, p)
+            }
             _ => raise TypeError("Type mismatch: should be numeric")
           }
         }
@@ -107,11 +124,11 @@ fn Gamma::inherit(
     Eq(lhs, rhs) | LE(lhs, rhs) =>
       match expected {
         Bool | Var({ val: Some(Bool) }) => {
-          let lhs_typ = self.fork().synthesis!(lhs)
-          let rhs_typ = self.fork().synthesis!(rhs)
+          let lhs_typ = self.fork().synthesis!(lhs).flattern()
+          let rhs_typ = self.fork().synthesis!(rhs).flattern()
           let unified = unify!(lhs_typ, rhs_typ)
           match unified {
-            Int | Bool | Double | Var({ val: Some(Int | Bool | Double) }) => ()
+            Int | Bool | Double | Param(_) => ()
             _ =>
               raise TypeError(
                 "Type mismatch: should be Int, Bool, Double, \{syntax}",
@@ -120,10 +137,15 @@ fn Gamma::inherit(
         }
         _ => raise TypeError("Type mismatch: should be Bool, \{syntax}")
       }
-    App(sig, args) => {
-      let synthed_sig = self.fork().synthesis!(sig)
+    App(sig, _, args) => {
+      let synthed_sig = self.fork().synthesis!(sig).flattern()
       match synthed_sig {
-        Fun(targs, tret) | Var({ val: Some(Fun(targs, tret)) }) =>
+        Pi(_, Fun(_)) => {
+          let ret_type = self.synthesis!(syntax)
+          let _ = unify!(ret_type, expected)
+          ()
+        }
+        Fun(targs, tret) =>
           if targs.length() == args.length() {
             for i = 0; i < targs.length(); i = i + 1 {
               self.fork().inherit!(args[i], targs[i])
@@ -154,6 +176,13 @@ fn Gamma::inherit(
       self.fork().inherit!(cond, Type::Bool)
       self.fork().inherit!(true_branch, expected)
       self.fork().inherit!(false_branch, expected)
+    }
+    Match(expr, pats) => {
+      let expr_type = self.fork().synthesis!(expr)
+      let _ = self.inherit_patterns!(expr_type, pats)
+      for i = 0; i < pats.length(); i = i + 1 {
+        self.fork().inherit!(pats[i].1, expected)
+      }
     }
 
     // Array
@@ -186,6 +215,10 @@ fn Gamma::inherit(
       self.inherit_let_tuple!(els, expr)
       self.inherit!(rest, expected)
     }
+    LetEnum(def, rest) => {
+      self.inherit_let_enum!(def)
+      self.inherit!(rest, expected)
+    }
   }
 }
 
@@ -213,11 +246,58 @@ fn Gamma::inherit_let(
 }
 
 fn Gamma::inherit_let_rec(self : Gamma, def : @types.Fundef) -> Unit!TypeError {
-  if is_having_type(def.name.1) {
+  let def_type = def.name.1.flattern()
+  if is_having_type(def_type) {
     // Annotated with type, check it
-    match def.name.1 {
-      Fun(t_args, t_ret) | Var({ val: Some(Fun(t_args, t_ret)) }) => {
-        self.add(def.name.0, def.name.1)
+    match def_type {
+      Pi(type_params, Fun(t_args, t_ret)) => {
+        let params_id = []
+        let params_map = Map::new()
+        for i = 0; i < type_params.length(); i = i + 1 {
+          params_id.push(type_params[i].1)
+          params_map.set(type_params[i].0, type_params[i].1)
+        }
+        let t_args = t_args.map(
+          fn { arg => self.mark_type_params(params_map, arg) },
+        )
+        let t_ret = self.mark_type_params(params_map, t_ret)
+        // Update type def
+        def.name = (def.name.0, Pi(type_params, Fun(t_args, t_ret)))
+        // Here
+        self.add(def.name.0, Pi(type_params, Fun(t_args, t_ret)))
+        let new_env = self.fork()
+        if def.args.length() == t_args.length() {
+          let n = def.args.length()
+          for i = 0; i < n; i = i + 1 {
+            def.args[i] = (
+              def.args[i].0,
+              self.mark_type_params(params_map, def.args[i].1),
+            )
+            let arg = def.args[i]
+            let typ = t_args[i]
+            if arg.1 != typ {
+              raise TypeError(
+                "Type mismatch: different arg type \{arg.1}, expected \{typ}",
+              )
+            } else {
+              new_env.add(arg.0, arg.1)
+            }
+          }
+        } else {
+          raise TypeError(
+            "Type mismatch: different args length \{t_args}, expected \{def.args}",
+          )
+        }
+        if is_having_type(t_ret) {
+          // Check ret
+          new_env.inherit!(def.body, t_ret)
+        } else {
+          let synthed = new_env.synthesis!(def.body)
+          new_env.inherit!(def.body, synthed)
+        }
+      }
+      Fun(t_args, t_ret) => {
+        self.add(def.name.0, def_type)
         let new_env = self.fork()
         // Check args
         if def.args.length() == t_args.length() {
@@ -248,11 +328,11 @@ fn Gamma::inherit_let_rec(self : Gamma, def : @types.Fundef) -> Unit!TypeError {
       }
       _ =>
         raise TypeError(
-          "Type mismatch: should be function \{def} : \{def.name.1}",
+          "Type mismatch: should be function \{def} : \{def_type}",
         )
     }
   } else {
-    match def.name.1 {
+    match def_type {
       Var(vt) =>
         vt.val = Some(
           Fun(def.args.map(fn { (_, t) => t }), Type::Var(Ref::new(None))),
@@ -287,6 +367,16 @@ fn Gamma::inherit_let_tuple(
   }
 }
 
+fn Gamma::inherit_let_enum(
+  self : Gamma,
+  def : @types.EnumDef
+) -> Unit!TypeError {
+  match self.enums.find(def.name) {
+    Some(_) => raise TypeError("Enum error: duplicate enum \{def.name}")
+    None => self.enums = self.enums.add(def.name, def)
+  }
+}
+
 fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
   match syntax {
     // Literal
@@ -318,6 +408,24 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
         None => types.map(fn { t => t.unwrap() })
       }
       Type::Tuple(types)
+    }
+    Enum(name, kind, args) => {
+      let enum_kind = self.enums
+        .find(name)
+        .map(fn { def => def.get_kind(kind) })
+        .flatten()
+      match enum_kind {
+        Some(kind) =>
+          if kind.fields.length() == args.length() {
+            for i = 0; i < args.length(); i = i + 1 {
+              self.inherit!(args[i], kind.fields[i])
+            }
+            Type::Enum(name)
+          } else {
+            raise TypeError("Unknown enum \{name}::\{kind}")
+          }
+        None => raise TypeError("Unknown enum \{name}::\{kind}")
+      }
     }
     Array(n, el) => {
       self.fork().inherit!(n, Type::Int)
@@ -357,24 +465,53 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
       }
     Eq(lhs, rhs) | LE(lhs, rhs) =>
       match unify!(self.fork().synthesis!(lhs), self.fork().synthesis!(rhs)) {
-        Int | Double | Bool => Bool
+        Int | Double | Bool | Param(_) => Bool
         _ => raise TypeError("Type mismatch: should be Int, Bool, Double")
       }
-    App(sig, args) => {
-      let tsig = self.fork().synthesis!(sig)
+    App(sig, type_args, args) => {
+      let tsig = self.fork().synthesis!(sig).flattern()
       match tsig {
-        Fun(targs, tret) | Var({ val: Some(Fun(targs, tret)) }) => {
+        Pi(type_params, Fun(targs, tret)) =>
           if args.length() == targs.length() {
-            for i = 0; i < targs.length(); i = i + 1 {
-              self.fork().inherit!(args[i], targs[i])
+            let params_id = []
+            let params_map = Map::new()
+            for i = 0; i < type_params.length(); i = i + 1 {
+              params_id.push(type_params[i].1)
+              params_map.set(type_params[i].0, type_params[i].1)
             }
+            let targs = targs.map(
+              fn { arg => self.mark_type_params(params_map, arg) },
+            )
+            let tret = self.mark_type_params(params_map, tret)
+            let infered = Map::new()
+            // Infer args
+            for i = 0; i < args.length(); i = i + 1 {
+              let arg = self.fork().synthesis!(args[i])
+              let _ = unify_with_generic!(infered, arg, targs[i])
+              ()
+            }
+            // Infer type args
+            type_args.clear()
+            for i = 0; i < type_params.length(); i = i + 1 {
+              type_args.push(infered.get(params_id[i]).unwrap())
+            }
+            replace_generic!(infered, tret)
           } else {
             raise TypeError(
               "Type mismatch: different args list, expect \{tsig}, found \{args}",
             )
           }
-          tret
-        }
+        Fun(targs, tret) =>
+          if args.length() == targs.length() {
+            for i = 0; i < targs.length(); i = i + 1 {
+              self.fork().inherit!(args[i], targs[i])
+            }
+            tret
+          } else {
+            raise TypeError(
+              "Type mismatch: different args list, expect \{tsig}, found \{args}",
+            )
+          }
         Var({ val: None } as at) => {
           let targs : Array[Type] = Array::new(capacity=args.length())
           for i = 0; i < args.length(); i = i + 1 {
@@ -392,9 +529,19 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
     // Branch
     If(cond, true_branch, false_branch) => {
       self.fork().inherit!(cond, Type::Bool)
-      let true_type = self.fork().synthesis!(true_branch)
-      let false_type = self.fork().synthesis!(false_branch)
+      let true_type = self.fork().synthesis!(true_branch).flattern()
+      let false_type = self.fork().synthesis!(false_branch).flattern()
       unify!(true_type, false_type)
+    }
+    Match(expr, pats) => {
+      let expr_type = self.fork().synthesis!(expr).flattern()
+      let _ = self.inherit_patterns!(expr_type, pats)
+      let mut result_type = Type::Var({ val: None })
+      for i = 0; i < pats.length(); i = i + 1 {
+        let pat_type = self.fork().synthesis!(pats[i].1)
+        result_type = unify!(result_type, pat_type)
+      }
+      result_type
     }
 
     // Array
@@ -430,6 +577,10 @@ fn Gamma::synthesis(self : Gamma, syntax : @types.Syntax) -> Type!TypeError {
     }
     LetTuple(els, expr, rest) => {
       self.inherit_let_tuple!(els, expr)
+      self.synthesis!(rest)
+    }
+    LetEnum(def, rest) => {
+      self.inherit_let_enum!(def)
       self.synthesis!(rest)
     }
   }

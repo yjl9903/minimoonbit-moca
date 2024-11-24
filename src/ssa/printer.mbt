@@ -106,6 +106,10 @@ fn Method::print_rvalue(_self : Method, rvalue : RValue) -> String {
       let els = els.map(fn { el => el.to_string() }).join(", ")
       "(\{els})"
     }
+    Enum(def, kind, els) => {
+      let els = els.map(fn { el => el.to_string() }).join(", ")
+      "\{def.name}::\{kind.name}(\{els})"
+    }
     Closure(label, free_vars) => {
       let bindings = free_vars
         .map(fn { (fv, var) => "\{fv.to_string()} = \{var.to_string()}" })
@@ -113,6 +117,8 @@ fn Method::print_rvalue(_self : Method, rvalue : RValue) -> String {
       "make_closure \"\{label}\" { \{bindings} } "
     }
     GetTuple(recv, idx) => "\{recv.to_string()}.\{idx.to_string()}"
+    GetEnum(def, kind, recv, idx) =>
+      "\{def.name}::\{kind.name} \{recv.to_string()}.\{idx.to_string()}"
     GetArray(recv, idx) => "\{recv.to_string()}[\{idx.to_string()}]"
     GetClosure(v, fv, _) => "get_closure \{v} -> \{fv.to_string()}"
     InvokeClosure(callee, args) => {

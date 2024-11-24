@@ -15,7 +15,7 @@ pub fn Width::from_low_type(ty : Type) -> Width {
   match ty {
     Unit | Bool | Int => Int
     Double => Double
-    ClosureFn(_) | DirectFn(_) | Tuple(_) | Array(_) | Ptr => Ptr
+    ClosureFn(_) | DirectFn(_) | Tuple(_) | Enum(_) | Array(_) | Ptr => Ptr
   }
 }
 
@@ -69,6 +69,24 @@ pub fn get_tuple_size(vars : Array[Type], ~slice : Int? = None) -> Int {
     Some(slice) => vars.iter().take(slice)
     None => vars.iter()
   }).fold(fn { acc, var => acc + get_type_size(var) }, init=0)
+}
+
+pub fn get_enum_types_size(vars : Array[@ssa.Var], ~slice : Int? = None) -> Int {
+  (match slice {
+    Some(slice) => vars.iter().take(slice)
+    None => vars.iter()
+  }).fold(fn { acc, var => acc + get_type_size(var.ty) }, init=int_size)
+}
+
+pub fn get_enum_size(kind : @types.EnumKind, ~slice : Int? = None) -> Int {
+  let vars = kind.fields
+  (match slice {
+    Some(slice) => vars.iter().take(slice)
+    None => vars.iter()
+  }).fold(
+    fn { acc, var => acc + get_type_size(@closure.to_closure_fn_low_type(var)) },
+    init=int_size,
+  )
 }
 
 pub fn get_free_vars_size(

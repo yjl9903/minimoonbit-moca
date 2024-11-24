@@ -54,6 +54,23 @@ fn visit_knf(knf : Knf) -> (Knf, @immut/hashset.T[Name], Bool) {
       (IfLe(lhs, rhs, true_branch, false_branch, ty), used, effect1 || effect2)
     }
 
+    // Match
+    Match(expr, pats) => {
+      let array = pats.map(fn { pat => visit_knf(pat.1) })
+      let new_pats = pats.map(fn { pat => (pat.0, visit_knf(pat.1).0) })
+      let (used, effect) = array.fold(
+        init=(@immut/hashset.new().add(expr), false),
+        fn {
+          res, item => {
+            let mut temp = res.0
+            item.1.each(fn { v => temp = temp.add(v) })
+            (temp, res.1 || item.2)
+          }
+        },
+      )
+      (Match(expr, new_pats), used, effect)
+    }
+
     // Var
     Var(var) => {
       let used = @immut/hashset.new().add(var)
@@ -115,6 +132,19 @@ fn visit_knf(knf : Knf) -> (Knf, @immut/hashset.T[Name], Bool) {
       (LetRec(def, rest), used, rest_effect)
     }
 
+    // Enum
+    Enum(lhs, rhs, array) => {
+      let used = array.fold(
+        init=@immut/hashset.new(),
+        fn {
+          res, elem => {
+            let uesd = res.add(elem)
+            uesd
+          }
+        },
+      )
+      (Enum(lhs, rhs, array), used, false)
+    }
     //
     ExternalArray(_) => @util.die("unreachable")
   }
