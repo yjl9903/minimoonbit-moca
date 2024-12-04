@@ -4,6 +4,8 @@
 
 Mini Moonbit implementation from 摩卡猫猫.
 
+Presentation (Chinese): https://www.bilibili.com/video/BV1tNzVYsEyC/
+
 ## Quickstart
 
 Install moonbit compiler.
