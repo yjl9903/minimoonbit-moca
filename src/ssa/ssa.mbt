@@ -90,8 +90,10 @@ pub enum RValue {
   Prim(Var, Var, PrimOp, PrimKind) // _ + - * / _
   Var(Var) // _
   Tuple(Array[Var]) // (_0, _1, _2, ...)
+  Enum(@types.EnumDef, @types.EnumKind, Array[Var]) // _enum::_kind(_0, _1, _2, ...)
   Closure(String, Array[(FreeVar, Var)]) // signature, free vars
   GetTuple(Var, Int) // _.0 / _.1 / _.2 / ...
+  GetEnum(@types.EnumDef, @types.EnumKind, Var, Int) // _.0 / _.1 / _.2 / ...
   GetArray(Var, Var) // _ [ _ ]
   GetClosure(Var, FreeVar, Array[FreeVar]) // this->_
   InvokeClosure(Var, Array[Var]) // _ (_0, _1, ...)
@@ -152,8 +154,10 @@ fn Stmt::get_def_uses(stmt : StmtKind) -> (Var?, Array[Var]) {
       Prim(lhs, rhs, _, _) => [lhs, rhs]
       Var(var) => [var]
       Tuple(els) => [..els]
+      Enum(_, _, args) => [..args]
       Closure(_, fvs) => fvs.map(fn { fv => fv.1 })
       GetTuple(base, _) => [base]
+      GetEnum(_, _, base, _) => [base]
       GetArray(recv, idx) => [recv, idx]
       GetClosure(recv, _, _) => [recv]
       InvokeClosure(recv, args) => [recv, ..args]

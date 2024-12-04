@@ -33,9 +33,13 @@ fn visit_knf(knf : Knf, cont : (Knf) -> Knf) -> Knf {
           ty,
         ),
       )
+    Match(expr, pats) =>
+      cont(
+        Match(expr, pats.map(fn { pat => (pat.0, visit_knf(pat.1, identity)) })),
+      )
 
     // Var
-    Var(_) | Tuple(_) => cont(knf)
+    Var(_) | Tuple(_) | Enum(_) => cont(knf)
 
     // Array
     Get(_) | Put(_) => cont(knf)

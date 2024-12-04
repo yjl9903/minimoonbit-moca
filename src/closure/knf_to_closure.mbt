@@ -135,6 +135,12 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
       IfLe(lhs, rhs, true_branch, false_branch, to_closure_fn_low_type(if_type))
     }
 
+    // Match 
+    Match(expr, pats) =>
+      Match(
+        expr,
+        pats.map(fn { pat => (pat.0, self.visit_stmt(pat.1, is_top_level)) }),
+      )
     // Loop
     Loop((label, ty), args, body) => {
       let args = args.map(fn { a => (a.0, to_closure_fn_low_type(a.1)) })
@@ -150,6 +156,9 @@ fn Context::visit_stmt(self : Context, knf : Knf, is_top_level : Bool) -> Expr {
     // Binding
     Var(name) => Var(name)
     Tuple(els) => MakeTuple(els)
+
+    // Enum 
+    Enum(lhs, rhs, array) => MakeEnum(lhs, rhs, array)
 
     // Let
     Let((name, typ), expr, rest) => {

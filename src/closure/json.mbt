@@ -17,6 +17,8 @@ pub fn Expr::to_json(self : Expr) -> Json {
       ["IfEq", n1.to_json(), n2.to_json(), e1.to_json(), e2.to_json()]
     Expr::IfLe(n1, n2, e1, e2, _) =>
       ["IfLe", n1.to_json(), n2.to_json(), e1.to_json(), e2.to_json()]
+    // TODO
+    Expr::Match(_) => []
     Expr::Loop(label, args, body) =>
       [
         "Loop",
@@ -33,6 +35,8 @@ pub fn Expr::to_json(self : Expr) -> Json {
     Expr::CallClosure(n, ns) => ["CallClosure", n.to_json(), ns.to_json()]
     Expr::CallDirect(l, ns) => ["CallDirect", l._.to_json(), ns.to_json()]
     Expr::MakeTuple(ns) => ["MakeTuple", ns.to_json()]
+    Expr::MakeEnum(name, kind, args) =>
+      ["MakeEnum", name.name.to_json(), kind.name.to_json(), args.to_json()]
     Expr::LetTuple(n_ts, n, e) => {
       let n_ts_res = []
       for it in n_ts {
@@ -144,6 +148,7 @@ pub fn LowType::to_json(self : LowType) -> Json {
     LowType::Ptr => ["Ptr"]
     LowType::Double => ["Double"]
     LowType::Tuple(ts) => ["Tuple", ts.to_json()]
+    LowType::Enum(def) => ["Enum", def.name.to_json()]
     LowType::Array(t) => ["Array", t.to_json()]
     LowType::DirectFn(ts, t) => ["DirectFunction", ts.to_json(), t.to_json()]
     LowType::ClosureFn(ts, t) => ["ClosureFunction", ts.to_json(), t.to_json()]

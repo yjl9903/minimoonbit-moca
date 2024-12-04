@@ -99,6 +99,9 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
       self.collect_knf(false_branch)
     }
 
+    // Match
+    Match(_, pats) => pats.each(fn { pat => self.collect_knf(pat.1) })
+
     // Var
     Var(var) =>
       match self.funcs.get(var) {
@@ -165,6 +168,18 @@ fn InlineContext::collect_knf(self : InlineContext, knf : Knf) -> Unit {
       self.collect_knf(rest)
     }
 
+    // Enum
+    Enum(_, _, array) =>
+      array.each(
+        fn {
+          var =>
+            match self.funcs.get(var) {
+              Some(def) => def.count += 1
+              None => ()
+            }
+        },
+      )
+
     // Unused
     ExternalArray(_) => ()
   }
@@ -201,6 +216,10 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
         self.fork().transform(false_branch),
         ty,
       )
+
+    // Match
+    Match(expr, pats) =>
+      Match(expr, pats.map(fn { pat => (pat.0, self.fork().transform(pat.1)) }))
 
     // Var
     Var(_) | Tuple(_) => knf
@@ -247,6 +266,9 @@ fn InlineContext::transform(self : InlineContext, knf : Knf) -> Knf {
         None => @util.die("unreachable")
       }
 
+    // Enum
+    Enum(_) => knf
+
     // Unused
     ExternalArray(_) => knf
   }
@@ -272,6 +294,9 @@ fn InlineContext::cleanup(self : InlineContext, knf : Knf) -> Knf {
     IfLe(lhs, rhs, true_branch, false_branch, ty) =>
       IfLe(lhs, rhs, self.cleanup(true_branch), self.cleanup(false_branch), ty)
 
+    // Match
+    Match(expr, pats) =>
+      Match(expr, pats.map(fn { pat => (pat.0, self.cleanup(pat.1)) }))
     // Var
     Var(_) | Tuple(_) => knf
 
@@ -299,6 +324,8 @@ fn InlineContext::cleanup(self : InlineContext, knf : Knf) -> Knf {
         None => @util.die("unreachable")
       }
 
+    // Enum 
+    Enum(_) => knf
     // Unused
     ExternalArray(_) => knf
   }

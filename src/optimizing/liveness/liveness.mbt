@@ -32,7 +32,7 @@ pub fn liveness_dfs(ast : Syntax) -> (Syntax, @hashset.T[String]) {
         (next_stmt, live_set)
       }
     }
-    App(_, arr) => {
+    App(_, _, arr) => {
       let live_set = arr.fold(
         init=@hashset.new(),
         fn { lhs, rhs => lhs.union(liveness_dfs(rhs).1) },
@@ -152,7 +152,7 @@ fn liveness_dfs_fundef(
       rhs.remove(item.0)
     }
   }
-  ({ name: fundef.name, args: fundef.args, body: lhs }, rhs)
+  ({ id: fundef.id, name: fundef.name, args: fundef.args, body: lhs }, rhs)
 }
 
 // test {

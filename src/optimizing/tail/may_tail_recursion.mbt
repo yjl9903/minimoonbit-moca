@@ -40,6 +40,10 @@ fn visit_knf_may_tail(knf : Knf) -> Knf {
         ty,
       )
 
+    // Match
+    Match(expr, pats) =>
+      Match(expr, pats.map(fn { pat => (pat.0, visit_knf_may_tail(pat.1)) }))
+
     // Let
     Let(binding, expr, rest) => Let(binding, expr, visit_knf_may_tail(rest))
     LetTuple(binding, expr, rest) =>
@@ -53,6 +57,8 @@ fn visit_knf_may_tail(knf : Knf) -> Knf {
       LetRec(def, visit_knf_may_tail(rest))
     }
 
+    // Enum
+    Enum(_) => knf
     // unused
     ExternalArray(_) => @util.die("unreachable")
   }
@@ -203,6 +209,12 @@ fn MayTailContext::collect_recursion(
         )
       }
 
+    // Match
+    Match(_, _) => {
+      self.valid = false
+      (0, NAC)
+    }
+
     // Apply
     Apply(callee, args) => {
       let found = args.search_by(fn { e => e == self.def.name })
@@ -261,6 +273,12 @@ fn MayTailContext::collect_recursion(
     }
     LetTuple(_, _, rest) => self.collect_recursion(rest)
     LetRec(_, rest) => self.collect_recursion(rest)
+
+    //Enum
+    Enum(_) => {
+      self.valid = false
+      (0, NAC)
+    }
 
     // unused
     ExternalArray(_) => @util.die("unreachable")
@@ -332,6 +350,15 @@ fn MayTailContext::transform_stmt(
         ty,
       )
 
+    // Match
+    Match(expr, pats) =>
+      Match(
+        expr,
+        pats.map(
+          fn { pat => (pat.0, self.transform_stmt(pat.1, acc, return_value)) },
+        ),
+      )
+
     // Loop
     Loop(label, args, body) =>
       Loop(label, args, self.transform_stmt(body, acc, false))
@@ -394,6 +421,9 @@ fn MayTailContext::transform_stmt(
       LetTuple(binding, expr, self.transform_stmt(rest, acc, return_value))
     LetRec(def, rest) =>
       LetRec(def, self.transform_stmt(rest, acc, return_value))
+
+    // Enum 
+    Enum(_) => knf
 
     // unused
     ExternalArray(_) => @util.die("unreachable")

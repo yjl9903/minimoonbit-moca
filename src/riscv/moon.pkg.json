@@ -2,7 +2,7 @@
   "import": [
     {
       "path": "moonbitlang/minimbt",
-      "alias": "typing"
+      "alias": "types"
     },
     "moonbitlang/minimbt/closure",
     "moonbitlang/minimbt/ssa",

@@ -40,6 +40,9 @@ fn visit_knf_tail(knf : Knf) -> Knf {
         ty,
       )
 
+    // Match
+    Match(expr, pats) =>
+      Match(expr, pats.map(fn { pat => (pat.0, visit_knf_tail(pat.1)) }))
     // Let
     Let(binding, expr, rest) => Let(binding, expr, visit_knf_tail(rest))
     LetTuple(binding, expr, rest) =>
@@ -52,6 +55,8 @@ fn visit_knf_tail(knf : Knf) -> Knf {
       let def = ctx.transform()
       LetRec(def, visit_knf_tail(rest))
     }
+    // Enum 
+    Enum(_) => knf
 
     // unused
     ExternalArray(_) => @util.die("unreachable")
@@ -167,6 +172,12 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
         true_branch || false_branch
       }
 
+    // Match
+    Match(_) => {
+      self.valid = false
+      false
+    }
+
     // Apply
     Apply(callee, args) =>
       // let found = args.search_by(fn { e => e == self.def.name })
@@ -215,6 +226,9 @@ fn TailContext::collect_recursion(self : TailContext, knf : Knf) -> Bool {
     }
     LetTuple(_, _, rest) => self.collect_recursion(rest)
     LetRec(_, rest) => self.collect_recursion(rest)
+
+    // Enum
+    Enum(_) => false
 
     // unused
     ExternalArray(_) => @util.die("unreachable")
@@ -268,6 +282,13 @@ fn TailContext::transform_stmt(
         ty,
       )
 
+    // Match
+    Match(expr, pats) =>
+      Match(
+        expr,
+        pats.map(fn { pat => (pat.0, self.transform_stmt(pat.1, top_level)) }),
+      )
+
     // Loop
     Loop(label, args, body) =>
       Loop(label, args, self.transform_stmt(body, false))
@@ -298,6 +319,9 @@ fn TailContext::transform_stmt(
     LetTuple(binding, expr, rest) =>
       LetTuple(binding, expr, self.transform_stmt(rest, top_level))
     LetRec(def, rest) => LetRec(def, self.transform_stmt(rest, top_level))
+
+    // Enum 
+    Enum(_) => knf
 
     // unused
     ExternalArray(_) => @util.die("unreachable")
